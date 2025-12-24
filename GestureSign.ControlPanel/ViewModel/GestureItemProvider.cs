@@ -22,7 +22,10 @@ namespace GestureSign.ControlPanel.ViewModel
         {
             _gestureItems = new ObservableCollection<GestureItem>();
 
-            GestureManager.GestureSaved += (o, e) => { Update(); };
+            GestureManager.GestureSaved += (o, e) =>
+            {
+                Application.Current.Dispatcher.Invoke(Update);
+            };
 
             ApplicationManager.Instance.LoadingTask.ContinueWith((task) =>
             {
@@ -74,7 +77,8 @@ namespace GestureSign.ControlPanel.ViewModel
             // Get all available gestures from gesture manager
             var apps = ApplicationManager.Instance.Applications.Where(app => !(app is IgnoredApp)).ToList();
 
-            var color = (Color)Application.Current.Resources["HighlightColor"];
+            var brush = (SolidColorBrush)Application.Current.Resources["MahApps.Brushes.Highlight"];
+            var color = brush.Color;
 
             foreach (var g in GestureManager.Instance.Gestures)
             {

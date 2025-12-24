@@ -61,17 +61,25 @@ namespace GestureSign.ControlPanel.Common
 
         private static void CreateLnk(string lnkPath, string targetPath)
         {
-            WshShell shell = new WshShell();
-            IWshShortcut shortCut = (IWshShortcut)shell.CreateShortcut(lnkPath);
-            shortCut.TargetPath = targetPath;
-            //Application.ResourceAssembly.Location;// System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
-            shortCut.WindowStyle = 7;
-            shortCut.Arguments = "";
-            shortCut.Description = Application.ResourceAssembly.GetName().Version.ToString();
-            // Application.ProductName + Application.ProductVersion;
-            //shortCut.IconLocation = Application.ResourceAssembly.Location;// Application.ExecutablePath;
-            //shortCut.WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory;// Application.ResourceAssembly.;
-            shortCut.Save();
+            try
+            {
+                WshShell shell = new WshShell();
+                IWshShortcut shortCut = (IWshShortcut)shell.CreateShortcut(lnkPath);
+                shortCut.TargetPath = targetPath;
+                //Application.ResourceAssembly.Location;// System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+                shortCut.WindowStyle = 7;
+                shortCut.Arguments = "";
+                shortCut.Description = Application.ResourceAssembly.GetName().Version.ToString();
+                // Application.ProductName + Application.ProductVersion;
+                //shortCut.IconLocation = Application.ResourceAssembly.Location;// Application.ExecutablePath;
+                //shortCut.WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory;// Application.ResourceAssembly.;
+                shortCut.Save();
+            }
+            catch (System.Runtime.InteropServices.COMException ex)
+            {
+                // COM component not available, log but don't crash
+                GestureSign.Common.Log.Logging.LogException(new Exception("WshShell COM component not available. Shortcut creation skipped.", ex));
+            }
         }
 
         private static bool AddStartupTask(string filePath)

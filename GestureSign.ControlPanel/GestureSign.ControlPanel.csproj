@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows10.0.19041</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <RootNamespace>GestureSign.ControlPanel</RootNamespace>
     <AssemblyName>GestureSignControlPanel</AssemblyName>
     <UseWPF>true</UseWPF>
@@ -13,6 +13,8 @@
     <ApplicationIcon>Resources\normal.ico</ApplicationIcon>
     <Deterministic>false</Deterministic>
     <NoWarn>$(NoWarn);SYSLIB0011;CA1416</NoWarn>
+    <!-- Enable XAML build-time validation -->
+    <EnableXamlGeneratedMarkupExtensionReferences>true</EnableXamlGeneratedMarkupExtensionReferences>
   </PropertyGroup>
 
   <!-- Build Configurations -->
@@ -55,5 +57,15 @@
     <ProjectReference Include="..\ManagedWinapi\ManagedWinapi.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Resources\*.ico" />
+    <Resource Include="Resources\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Languages\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 
 </Project>

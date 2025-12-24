@@ -341,6 +341,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void DrawingButtonComboBox_DropDownClosed(object sender, EventArgs e)
         {
+            if (DrawingButtonComboBox.SelectedValue == null) return;
             AppConfig.DrawingButton = (MouseActions)DrawingButtonComboBox.SelectedValue;
         }
 

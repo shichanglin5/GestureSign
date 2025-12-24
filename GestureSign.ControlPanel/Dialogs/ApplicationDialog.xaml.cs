@@ -224,9 +224,17 @@ namespace GestureSign.ControlPanel.Dialogs
                         string targetFile = files[0];
                         if (targetFile.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
                         {
-                            WshShell shell = new WshShell();
-                            IWshShortcut link = (IWshShortcut)shell.CreateShortcut(targetFile);
-                            targetFile = link.TargetPath;
+                            try
+                            {
+                                WshShell shell = new WshShell();
+                                IWshShortcut link = (IWshShortcut)shell.CreateShortcut(targetFile);
+                                targetFile = link.TargetPath;
+                            }
+                            catch (System.Runtime.InteropServices.COMException)
+                            {
+                                // COM component not available, skip .lnk file processing
+                                return;
+                            }
                         }
                         if (Path.GetExtension(targetFile).ToLower() == ".exe")
                         {

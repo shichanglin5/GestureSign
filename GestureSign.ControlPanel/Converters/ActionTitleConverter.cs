@@ -14,7 +14,20 @@ namespace GestureSign.ControlPanel.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var action = (IAction)value;
+            // Handle finger count grouping
+            if (value is int fingerCount)
+            {
+                string groupName;
+                if (fingerCount == 0)
+                    groupName = "未分类手势";
+                else if (fingerCount == 1)
+                    groupName = "单指手势";
+                else
+                    groupName = $"{fingerCount}指手势";
+                return groupName;
+            }
+
+            var action = value as IAction;
             if (action == null) return null;
 
             var actionName = string.IsNullOrWhiteSpace(action.Name) ? LocalizationProvider.Instance.GetTextValue("Action.NewAction") : action.Name;

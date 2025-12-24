@@ -1,6 +1,7 @@
 using GestureSign.Common.Applications;
 using GestureSign.Common.Localization;
 using GestureSign.Common.Plugins;
+using GestureSign.Common.Gestures;
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -54,6 +55,27 @@ namespace GestureSign.ControlPanel.ViewModel
         public int PatternCount { get; set; }
 
         public ICommand Command { get; set; }
+
+        public int FingerCount
+        {
+            get
+            {
+                if (Action == null || string.IsNullOrEmpty(Action.GestureName))
+                    return 0;
+
+                var gesture = GestureManager.Instance.GetNewestGestureSample(Action.GestureName);
+                return gesture?.FingerCount ?? 0;
+            }
+        }
+
+        public string FingerCountText
+        {
+            get
+            {
+                var fingerCount = FingerCount;
+                return fingerCount > 0 ? $"{fingerCount}指" : "";
+            }
+        }
 
         public event PropertyChangedEventHandler PropertyChanged;
 

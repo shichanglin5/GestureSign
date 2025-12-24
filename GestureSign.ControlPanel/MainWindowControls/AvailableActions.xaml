@@ -52,14 +52,14 @@
                                          Value="True">
                                     <Setter TargetName="Border"
                                             Property="Background"
-                                            Value="{DynamicResource AccentColorBrush2}" />
+                                            Value="{DynamicResource MahApps.Brushes.Accent2}" />
                                     <Setter Property="Foreground"
-                                            Value="{DynamicResource AccentSelectedColorBrush}" />
+                                            Value="{DynamicResource MahApps.Brushes.Accent}" />
                                 </Trigger>
                                 <Trigger Property="IsEnabled"
                                          Value="False">
                                     <Setter Property="Foreground"
-                                            Value="{DynamicResource GrayBrush7}" />
+                                            Value="{DynamicResource MahApps.Brushes.Gray7}" />
                                 </Trigger>
                                 <MultiTrigger>
                                     <MultiTrigger.Conditions>
@@ -70,9 +70,9 @@
                                     </MultiTrigger.Conditions>
                                     <Setter TargetName="Border"
                                             Property="Background"
-                                            Value="{DynamicResource GrayBrush7}" />
+                                            Value="{DynamicResource MahApps.Brushes.Gray7}" />
                                     <Setter Property="Foreground"
-                                            Value="{DynamicResource AccentSelectedColorBrush}" />
+                                            Value="{DynamicResource MahApps.Brushes.Accent}" />
                                 </MultiTrigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -135,7 +135,7 @@
                     <Setter Property="Foreground"
                             Value="White" />
                     <Setter Property="Background"
-                            Value="{StaticResource AccentColorBrush}" />
+                            Value="{StaticResource MahApps.Brushes.Accent}" />
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="Button">
@@ -150,18 +150,18 @@
                                     <Trigger Property="IsMouseOver"
                                              Value="True">
                                         <Setter Property="BorderBrush"
-                                                Value="{StaticResource AccentColorBrush2}" />
+                                                Value="{StaticResource MahApps.Brushes.Accent2}" />
                                         <Setter Property="Background"
-                                                Value="{StaticResource AccentColorBrush2}" />
+                                                Value="{StaticResource MahApps.Brushes.Accent2}" />
                                     </Trigger>
                                     <Trigger Property="IsPressed"
                                              Value="True">
                                         <Setter Property="Background"
-                                                Value="{StaticResource AccentColorBrush3}" />
+                                                Value="{StaticResource MahApps.Brushes.Accent3}" />
                                         <Setter Property="Foreground"
-                                                Value="{StaticResource IdealForegroundColorBrush}" />
+                                                Value="{StaticResource MahApps.Brushes.IdealForeground}" />
                                         <Setter Property="BorderBrush"
-                                                Value="{StaticResource AccentColorBrush3}" />
+                                                Value="{StaticResource MahApps.Brushes.Accent3}" />
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -229,7 +229,7 @@
                                                   BorderThickness="0">
                                             <Expander.Header>
                                                 <DockPanel>
-                                                    <TextBlock Foreground="{StaticResource AccentSelectedColorBrush}"
+                                                    <TextBlock Foreground="{StaticResource MahApps.Brushes.Accent}"
                                                                Margin="5,0,0,0"
                                                                HorizontalAlignment="Center"
                                                                DockPanel.Dock="Top">
@@ -274,7 +274,7 @@
                             <Button.Template>
                                 <ControlTemplate>
                                     <Rectangle Visibility="{Binding Path=IsSelected,RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ListBoxItem}},Converter={StaticResource BooleanToVisibilityConverter}}"
-                                               Fill="{StaticResource AccentColorBrush}">
+                                               Fill="{StaticResource MahApps.Brushes.Accent}">
                                         <Rectangle.OpacityMask>
                                             <VisualBrush Stretch="Uniform"
                                                          Visual="{StaticResource EditIcon}" />
@@ -298,17 +298,17 @@
         </ListBox>
         <Grid Grid.Row="0"
               Grid.Column="1"
-              Background="{StaticResource AccentColorBrush}"
+              Background="{StaticResource MahApps.Brushes.Accent}"
               Height="27"
               VerticalAlignment="Top">
-            <TextBlock Foreground="{StaticResource AccentSelectedColorBrush}"
+            <TextBlock Foreground="{StaticResource MahApps.Brushes.Accent}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center">
                 <Run Text="{Binding ElementName=lstAvailableApplication,Path=SelectedItem.(applications:IApplication.Name),Mode=OneWay}" />
                 <Run Text="{Binding ElementName=lstAvailableActions,Path=Items.Groups.Count,Mode=OneWay,StringFormat={localization:LocalisedText Action.ActionCount}}" />
             </TextBlock>
             <controls:ToggleSwitch x:Name="ToggleAllActionsToggleSwitch"
-                                   Style="{StaticResource MahApps.Metro.Styles.ToggleSwitch.Win10}"
+                                  
                                    IsEnabled="False"
                                    Toggled="ToggleAllActionsToggleSwitch_Click"
                                    VerticalAlignment="Center"
@@ -328,10 +328,11 @@
                  ScrollViewer.CanContentScroll="False"
                  Grid.Row="0"
                  Grid.Column="1"
-                 BorderBrush="{StaticResource AccentColorBrush}"
+                 BorderBrush="{StaticResource MahApps.Brushes.Accent}"
                  Margin="0,27,0,0"
                  SelectionMode="Extended">
             <ListBox.GroupStyle>
+                <!-- First level: FingerCount grouping -->
                 <GroupStyle>
                     <GroupStyle.ContainerStyle>
                         <Style TargetType="{x:Type GroupItem}">
@@ -342,67 +343,97 @@
                                                   Padding="0"
                                                   BorderThickness="0">
                                             <Expander.Header>
-                                                <TextBlock Foreground="{StaticResource AccentSelectedColorBrush}"
+                                                <TextBlock Foreground="White"
                                                            HorizontalAlignment="Center"
                                                            Text="{Binding Name,Converter={StaticResource ActionTitleConverter}}"
+                                                           FontSize="14"
+                                                           FontWeight="Bold"
+                                                           Margin="5"
                                                            TextAlignment="Center" />
                                             </Expander.Header>
                                             <Expander.Content>
-                                                <DockPanel>
-                                                    <Button x:Name="ActionButton"
-                                                            Click="ActionButton_Click"
-                                                            VerticalContentAlignment="Top"
-                                                            HorizontalContentAlignment="Center"
-                                                            OverridesDefaultStyle="True"
-                                                            Width="200"
-                                                            Padding="0"
-                                                            BorderThickness="0"
-                                                            Background="{StaticResource GrayBrush10}">
-                                                        <Grid x:Name="GestureImageGrid"
-                                                              VerticalAlignment="Top"
-                                                              Height="76">
-                                                            <TextBlock Text="{localization:LocalisedText Action.SelectGesture}"
-                                                                       HorizontalAlignment="Center"
-                                                                       FontWeight="Bold"
-                                                                       IsHitTestVisible="False"
-                                                                       VerticalAlignment="Center"
-                                                                       Panel.ZIndex="10">
-                                                                <TextBlock.Style>
-                                                                    <Style TargetType="TextBlock">
-                                                                        <Setter Property="Visibility"
-                                                                                Value="Collapsed" />
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding ElementName=GestureImage,Path=Source}"
-                                                                                         Value="{x:Null}">
-                                                                                <Setter Property="Visibility"
-                                                                                        Value="Visible" />
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </TextBlock.Style>
-                                                            </TextBlock>
-                                                            <Image x:Name="GestureImage"
-                                                                   Height="56"
-                                                                   Stretch="Uniform"
-                                                                   StretchDirection="DownOnly"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center">
-                                                                <Image.Source>
-                                                                    <MultiBinding Converter="{StaticResource GestureButtonImageConverter}">
-                                                                        <Binding Source="{StaticResource GestureItemProvider}"
-                                                                                 Path="InstanceGestureMap"
-                                                                                 Mode="OneWay" />
-                                                                        <Binding  Path="Name.GestureName"
-                                                                                  Mode="OneWay" />
-                                                                    </MultiBinding>
-                                                                </Image.Source>
-                                                            </Image>
-                                                        </Grid>
-                                                    </Button>
-                                                    <ItemsPresenter DockPanel.Dock="Right" />
-                                                </DockPanel>
+                                                <ItemsPresenter />
                                             </Expander.Content>
                                         </Expander>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </GroupStyle.ContainerStyle>
+                </GroupStyle>
+                <!-- Second level: Action (gesture) grouping -->
+                <GroupStyle>
+                    <GroupStyle.ContainerStyle>
+                        <Style TargetType="{x:Type GroupItem}">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="{x:Type GroupItem}">
+                                        <DockPanel Margin="5">
+                                            <Button x:Name="ActionButton"
+                                                    Click="ActionButton_Click"
+                                                    VerticalContentAlignment="Top"
+                                                    HorizontalContentAlignment="Center"
+                                                    OverridesDefaultStyle="True"
+                                                    Width="200"
+                                                    Padding="0"
+                                                    BorderThickness="0"
+                                                    Background="{StaticResource MahApps.Brushes.Gray10}"
+                                                    DockPanel.Dock="Left">
+                                                <Grid x:Name="GestureImageGrid"
+                                                      VerticalAlignment="Top"
+                                                      Height="96">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="76" />
+                                                        <RowDefinition Height="20" />
+                                                    </Grid.RowDefinitions>
+                                                    <TextBlock Grid.Row="0"
+                                                               Text="{localization:LocalisedText Action.SelectGesture}"
+                                                               HorizontalAlignment="Center"
+                                                               FontWeight="Bold"
+                                                               IsHitTestVisible="False"
+                                                               VerticalAlignment="Center"
+                                                               Panel.ZIndex="10">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility"
+                                                                        Value="Collapsed" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding ElementName=GestureImage,Path=Source}"
+                                                                                 Value="{x:Null}">
+                                                                        <Setter Property="Visibility"
+                                                                                Value="Visible" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <Image x:Name="GestureImage"
+                                                           Grid.Row="0"
+                                                           Height="56"
+                                                           Stretch="Uniform"
+                                                           StretchDirection="DownOnly"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center">
+                                                        <Image.Source>
+                                                            <MultiBinding Converter="{StaticResource GestureButtonImageConverter}">
+                                                                <Binding Source="{StaticResource GestureItemProvider}"
+                                                                         Path="InstanceGestureMap"
+                                                                         Mode="OneWay" />
+                                                                <Binding  Path="Name.GestureName"
+                                                                          Mode="OneWay" />
+                                                            </MultiBinding>
+                                                        </Image.Source>
+                                                    </Image>
+                                                    <TextBlock Grid.Row="1"
+                                                               Text="{Binding Path=Items[0].FingerCountText}"
+                                                               FontSize="12"
+                                                               Foreground="White"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Button>
+                                            <ItemsPresenter DockPanel.Dock="Right" />
+                                        </DockPanel>
                                     </ControlTemplate>
                                 </Setter.Value>
                             </Setter>
@@ -412,24 +443,6 @@
             </ListBox.GroupStyle>
             <ListBox.ContextMenu>
                 <ContextMenu>
-                    <MenuItem  x:Name="SortMenuItem"
-                               Header="{localization:LocalisedText Action.Sort}"
-                               FontSize="16">
-                        <MenuItem  x:Name="SortByNameMenuItem"
-                                   Header="{localization:LocalisedText ActionDialog.ActionName}"
-                                   IsCheckable="True"
-                                   IsChecked="True"
-                                   Click="SortMenuItem_Click"
-                                   Checked="SortMenuItem_Checked"
-                                   FontSize="16" />
-                        <MenuItem  x:Name="SortByGestureMenuItem"
-                                   Header="{localization:LocalisedText Gesture.Header}"
-                                   IsCheckable="True"
-                                   Click="SortMenuItem_Click"
-                                   Checked="SortMenuItem_Checked"
-                                   FontSize="16" />
-                    </MenuItem>
-                    <Separator></Separator>
                     <MenuItem  x:Name="CutActionMenuItem"
                                Header="{localization:LocalisedText Action.CutAction}"
                                FontSize="16"
@@ -466,7 +479,7 @@
                             <ColumnDefinition />
                             <ColumnDefinition Width="60" />
                         </Grid.ColumnDefinitions>
-                        <controls:ToggleSwitch  Style="{StaticResource MahApps.Metro.Styles.ToggleSwitch.Win10}"
+                        <controls:ToggleSwitch 
                                                 Toggled="CommandCheckBox_Click"
                                                 Grid.Column="1"
                                                 IsOn="{Binding Path=IsEnabled}"
@@ -490,7 +503,7 @@
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Top"
                                    Width="Auto"
-                                   Foreground="{StaticResource HighlightBrush}"
+                                   Foreground="{StaticResource MahApps.Brushes.Highlight}"
                                    Margin="10,41,0,0" />
                     </Grid>
                 </DataTemplate>

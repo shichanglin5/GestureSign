@@ -37,7 +37,9 @@ namespace GestureSign.ControlPanel.Dialogs
         private void cmdDone_Click(object sender, RoutedEventArgs e)
         {
             if (CurrentGesture == null)
+            {
                 return;
+            }
 
             if (_oldGesture != null)
             {

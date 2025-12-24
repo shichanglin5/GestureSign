@@ -1,0 +1,94 @@
+<Project>
+  <!-- GestureSign Package Target -->
+  <!-- This file defines a custom MSBuild target that packages the application after build -->
+
+  <PropertyGroup>
+    <!-- Define the package output directory -->
+    <PackageOutputDir>D:\wd\soft\GestureSign</PackageOutputDir>
+  </PropertyGroup>
+
+  <!-- Package target - only run for Release configuration and only for main projects -->
+  <Target Name="Package" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND ('$(AssemblyName)' == 'GestureSign' OR '$(AssemblyName)' == 'GestureSignControlPanel')">
+
+    <Message Text="========================================" Importance="high" />
+    <Message Text="Packaging $(AssemblyName) to $(PackageOutputDir)" Importance="high" />
+    <Message Text="========================================" Importance="high" />
+
+    <!-- Create output directory if it doesn't exist -->
+    <MakeDir Directories="$(PackageOutputDir)" Condition="!Exists('$(PackageOutputDir)')" />
+
+    <!-- Copy main output files -->
+    <ItemGroup>
+      <MainFiles Include="$(OutDir)$(AssemblyName).exe" />
+      <MainFiles Include="$(OutDir)$(AssemblyName).dll" />
+      <MainFiles Include="$(OutDir)$(AssemblyName).pdb" />
+      <MainFiles Include="$(OutDir)$(AssemblyName).runtimeconfig.json" />
+      <MainFiles Include="$(OutDir)$(AssemblyName).deps.json" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(MainFiles)"
+          DestinationFolder="$(PackageOutputDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('%(FullPath)')" />
+
+    <!-- Copy all dependency DLLs (excluding main assemblies but including internal projects) -->
+    <ItemGroup>
+      <DependencyDlls Include="$(OutDir)*.dll"
+                      Exclude="$(OutDir)$(AssemblyName).dll" />
+      <DependencyConfigs Include="$(OutDir)*.dll.config" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(DependencyDlls)"
+          DestinationFolder="$(PackageOutputDir)"
+          SkipUnchangedFiles="true" />
+
+    <Copy SourceFiles="@(DependencyConfigs)"
+          DestinationFolder="$(PackageOutputDir)"
+          SkipUnchangedFiles="true" />
+
+    <!-- Copy Languages directory -->
+    <ItemGroup>
+      <LanguageFiles Include="$(OutDir)Languages\**\*.*" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(LanguageFiles)"
+          DestinationFolder="$(PackageOutputDir)\Languages\%(RecursiveDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(OutDir)Languages')" />
+
+    <!-- Copy Defaults directory if exists -->
+    <ItemGroup>
+      <DefaultFiles Include="$(OutDir)Defaults\**\*.*" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(DefaultFiles)"
+          DestinationFolder="$(PackageOutputDir)\Defaults\%(RecursiveDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(OutDir)Defaults')" />
+
+    <!-- Copy Plugins directory if exists -->
+    <ItemGroup>
+      <PluginFiles Include="$(OutDir)Plugins\**\*.*" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(PluginFiles)"
+          DestinationFolder="$(PackageOutputDir)\Plugins\%(RecursiveDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(OutDir)Plugins')" />
+
+    <!-- Copy startup script if exists -->
+    <Copy SourceFiles="$(OutDir)StartGestureSign.bat"
+          DestinationFolder="$(PackageOutputDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(OutDir)StartGestureSign.bat')" />
+
+    <Message Text="Package completed: $(PackageOutputDir)" Importance="high" />
+  </Target>
+
+  <!-- Optional: Add a clean target to clean the package directory -->
+  <Target Name="CleanPackage" BeforeTargets="Clean">
+    <Message Text="Cleaning package directory: $(PackageOutputDir)" Importance="high" />
+    <RemoveDir Directories="$(PackageOutputDir)" Condition="Exists('$(PackageOutputDir)')" />
+  </Target>
+
+</Project>

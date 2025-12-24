@@ -17,7 +17,8 @@ namespace GestureSign.ControlPanel.Converters
             int height;
             if (int.TryParse(parameter as string, out height))
             {
-                var color = (Color)Application.Current.Resources["HighlightColor"];
+                var brush = (SolidColorBrush)Application.Current.Resources["MahApps.Brushes.Highlight"];
+                var color = brush.Color;
                 return GestureImage.CreateImage(pattern, new Size(height, height), color);
             };
             return null;

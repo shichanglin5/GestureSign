@@ -10,5 +10,9 @@ namespace GestureSign.ControlPanel.Common
         public string Features { get; set; }
         public int PatternCount { get; set; }
         public DrawingImage GestureImage { get; set; }
+
+        public int FingerCount => Gesture?.FingerCount ?? 0;
+
+        public string FingerCountText => FingerCount > 0 ? $"{FingerCount}指" : "";
     }
 }

@@ -35,6 +35,7 @@ namespace GestureSign.Common.Input
         public List<Point> FirstCapturedPoints { get; set; }
         public bool Cancel { get; set; }
         public int BlockTouchInputThreshold { get; set; }
+        public int FingerCount { get; set; }
 
         #endregion
     }

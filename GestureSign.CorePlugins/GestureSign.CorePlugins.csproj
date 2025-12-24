@@ -46,4 +46,10 @@
     <ProjectReference Include="..\WindowsInput\WindowsInput.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Languages\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

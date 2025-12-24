@@ -57,6 +57,46 @@ namespace GestureSign.Daemon.Input
 
         #region Private Methods
 
+        /// <summary>
+        /// Filters out invalid contacts based on device type
+        /// </summary>
+        private List<RawData> FilterValidContacts(List<RawData> rawData, Devices sourceDevice)
+        {
+            // For touchpad: filter out State=None (release state) contacts
+            // For other devices: filter out (0,0) coordinates
+            return sourceDevice == Devices.TouchPad
+                ? rawData.Where(rd => rd.State != 0).ToList()
+                : rawData.Where(rd => !(rd.RawPoints.X == 0 && rd.RawPoints.Y == 0)).ToList();
+        }
+
+        /// <summary>
+        /// Creates virtual contacts for touchpad to maintain finger count
+        /// Virtual contacts follow the trajectory of valid contacts
+        /// </summary>
+        private List<RawData> CreateVirtualContacts(List<RawData> validContacts, int totalCount, Devices sourceDevice)
+        {
+            if (sourceDevice != Devices.TouchPad || validContacts.Count >= totalCount || validContacts.Count < 2)
+                return validContacts;
+
+            int virtualCount = totalCount - validContacts.Count;
+
+            // Find unique IDs that don't exist in valid contacts
+            var existingIds = new HashSet<int>(validContacts.Select(c => c.ContactIdentifier));
+            int nextVirtualId = 100;
+            while (existingIds.Contains(nextVirtualId))
+                nextVirtualId++;
+
+            var referenceContact = validContacts[0]; // Use first valid contact as reference
+
+            for (int i = 0; i < virtualCount; i++)
+            {
+                // Create virtual contact that follows the reference contact with unique ID
+                validContacts.Add(new RawData(referenceContact.State, nextVirtualId + i, referenceContact.RawPoints));
+            }
+
+            return validContacts;
+        }
+
         private void LowLevelMouseHook_MouseUp(LowLevelMouseMessage mouseMessage, ref bool handled)
         {
             if ((MouseActions)mouseMessage.Button == AppConfig.DrawingButton)
@@ -90,28 +130,48 @@ namespace GestureSign.Daemon.Input
             if ((e.SourceDevice & Devices.TouchDevice) != 0)
             {
                 int releaseCount = e.RawData.Count(rtd => rtd.State == 0);
+                int activeCount = e.RawData.Count - releaseCount;
 
                 if (e.RawData.Count == _lastPointsCount)
                 {
-                    if (releaseCount != 0)
+                    var validContacts = FilterValidContacts(e.RawData, e.SourceDevice);
+
+                    if (validContacts.Count == 0)
+                        return;  // No valid contacts, skip this event
+
+                    var contactsToSend = CreateVirtualContacts(validContacts, e.RawData.Count, e.SourceDevice);
+
+                    // For touchscreen: if valid contact count changed significantly, trigger PointUp
+                    if (e.SourceDevice != Devices.TouchPad && validContacts.Count < _lastPointsCount - 1)
                     {
-                        OnPointUp(new InputPointsEventArgs(e.RawData, e.SourceDevice));
-                        _lastPointsCount -= releaseCount;
+                        OnPointUp(new InputPointsEventArgs(validContacts, e.SourceDevice));
+                        _lastPointsCount = validContacts.Count;
                         return;
                     }
-                    OnPointMove(new InputPointsEventArgs(e.RawData, e.SourceDevice));
+
+                    OnPointMove(new InputPointsEventArgs(contactsToSend, e.SourceDevice));
                 }
                 else if (e.RawData.Count > _lastPointsCount)
                 {
-                    if (releaseCount != 0)
-                        return;
                     if (PointCapture.Instance.InputPoints.Any(p => p.Count > 10))
                     {
                         OnPointMove(new InputPointsEventArgs(e.RawData, e.SourceDevice));
                         return;
                     }
-                    _lastPointsCount = e.RawData.Count;
-                    OnPointDown(new InputPointsEventArgs(e.RawData, e.SourceDevice));
+
+                    var validContacts = FilterValidContacts(e.RawData, e.SourceDevice);
+
+                    if (validContacts.Count == 0)
+                        return;  // No valid contacts, skip this event
+
+                    var contactsToSend = CreateVirtualContacts(validContacts, e.RawData.Count, e.SourceDevice);
+
+                    // Update last points count based on device type
+                    _lastPointsCount = (e.SourceDevice == Devices.TouchPad && contactsToSend.Count > validContacts.Count)
+                        ? e.RawData.Count  // Use total count for touchpad with virtual contacts
+                        : validContacts.Count;  // Use valid count for other devices
+
+                    OnPointDown(new InputPointsEventArgs(contactsToSend, e.SourceDevice));
                 }
                 else
                 {

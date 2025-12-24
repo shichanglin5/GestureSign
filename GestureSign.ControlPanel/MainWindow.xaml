@@ -11,9 +11,9 @@
                     Width="660"
                     ShowIconOnTitleBar="False"
                     ShowTitleBar="True"
-                    Icon="Resources/normal.ico"
+                    Icon="pack://application:,,,/GestureSignControlPanel;component/Resources/normal.ico"
                     BorderThickness="1"
-                    BorderBrush="{StaticResource AccentColorBrush}"
+                    BorderBrush="{StaticResource MahApps.Brushes.Accent}"
                     MinWidth="586"
                     MinHeight="420"
                     Loaded="MetroWindow_Loaded">

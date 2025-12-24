@@ -35,7 +35,7 @@ namespace GestureSign.Daemon.Input
         private readonly PointEventTranslator _pointEventTranslator;
         private readonly InputProvider _inputProvider;
         private readonly PointerInputTargetWindow _pointerInputTargetWindow;
-        private readonly List<IPointPattern> _pointPatternCache = new List<IPointPattern>();
+        private readonly List<PointPattern> _pointPatternCache = new List<PointPattern>();
         private readonly System.Threading.Timer _blockTouchDelayTimer;
         private SurfaceForm _surfaceForm;
 
@@ -43,6 +43,8 @@ namespace GestureSign.Daemon.Input
         SynchronizationContext _currentContext;
 
         private Dictionary<int, List<Point>> _pointsCaptured;
+        private int _totalFingerCount;
+        private HashSet<int> _featureFingerIds;
         // Create variable to hold the only allowed instance of this class
         static readonly PointCapture _Instance = new PointCapture();
 
@@ -504,16 +506,44 @@ namespace GestureSign.Daemon.Input
 
         private bool TryBeginCapture(List<InputPoint> firstPoint)
         {
+            GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] TryBeginCapture - Device: {SourceDevice}, InputPoints: {firstPoint.Count}");
+            for (int i = 0; i < firstPoint.Count; i++)
+            {
+                GestureSign.Common.Log.Logging.LogMessage($"  InputPoint[{i}]: ID={firstPoint[i].ContactIdentifier}, Point=({firstPoint[i].Point.X},{firstPoint[i].Point.Y})");
+            }
+
+            // Record total finger count for gesture matching
+            _totalFingerCount = firstPoint.Count;
+
+            // Select feature fingers (leftmost or rightmost 2 fingers)
+            List<InputPoint> featureFingers;
+            if (firstPoint.Count > 2)
+            {
+                // Sort by X coordinate to find leftmost/rightmost fingers
+                var sortedByX = firstPoint.OrderBy(p => p.Point.X).ToList();
+                featureFingers = AppConfig.IsLeftHanded
+                    ? sortedByX.Skip(sortedByX.Count - 2).ToList()  // Rightmost 2 for left-handed
+                    : sortedByX.Take(2).ToList();                    // Leftmost 2 for right-handed
+                _featureFingerIds = new HashSet<int>(featureFingers.Select(f => f.ContactIdentifier));
+                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Feature fingers selected: {string.Join(", ", _featureFingerIds)} (IsLeftHanded: {AppConfig.IsLeftHanded})");
+            }
+            else
+            {
+                // Use all fingers if 2 or less
+                featureFingers = firstPoint;
+                _featureFingerIds = new HashSet<int>(firstPoint.Select(f => f.ContactIdentifier));
+            }
+
             // Create capture args so we can notify subscribers that capture has started and allow them to cancel if they want.
             PointsCapturedEventArgs captureStartedArgs;
             if (SourceDevice == Devices.TouchPad)
             {
                 _touchPadStartPoint = System.Windows.Forms.Cursor.Position;
-                captureStartedArgs = new PointsCapturedEventArgs(firstPoint.Select(p => new List<Point>() { p.Point }).ToList(), new List<Point>() { _touchPadStartPoint });
+                captureStartedArgs = new PointsCapturedEventArgs(featureFingers.Select(p => new List<Point>() { p.Point }).ToList(), new List<Point>() { _touchPadStartPoint });
             }
             else
             {
-                captureStartedArgs = new PointsCapturedEventArgs(firstPoint.Select(p => p.Point).ToList());
+                captureStartedArgs = new PointsCapturedEventArgs(featureFingers.Select(p => p.Point).ToList());
             }
             OnCaptureStarted(captureStartedArgs);
 
@@ -524,11 +554,12 @@ namespace GestureSign.Daemon.Input
 
             State = CaptureState.CapturingInvalid;
 
-            // Clear old gesture from point list so we can start adding the new captures points to the list 
-            _pointsCaptured = new Dictionary<int, List<Point>>(firstPoint.Count);
+            // Clear old gesture from point list so we can start adding the new captures points to the list
+            // Only create entries for feature fingers
+            _pointsCaptured = new Dictionary<int, List<Point>>(featureFingers.Count);
             if (AppConfig.IsOrderByLocation)
             {
-                foreach (var rawData in firstPoint.OrderBy(p => p.Point.X))
+                foreach (var rawData in featureFingers.OrderBy(p => p.Point.X))
                 {
                     if (!_pointsCaptured.ContainsKey(rawData.ContactIdentifier))
                         _pointsCaptured.Add(rawData.ContactIdentifier, new List<Point>(30));
@@ -536,23 +567,25 @@ namespace GestureSign.Daemon.Input
             }
             else
             {
-                foreach (var rawData in firstPoint.OrderBy(p => p.ContactIdentifier))
+                foreach (var rawData in featureFingers.OrderBy(p => p.ContactIdentifier))
                 {
                     if (!_pointsCaptured.ContainsKey(rawData.ContactIdentifier))
                         _pointsCaptured.Add(rawData.ContactIdentifier, new List<Point>(30));
                 }
             }
-            AddPoint(firstPoint);
+            AddPoint(featureFingers);
             return true;
         }
 
         private void EndCapture()
         {
+            GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] EndCapture - Device: {SourceDevice}, CapturedPoints: {_pointsCaptured.Count}, Mode: {Mode}");
 
             // Create points capture event args, to be used to send off to event subscribers or to simulate original Point event
             PointsCapturedEventArgs pointsInformation = SourceDevice == Devices.TouchPad ?
                 new PointsCapturedEventArgs(_pointsCaptured.Values.ToList(), new List<Point>() { _touchPadStartPoint }) :
                 new PointsCapturedEventArgs(new List<List<Point>>(_pointsCaptured.Values), _pointsCaptured.Values.Select(p => p.FirstOrDefault()).ToList());
+            pointsInformation.FingerCount = _totalFingerCount;
 
             // Notify subscribers that capture has ended （draw end）
             OnCaptureEnded();
@@ -562,22 +595,35 @@ namespace GestureSign.Daemon.Input
             //CaptureWindow GetGestureName
             OnBeforePointsCaptured(pointsInformation);
 
+            GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] After recognition - GestureName: {GestureManager.Instance.GestureName}");
+
             if (pointsInformation.Cancel) return;
 
             if (Mode == CaptureMode.Training && !(_pointsCaptured.Count == 1 && _pointsCaptured.Values.First().Count == 1))
             {
+                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] In Training mode - sending gesture to ControlPanel");
                 _pointPatternCache.Clear();
-                _pointPatternCache.Add(new PointPattern(_pointsCaptured.Values));
+                var pointPattern = new PointPattern(_pointsCaptured.Values, _totalFingerCount);
+                _pointPatternCache.Add(pointPattern);
 
-                if (!NamedPipe.SendMessageAsync(IpcCommands.GotGesture, Constants.ControlPanel, _pointPatternCache.Select(p => p.Points).ToArray(), false).Result)
+                if (!NamedPipe.SendMessageAsync(IpcCommands.GotGesture, Constants.ControlPanel, _pointPatternCache.ToArray(), false).Result)
                     Mode = CaptureMode.Normal;
+            }
+            else
+            {
+                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] NOT in Training mode (Mode={Mode})");
             }
 
             // Fire recognized event if we found a gesture match, otherwise throw not recognized event
             if (GestureManager.Instance.GestureName != null)
             {
+                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Gesture recognized: {GestureManager.Instance.GestureName}");
                 List<Point> capturedPoints = SourceDevice == Devices.TouchPad ? new List<Point>() { _touchPadStartPoint } : pointsInformation.FirstCapturedPoints;
                 OnGestureRecognized(new RecognitionEventArgs(GestureManager.Instance.GestureName, pointsInformation.Points, capturedPoints, _pointsCaptured.Keys.ToList()));
+            }
+            else
+            {
+                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Gesture NOT recognized");
             }
             //else
             //    OnGestureNotRecognized(new RecognitionEventArgs(pointsInformation.Points, pointsInformation.FirstCapturedPoints, _pointsCaptured.Keys.ToList()));

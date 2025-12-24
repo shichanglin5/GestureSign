@@ -50,7 +50,17 @@
 
   <ItemGroup>
     <None Include="Properties\app.manifest" />
-    <None Include="Resources\normal.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\*.ico" />
+    <Resource Include="Resources\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Languages\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

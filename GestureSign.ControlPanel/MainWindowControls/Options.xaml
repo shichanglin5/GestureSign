@@ -12,7 +12,7 @@
              Width="380"
              Initialized="UserControl_Initialized">
     <ScrollViewer PanningMode="VerticalFirst">
-        <StackPanel Margin="0,0,0.4,0">
+        <StackPanel Margin="0,0,0.4,0" HorizontalAlignment="Center">
             <StackPanel.Resources>
                 <ResourceDictionary>
                     <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -46,9 +46,6 @@
                     </Style>
                     <ObjectDataProvider x:Key="MouseActionDescription"
                                         ObjectType="{x:Type viewModel:MouseActionDescription}" />
-                    <ResourceDictionary.MergedDictionaries>
-                        <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/FlatSlider.xaml" />
-                    </ResourceDictionary.MergedDictionaries>
                 </ResourceDictionary>
             </StackPanel.Resources>
             <controls:ToggleSwitch x:Name="GestureTrailSwitch"
@@ -168,7 +165,7 @@
                                FontWeight="Normal">
                         <Run Text="{localization:LocalisedText Options.TouchScreen}" />
                         <Run Name="TouchScreenNotFoundText"
-                             Foreground="{StaticResource AccentBaseColorBrush}"
+                             Foreground="{StaticResource MahApps.Brushes.Accent}"
                              Text="{localization:LocalisedText Options.DeviceNotFound}" />
                     </TextBlock>
                 </controls:ToggleSwitch.Header>
@@ -182,7 +179,7 @@
                                FontWeight="Normal">
                         <Run Text="{localization:LocalisedText Options.TouchPad}" />
                         <Run Name="TouchPadNotFoundText"
-                             Foreground="{StaticResource AccentBaseColorBrush}"
+                             Foreground="{StaticResource MahApps.Brushes.Accent}"
                              Text="{localization:LocalisedText Options.DeviceNotFound}" />
                     </TextBlock>
                 </controls:ToggleSwitch.Header>
@@ -196,7 +193,7 @@
                                FontWeight="Normal">
                         <Run Text="{localization:LocalisedText Options.PenGesture}" />
                         <Run Name="PenNotFoundText"
-                             Foreground="{StaticResource AccentBaseColorBrush}"
+                             Foreground="{StaticResource MahApps.Brushes.Accent}"
                              Text="{localization:LocalisedText Options.DeviceNotFound}" />
                     </TextBlock>
                 </controls:ToggleSwitch.Header>

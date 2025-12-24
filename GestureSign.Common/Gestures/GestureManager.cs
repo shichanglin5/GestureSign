@@ -101,7 +101,7 @@ namespace GestureSign.Common.Gestures
             }
 
             var sourceGesture = _gestureLevel == 0 ? _Gestures : _gestureMatchResult;
-            GestureName = GetGestureSetNameMatch(e.Points.Select(l => l.ToArray()).ToArray(), sourceGesture, _gestureLevel, out _gestureMatchResult);
+            GestureName = GetGestureSetNameMatch(e.Points.Select(l => l.ToArray()).ToArray(), e.FingerCount, sourceGesture, _gestureLevel, out _gestureMatchResult);
 
             if (pointCapture.Mode != CaptureMode.Training)
             {
@@ -246,8 +246,9 @@ namespace GestureSign.Common.Gestures
                 }
                 return flag;
             }
-            catch
+            catch (Exception ex)
             {
+                Log.Logging.LogException(ex);
                 return false;
             }
         }
@@ -269,14 +270,45 @@ namespace GestureSign.Common.Gestures
                     {
                         Gesture gesture = new Gesture();
                         List<PointPattern> pointPatternList = new List<PointPattern>();
+                        string gestureName = null;
+                        int fingerCount = 0;
+
                         while (reader.Read())
                         {
+                            if (reader.TokenType == JsonToken.EndObject)
+                            {
+                                // Reached end of this gesture object, update PointPatterns with correct FingerCount
+                                if (pointPatternList.Count > 0)
+                                {
+                                    // Update all PointPatterns with the gesture's FingerCount
+                                    foreach (var pp in pointPatternList)
+                                    {
+                                        pp.FingerCount = fingerCount;
+                                    }
+                                }
+
+                                gesture.Name = gestureName;
+                                gesture.FingerCount = fingerCount;
+                                gesture.PointPatterns = pointPatternList.ToArray();
+
+                                if (gesture.Name != null && gesture.PointPatterns != null)
+                                {
+                                    gestureList.Add(gesture);
+                                }
+                                break;
+                            }
+
                             if (reader.TokenType != JsonToken.PropertyName) continue;
                             switch ((string)reader.Value)
                             {
                                 case nameof(Gesture.Name):
                                     {
-                                        gesture.Name = reader.ReadAsString();
+                                        gestureName = reader.ReadAsString();
+                                        break;
+                                    }
+                                case nameof(Gesture.FingerCount):
+                                    {
+                                        fingerCount = reader.ReadAsInt32() ?? 0;
                                         break;
                                     }
                                 case nameof(Gesture.PointPatterns):
@@ -302,18 +334,12 @@ namespace GestureSign.Common.Gestures
                                                         strokeList.Add(stroke.ToArray());
                                                     }
                                                 }
-                                                PointPattern pointPattern = new PointPattern(strokeList.ToArray());
+                                                PointPattern pointPattern = new PointPattern(strokeList.ToArray(), 0);
                                                 pointPatternList.Add(pointPattern);
                                             }
                                         }
-                                        gesture.PointPatterns = pointPatternList.ToArray();
                                         break;
                                     }
-                            }
-                            if (gesture.Name != null && gesture.PointPatterns != null)
-                            {
-                                gestureList.Add(gesture);
-                                break;
                             }
                         }
                     }
@@ -330,7 +356,7 @@ namespace GestureSign.Common.Gestures
             return gestureList;
         }
 
-        public string GetGestureSetNameMatch(Point[][] points, List<IGesture> sourceGestures, int sourceGestureLevel, out List<IGesture> matching)//PointF[]
+        public string GetGestureSetNameMatch(Point[][] points, int fingerCount, List<IGesture> sourceGestures, int sourceGestureLevel, out List<IGesture> matching)//PointF[]
         {
             if (points.Length == 0 || sourceGestures == null || sourceGestures.Count == 0)
             { matching = null; return null; }
@@ -340,7 +366,8 @@ namespace GestureSign.Common.Gestures
                 sourceGestures.Where(g =>
                         g.PointPatterns != null && g.PointPatterns.Length > sourceGestureLevel &&
                         g.PointPatterns[sourceGestureLevel].Points != null &&
-                        g.PointPatterns[sourceGestureLevel].Points.Length == points.Length).ToList();
+                        g.PointPatterns[sourceGestureLevel].Points.Length == points.Length &&
+                        g.FingerCount == fingerCount).ToList();
             List<PointPatternMatchResult>[] comparisonResults = new List<PointPatternMatchResult>[points.Length];
             for (int i = 0; i < points.Length; i++)
             {
@@ -380,7 +407,7 @@ namespace GestureSign.Common.Gestures
             List<IGesture> matchGestures = null;
             for (int i = 0; i < pointPattern.Length;)
             {
-                matchName = GetGestureSetNameMatch(pointPattern[i].Points, matchGestures ?? _Gestures, i, out matchGestures);
+                matchName = GetGestureSetNameMatch(pointPattern[i].Points, pointPattern[i].FingerCount, matchGestures ?? _Gestures, i, out matchGestures);
 
                 if (++i < pointPattern.Length && matchGestures == null)
                     return null;

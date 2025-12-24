@@ -37,10 +37,17 @@ namespace GestureSign.ControlPanel.MainWindowControls
         {
             // Make sure at least one item is selected
             if (lstAvailableGestures.SelectedItems.Count == 0) return;
+
+            var selectedGestures = lstAvailableGestures.SelectedItems.Cast<GestureItem>().ToList();
+            var gestureCount = selectedGestures.Count;
+            var confirmMessage = gestureCount == 1
+                ? LocalizationProvider.Instance.GetTextValue("Gesture.Messages.DeleteGestureConfirm")
+                : string.Format("确定要删除这 {0} 个手势吗？", gestureCount);
+
             if (UIHelper.GetParentWindow(this)
                     .ShowModalMessageExternal(
                         LocalizationProvider.Instance.GetTextValue("Gesture.Messages.DeleteConfirmTitle"),
-                        LocalizationProvider.Instance.GetTextValue("Gesture.Messages.DeleteGestureConfirm"),
+                        confirmMessage,
                         MessageDialogStyle.AffirmativeAndNegative,
                         new MetroDialogSettings()
                         {
@@ -48,8 +55,10 @@ namespace GestureSign.ControlPanel.MainWindowControls
                             NegativeButtonText = LocalizationProvider.Instance.GetTextValue("Common.Cancel"),
                         }) == MessageDialogResult.Affirmative)
             {
-                foreach (GestureItem listItem in lstAvailableGestures.SelectedItems)
+                foreach (GestureItem listItem in selectedGestures)
+                {
                     GestureManager.Instance.DeleteGesture(listItem.Gesture.Name);
+                }
 
                 GestureManager.Instance.SaveGestures();
             }

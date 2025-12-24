@@ -13,7 +13,7 @@
         public const string ConfigFileName = ProductName + ".config";
         public const string ControlPanel = ProductName + "ControlPanel";
         public const string Daemon = ProductName + "Daemon";
-        public const string ControlPanelFileName = ProductName + ".ControlPanel.exe";
+        public const string ControlPanelFileName = ProductName + "ControlPanel.exe";
         public const string DaemonFileName = ProductName + ".exe";
     }
 }

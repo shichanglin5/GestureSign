@@ -37,7 +37,7 @@ namespace GestureSign.Common.Configuration
                     JsonSerializer serializer = new JsonSerializer
                     {
                         NullValueHandling = NullValueHandling.Ignore,
-                        DefaultValueHandling = DefaultValueHandling.Ignore
+                        DefaultValueHandling = DefaultValueHandling.Include  // Changed to Include to save FingerCount
                     };
                     if (typeName)
                     {

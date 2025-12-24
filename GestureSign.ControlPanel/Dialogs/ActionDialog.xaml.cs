@@ -82,15 +82,6 @@ namespace GestureSign.ControlPanel.Dialogs
                 TouchPadCheckBox.IsChecked = !_sourceAction.IgnoredDevices.HasFlag(Devices.TouchPad);
                 PenCheckBox.IsChecked = !_sourceAction.IgnoredDevices.HasFlag(Devices.Pen);
 
-                if (_sourceAction.ContinuousGesture != null)
-                {
-                    ContinuousGestureSwitch.IsOn = true;
-                    ContactCountSlider.Value = _sourceAction.ContinuousGesture.ContactCount;
-                    GestureListBox.SelectedIndex = (int)Math.Log((int)_sourceAction.ContinuousGesture.Gesture, 2);
-                }
-                else
-                    ContinuousGestureSwitch.IsOn = false;
-
                 var gesture = GestureManager.Instance.GetNewestGestureSample(_sourceAction.GestureName);
                 if (gesture != null)
                     CurrentGesture = gesture;
@@ -129,17 +120,6 @@ namespace GestureSign.ControlPanel.Dialogs
             {
                 ConditionTextBox.Text = editConditionDialog.ConditionTextBox.Text;
             }
-        }
-
-        private void ContactCountSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            UpdateContinuousGestureText();
-        }
-
-        private void GestureListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-        {
-            if (e.AddedItems.Count > 0)
-                UpdateContinuousGestureText();
         }
 
         #endregion
@@ -188,8 +168,7 @@ namespace GestureSign.ControlPanel.Dialogs
                     ModifierKeys = (int)HotKeyTextBox.HotKey.ModifierKeys
                 }
                 : null;
-            int contactCount = (int)ContactCountSlider.Value;
-            NewAction.ContinuousGesture = ContinuousGestureSwitch.IsOn && contactCount > 1 && GestureListBox.SelectedIndex >= 0 ? new ContinuousGesture(contactCount, (Gestures)(1 << GestureListBox.SelectedIndex)) : null;
+            NewAction.ContinuousGesture = null;
             Devices ignoredDevices = Devices.None;
             if (!MouseCheckBox.IsChecked.GetValueOrDefault())
                 ignoredDevices |= Devices.Mouse;
@@ -223,31 +202,6 @@ namespace GestureSign.ControlPanel.Dialogs
             GestureManager.Instance.SaveGestures();
 
             return true;
-        }
-
-        private void UpdateContinuousGestureText()
-        {
-            if (GestureListBox == null || ContactCountSlider == null || ContinuousGestureText == null) return;
-            string direction;
-            switch ((Gestures)(1 << GestureListBox.SelectedIndex))
-            {
-                case Gestures.Left:
-                    direction = LocalizationProvider.Instance.GetTextValue("Action.Left");
-                    break;
-                case Gestures.Right:
-                    direction = LocalizationProvider.Instance.GetTextValue("Action.Right");
-                    break;
-                case Gestures.Up:
-                    direction = LocalizationProvider.Instance.GetTextValue("Action.Up");
-                    break;
-                case Gestures.Down:
-                    direction = LocalizationProvider.Instance.GetTextValue("Action.Down");
-                    break;
-                default:
-                    direction = null;
-                    break;
-            }
-            ContinuousGestureText.Text = string.Format(LocalizationProvider.Instance.GetTextValue("Action.Fingers"), (int)ContactCountSlider.Value) + direction;
         }
 
         #endregion

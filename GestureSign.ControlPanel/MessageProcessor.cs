@@ -27,10 +27,22 @@ namespace GestureSign.ControlPanel
                             }
                         case IpcCommands.GotGesture:
                             {
-                                var newGesture = data as Point[][][];
-                                if (newGesture == null) return;
+                                var newGesture = data as PointPattern[];
+                                if (newGesture == null)
+                                {
+                                    // Fallback to old format for backward compatibility
+                                    var oldFormat = data as Point[][][];
+                                    if (oldFormat != null)
+                                    {
+                                        newGesture = oldFormat.Select(list => new PointPattern(list)).ToArray();
+                                    }
+                                    else
+                                    {
+                                        return;
+                                    }
+                                }
 
-                                GotNewPattern?.Invoke(this, newGesture.Select(list => new PointPattern(list)).ToArray());
+                                GotNewPattern?.Invoke(this, newGesture);
                                 break;
                             }
                     }

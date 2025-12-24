@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using GestureSign.Common.Log;
 
 namespace GestureSign.ControlPanel.UserControls
 {
@@ -34,6 +35,8 @@ namespace GestureSign.ControlPanel.UserControls
 
         private void MessageProcessor_GotNewPattern(object sender, PointPattern[] newPattern)
         {
+            Logging.LogMessage($"[GestureSelector] MessageProcessor_GotNewPattern - Received {newPattern?.Length ?? 0} patterns, FingerCount: {newPattern?[0]?.FingerCount ?? 0}");
+
             var currentPatterns = newPattern;
             if (_stackUp && _tempPointPattern != null)
             {
@@ -45,6 +48,7 @@ namespace GestureSign.ControlPanel.UserControls
             if (existingSimilarGestureName == null)
             {
                 CurrentGesture = new Gesture(null, currentPatterns);
+                Logging.LogMessage($"[GestureSelector] Created new gesture with FingerCount: {CurrentGesture.FingerCount}");
                 ExistingTextBlock.Visibility = Visibility.Collapsed;
             }
             else
@@ -52,11 +56,13 @@ namespace GestureSign.ControlPanel.UserControls
                 if (OldGesture?.Name == existingSimilarGestureName)
                 {
                     CurrentGesture = new Gesture(existingSimilarGestureName, currentPatterns);
+                    Logging.LogMessage($"[GestureSelector] Updated existing gesture '{existingSimilarGestureName}' with FingerCount: {CurrentGesture.FingerCount}");
                 }
                 else
                 {
                     ExistingTextBlock.Visibility = Visibility.Visible;
                     CurrentGesture = GestureManager.Instance.GetNewestGestureSample(existingSimilarGestureName);
+                    Logging.LogMessage($"[GestureSelector] Using similar gesture '{existingSimilarGestureName}'");
                 }
             }
             SetTrainingState(false);
@@ -64,19 +70,23 @@ namespace GestureSign.ControlPanel.UserControls
 
         private void SetTrainingState(bool state)
         {
+            Logging.LogMessage($"[GestureSelector] SetTrainingState called with state={state}");
             if (state)
             {
                 CurrentGesture = null;
                 DrawGestureTextBlock.Visibility = Visibility.Visible;
                 ExistingTextBlock.Visibility = RedrawButton.Visibility = Visibility.Collapsed;
                 MessageProcessor.GotNewPattern += MessageProcessor_GotNewPattern;
-                NamedPipe.SendMessageAsync(IpcCommands.StartTeaching, Constants.Daemon);
+                Logging.LogMessage($"[GestureSelector] Sending StartTeaching command...");
+                var result = NamedPipe.SendMessageAsync(IpcCommands.StartTeaching, Constants.Daemon).Result;
+                Logging.LogMessage($"[GestureSelector] StartTeaching result: {result}");
             }
             else
             {
                 DrawGestureTextBlock.Visibility = Visibility.Collapsed;
                 RedrawButton.Visibility = Visibility.Visible;
                 MessageProcessor.GotNewPattern -= MessageProcessor_GotNewPattern;
+                Logging.LogMessage($"[GestureSelector] Sending StopTraining command...");
                 NamedPipe.SendMessageAsync(IpcCommands.StopTraining, Constants.Daemon);
             }
         }
@@ -98,14 +108,29 @@ namespace GestureSign.ControlPanel.UserControls
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
+            // DEBUG: Write to a test file to verify code execution
+            try
+            {
+                System.IO.File.WriteAllText(@"C:\Users\shich\AppData\Local\GestureSign\GestureSelector_LOADED_TEST.txt",
+                    $"GestureSelector UserControl_Loaded called at {System.DateTime.Now:yyyy-MM-dd HH:mm:ss}\r\nCurrentGesture={(CurrentGesture == null ? "null" : "not null")}\r\nPointPatterns={(CurrentGesture?.PointPatterns == null ? "null" : "not null")}");
+            }
+            catch { }
+
+            Logging.LogMessage($"[GestureSelector] UserControl_Loaded - CurrentGesture={CurrentGesture}, PointPatterns={(CurrentGesture?.PointPatterns == null ? "null" : "not null")}");
             if (CurrentGesture?.PointPatterns == null)
             {
+                Logging.LogMessage($"[GestureSelector] CurrentGesture.PointPatterns is null, calling SetTrainingState(true)");
                 SetTrainingState(true);
+            }
+            else
+            {
+                Logging.LogMessage($"[GestureSelector] CurrentGesture.PointPatterns is not null, NOT entering training mode");
             }
         }
 
         private void UserControl_Unloaded(object sender, RoutedEventArgs e)
         {
+            Logging.LogMessage($"[GestureSelector] UserControl_Unloaded");
             SetTrainingState(false);
         }
     }

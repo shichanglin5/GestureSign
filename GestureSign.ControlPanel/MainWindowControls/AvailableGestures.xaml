@@ -16,10 +16,10 @@
         <CollectionViewSource x:Key="GestureViewSource"
                               Source="{Binding Path=(viewModel:GestureItemProvider.GestureItems)}">
             <CollectionViewSource.GroupDescriptions>
-                <PropertyGroupDescription PropertyName="PatternCount" />
+                <PropertyGroupDescription PropertyName="FingerCount" />
             </CollectionViewSource.GroupDescriptions>
             <CollectionViewSource.SortDescriptions>
-                <componentmodel:SortDescription PropertyName="PatternCount"
+                <componentmodel:SortDescription PropertyName="FingerCount"
                                                 Direction="Ascending" />
                 <componentmodel:SortDescription PropertyName="Features"
                                                 Direction="Ascending" />
@@ -30,12 +30,23 @@
         </ItemsPanelTemplate>
         <DataTemplate x:Key="IconTemplate">
             <Grid Width="200"
-                  Height="70">
-                <Image Source="{Binding Path=GestureImage}"
+                  Height="90">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="70" />
+                    <RowDefinition Height="20" />
+                </Grid.RowDefinitions>
+                <Image Grid.Row="0"
+                       Source="{Binding Path=GestureImage}"
                        Stretch="Uniform"
                        StretchDirection="DownOnly"
                        VerticalAlignment="Center"
                        HorizontalAlignment="Center" />
+                <TextBlock Grid.Row="1"
+                           Text="{Binding Path=FingerCountText}"
+                           FontSize="12"
+                           Foreground="{StaticResource MahApps.Brushes.Accent}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
             </Grid>
         </DataTemplate>
         <GridView x:Key="GridView">
@@ -52,6 +63,9 @@
                 </GridViewColumn.CellTemplate>
                 <GridViewColumnHeader Content="{localization:LocalisedText Gesture.Header}"
                                       Tag="Features" />
+            </GridViewColumn>
+            <GridViewColumn DisplayMemberBinding="{Binding Path=Gesture.FingerCount}" Width="80">
+                <GridViewColumnHeader Content="手指数" Tag="FingerCount" />
             </GridViewColumn>
             <GridViewColumn DisplayMemberBinding="{Binding Path=Applications}">
                 <GridViewColumnHeader Content="{localization:LocalisedText Gesture.Applications}"
@@ -105,7 +119,7 @@
                                                   BorderThickness="0">
                                             <Expander.Header>
                                                 <DockPanel>
-                                                    <TextBlock Foreground="{StaticResource AccentSelectedColorBrush}"
+                                                    <TextBlock Foreground="{StaticResource MahApps.Brushes.Accent}"
                                                                Margin="5,0,0,0"
                                                                HorizontalAlignment="Center"
                                                                DockPanel.Dock="Top">
@@ -177,12 +191,12 @@
                                                         <DataTrigger Binding="{Binding Path=IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListViewItem}}}"
                                                                      Value="True">
                                                             <Setter Property="Foreground"
-                                                                    Value="{DynamicResource AccentSelectedColorBrush}" />
+                                                                    Value="{DynamicResource MahApps.Brushes.Accent}" />
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding Path=IsEnabled, RelativeSource={RelativeSource AncestorType={x:Type ListView}}}"
                                                                      Value="False">
                                                             <Setter Property="Foreground"
-                                                                    Value="{DynamicResource GrayNormalBrush}" />
+                                                                    Value="{DynamicResource MahApps.Brushes.Gray.Normal}" />
                                                         </DataTrigger>
                                                         <MultiDataTrigger>
                                                             <MultiDataTrigger.Conditions>
@@ -193,7 +207,7 @@
                                                             </MultiDataTrigger.Conditions>
                                                             <MultiDataTrigger.Setters>
                                                                 <Setter Property="Foreground"
-                                                                        Value="{DynamicResource AccentSelectedColorBrush}" />
+                                                                        Value="{DynamicResource MahApps.Brushes.Accent}" />
                                                             </MultiDataTrigger.Setters>
                                                         </MultiDataTrigger>
                                                     </Style.Triggers>
@@ -218,10 +232,10 @@
                                     <Trigger Property="IsSelected"
                                              Value="true">
                                         <Setter Property="Foreground"
-                                                Value="{DynamicResource AccentSelectedColorBrush}" />
+                                                Value="{DynamicResource MahApps.Brushes.Accent}" />
                                         <Setter TargetName="Bd"
                                                 Property="Background"
-                                                Value="{DynamicResource AccentColorBrush2}" />
+                                                Value="{DynamicResource MahApps.Brushes.Accent2}" />
                                     </Trigger>
                                     <MultiTrigger>
                                         <MultiTrigger.Conditions>
@@ -233,7 +247,7 @@
                                         <MultiTrigger.Setters>
                                             <Setter TargetName="Bd"
                                                     Property="Background"
-                                                    Value="{DynamicResource GrayBrush7}" />
+                                                    Value="{DynamicResource MahApps.Brushes.Gray7}" />
                                         </MultiTrigger.Setters>
                                     </MultiTrigger>
                                 </ControlTemplate.Triggers>

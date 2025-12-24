@@ -287,6 +287,18 @@ namespace GestureSign.Common.Configuration
             }
         }
 
+        public static bool IsLeftHanded
+        {
+            get
+            {
+                return GetValue(nameof(IsLeftHanded), false);
+            }
+            set
+            {
+                SetValue(nameof(IsLeftHanded), value);
+            }
+        }
+
         public static bool RunAsAdmin
         {
             get

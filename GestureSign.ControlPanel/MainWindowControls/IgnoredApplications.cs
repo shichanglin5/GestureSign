@@ -132,11 +132,18 @@ namespace GestureSign.ControlPanel.MainWindowControls
                                 Dispatcher.InvokeAsync(() => lstIgnoredApplications.SelectedItem = ApplicationManager.Instance.AddApplication(new IgnoredApp() { IsEnabled = true }, file), DispatcherPriority.Input);
                                 break;
                             case ".lnk":
-                                WshShell shell = new WshShell();
-                                IWshShortcut link = (IWshShortcut)shell.CreateShortcut(file);
-                                if (Path.GetExtension(link.TargetPath).ToLower() == ".exe")
+                                try
                                 {
-                                    Dispatcher.InvokeAsync(() => lstIgnoredApplications.SelectedItem = ApplicationManager.Instance.AddApplication(new IgnoredApp() { IsEnabled = true }, link.TargetPath), DispatcherPriority.Input);
+                                    WshShell shell = new WshShell();
+                                    IWshShortcut link = (IWshShortcut)shell.CreateShortcut(file);
+                                    if (Path.GetExtension(link.TargetPath).ToLower() == ".exe")
+                                    {
+                                        Dispatcher.InvokeAsync(() => lstIgnoredApplications.SelectedItem = ApplicationManager.Instance.AddApplication(new IgnoredApp() { IsEnabled = true }, link.TargetPath), DispatcherPriority.Input);
+                                    }
+                                }
+                                catch (System.Runtime.InteropServices.COMException)
+                                {
+                                    // COM component not available, skip .lnk file
                                 }
                                 break;
                             case GestureSign.Common.Constants.ArchivesExtension:

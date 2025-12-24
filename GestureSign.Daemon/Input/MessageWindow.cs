@@ -373,6 +373,7 @@ namespace GestureSign.Daemon.Input
                     using (TouchPadDevice touchPad = new TouchPadDevice(buffer, ref raw))
                     {
                         int contactCount = touchPad.GetContactCount();
+
                         HidNativeApi.HIDP_LINK_COLLECTION_NODE[] linkCollection = touchPad.GetLinkCollectionNodes();
                         touchPad.GetPhysicalMax(linkCollection.Length);
 
@@ -381,7 +382,8 @@ namespace GestureSign.Daemon.Input
                             _requiringContactCount = contactCount;
                             _outputTouchs = new List<RawData>(contactCount);
                         }
-                        if (_requiringContactCount == 0) return;
+                        if (_requiringContactCount == 0)
+                            return;
 
                         touchPad.GetRawDatas(linkCollection[0].NumberOfChildren, _currentScr, ref _requiringContactCount, ref _outputTouchs);
                     }

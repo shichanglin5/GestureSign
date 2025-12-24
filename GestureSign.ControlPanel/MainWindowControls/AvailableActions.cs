@@ -89,19 +89,34 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 return;
 
             var commandInfoList = lstAvailableActions.SelectedItems.Cast<CommandInfo>().ToList();
-            // Loop through selected actions
+            IApplication selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+
+            // Group by action to handle empty actions correctly
+            var actionsToRemove = new List<IAction>();
+
+            // Loop through selected commands
             for (int i = commandInfoList.Count - 1; i >= 0; i--)
             {
                 // Grab selected item
                 CommandInfo selectedCommand = commandInfoList[i];
-                selectedCommand.Action.RemoveCommand(selectedCommand.Command);
-                if (selectedCommand.Action.IsEmpty())
-                {
-                    IApplication selectedApp = lstAvailableApplication.SelectedItem as IApplication;
 
-                    selectedApp.RemoveAction(selectedCommand.Action);
+                // RemoveCommand will trigger CollectionChanged event
+                // which will automatically update CommandInfos collection
+                selectedCommand.Action.RemoveCommand(selectedCommand.Command);
+
+                // Track actions that become empty
+                if (selectedCommand.Action.IsEmpty() && !actionsToRemove.Contains(selectedCommand.Action))
+                {
+                    actionsToRemove.Add(selectedCommand.Action);
                 }
             }
+
+            // Remove empty actions after all commands are removed
+            foreach (var action in actionsToRemove)
+            {
+                selectedApp.RemoveAction(action);
+            }
+
             // Save entire list of applications
             ApplicationManager.Instance.SaveApplications();
         }
@@ -390,39 +405,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
             ApplicationManager.Instance.SaveApplications();
         }
 
-        private void SortMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            MenuItem clickedMenuItem = (MenuItem)sender;
-            if (!clickedMenuItem.IsChecked)
-                clickedMenuItem.IsChecked = true;
-
-            MenuItem parentMenuItem = clickedMenuItem.Parent as MenuItem;
-            if (parentMenuItem != null)
-                foreach (var item in parentMenuItem.Items)
-                {
-                    var current = item as MenuItem;
-                    if (!ReferenceEquals(current, clickedMenuItem))
-                        if (current != null)
-                            current.IsChecked = false;
-                }
-        }
-
-        private void SortMenuItem_Checked(object sender, RoutedEventArgs e)
-        {
-            var lcv = lstAvailableActions.ItemsSource as ListCollectionView;
-            string propertyName = sender == SortByNameMenuItem ? nameof(CommandInfo.ActionName) : nameof(CommandInfo.GestureFeatures);
-            if (lcv.SortDescriptions.Any(sd => sd.PropertyName == propertyName))
-                return;
-
-            lcv.SortDescriptions.Clear();
-            if (sender == SortByGestureMenuItem)
-            {
-                lcv.SortDescriptions.Add(new SortDescription(nameof(CommandInfo.PatternCount), ListSortDirection.Ascending));
-            }
-            lcv.SortDescriptions.Add(new SortDescription(".", ListSortDirection.Ascending));
-            lcv.SortDescriptions.Add(new SortDescription(propertyName, ListSortDirection.Ascending));
-            lcv.Refresh();
-        }
 
         private void lstAvailableApplication_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -437,6 +419,19 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var commandInfoProvider = ((ObjectDataProvider)Resources["CommandInfoProvider"]).ObjectInstance as CommandInfoProvider;
             if (commandInfoProvider == null) return;
             commandInfoProvider.RefreshCommandInfos(selectedApp, lstAvailableActions);
+
+            // Always group by finger count, then by action
+            var lcv = lstAvailableActions.ItemsSource as ListCollectionView;
+            if (lcv != null)
+            {
+                lcv.SortDescriptions.Clear();
+                lcv.GroupDescriptions.Clear();
+                lcv.SortDescriptions.Add(new SortDescription(nameof(CommandInfo.FingerCount), ListSortDirection.Ascending));
+                lcv.SortDescriptions.Add(new SortDescription(".", ListSortDirection.Ascending));
+                lcv.GroupDescriptions.Add(new PropertyGroupDescription(nameof(CommandInfo.FingerCount)));
+                lcv.GroupDescriptions.Add(new PropertyGroupDescription(nameof(CommandInfo.Action)));
+                lcv.Refresh();
+            }
 
             ToggleAllActionsToggleSwitch.IsEnabled = true;
             ToggleAllActionsToggleSwitch.IsOn = selectedApp.Actions.SelectMany(a => a.Commands).All(c => c.IsEnabled);
@@ -572,11 +567,18 @@ namespace GestureSign.ControlPanel.MainWindowControls
                                 lstAvailableApplication.SelectedItem = ApplicationManager.Instance.AddApplication(new UserApp(), file);
                                 break;
                             case ".lnk":
-                                WshShell shell = new WshShell();
-                                IWshShortcut link = (IWshShortcut)shell.CreateShortcut(file);
-                                if (Path.GetExtension(link.TargetPath).ToLower() == ".exe")
+                                try
                                 {
-                                    lstAvailableApplication.SelectedItem = ApplicationManager.Instance.AddApplication(new UserApp(), link.TargetPath);
+                                    WshShell shell = new WshShell();
+                                    IWshShortcut link = (IWshShortcut)shell.CreateShortcut(file);
+                                    if (Path.GetExtension(link.TargetPath).ToLower() == ".exe")
+                                    {
+                                        lstAvailableApplication.SelectedItem = ApplicationManager.Instance.AddApplication(new UserApp(), link.TargetPath);
+                                    }
+                                }
+                                catch (System.Runtime.InteropServices.COMException)
+                                {
+                                    // COM component not available, skip .lnk file
                                 }
                                 break;
                             case GestureSign.Common.Constants.ArchivesExtension:

@@ -29,8 +29,17 @@ namespace GestureSign.ControlPanel
 
         private void Application_Startup(object sender, StartupEventArgs e)
         {
+            // DEBUG: Write to a test file to verify code execution
+            try
+            {
+                System.IO.File.WriteAllText(@"C:\Users\shich\AppData\Local\GestureSign\ControlPanel_STARTUP_TEST.txt",
+                    $"ControlPanel Application_Startup called at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            }
+            catch { }
+
             Logging.LoggedExceptionOccurred += (o, ex) => ShowException(ex);
-            Logging.OpenLogFile();
+            var logOpened = Logging.OpenLogFile();
+            Logging.LogMessage($"[ControlPanel] Application_Startup - ControlPanel starting... (LogOpened: {logOpened})");
             LoadLanguageData();
 
             bool createdNew;

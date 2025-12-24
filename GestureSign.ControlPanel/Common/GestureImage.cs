@@ -62,6 +62,26 @@ namespace GestureSign.ControlPanel.Common
                 return null;
 
             DrawingGroup drawingGroup = new DrawingGroup();
+
+            // Add finger count text if available
+            if (pointPatterns.Length > 0 && pointPatterns[0].FingerCount > 0)
+            {
+                FormattedText formattedText = new FormattedText(
+                    pointPatterns[0].FingerCount.ToString(),
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface("Arial"),
+                    size.Height / 4,
+                    new SolidColorBrush(color));
+
+                GeometryDrawing textDrawing = new GeometryDrawing(
+                    new SolidColorBrush(color),
+                    null,
+                    formattedText.BuildGeometry(new Point(size.Width - formattedText.Width - 5, 5)));
+                textDrawing.Freeze();
+                drawingGroup.Children.Add(textDrawing);
+            }
+
             for (int i = 0; i < pointPatterns.Length; i++)
             {
                 PathGeometry pathGeometry = new PathGeometry();
