@@ -56,6 +56,8 @@ namespace GestureSign.ControlPanel.Flyouts
             var processInfoMap = new Dictionary<uint, string>();
             try
             {
+                // Try to use System.Management if available (for performance)
+                // If not available, we'll fall back to Process.MainModule for each window
                 using (var searcher = new ManagementObjectSearcher("SELECT ProcessId, Name FROM Win32_Process"))
                 using (var results = searcher.Get())
                 {
@@ -70,8 +72,13 @@ namespace GestureSign.ControlPanel.Flyouts
                         }
                     }
                 }
+                Logging.LogMessage("[RuningApplicationsFlyout] Successfully loaded process info via System.Management");
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // System.Management might not be available - log and continue with fallback method
+                Logging.LogMessage($"[RuningApplicationsFlyout] System.Management not available (using fallback): {ex.Message}");
+            }
 
             // Get valid running windows
             var windows = SystemWindow.AllToplevelWindows.Where

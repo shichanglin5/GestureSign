@@ -44,8 +44,15 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 ? LocalizationProvider.Instance.GetTextValue("Gesture.Messages.DeleteGestureConfirm")
                 : string.Format("确定要删除这 {0} 个手势吗？", gestureCount);
 
-            if (UIHelper.GetParentWindow(this)
-                    .ShowModalMessageExternal(
+            var parentWindow = UIHelper.GetParentWindow(this);
+            if (parentWindow == null)
+            {
+                // Log the error - parent window not found
+                GestureSign.Common.Log.Logging.LogMessage("[AvailableGestures] btnDelGesture_Click - Parent window is null, cannot show dialog");
+                return;
+            }
+
+            if (parentWindow.ShowModalMessageExternal(
                         LocalizationProvider.Instance.GetTextValue("Gesture.Messages.DeleteConfirmTitle"),
                         confirmMessage,
                         MessageDialogStyle.AffirmativeAndNegative,

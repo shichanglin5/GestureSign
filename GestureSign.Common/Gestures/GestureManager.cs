@@ -85,6 +85,13 @@ namespace GestureSign.Common.Gestures
         {
             var pointCapture = (IPointCapture)sender;
 
+            Log.Logging.LogMessage($"[GestureManager] PointCapture_BeforePointsCaptured - Mode: {pointCapture.Mode}");
+            Log.Logging.LogMessage($"[GestureManager] Input - Points.Count: {e.Points.Count}, FingerCount: {e.FingerCount}");
+            for (int i = 0; i < e.Points.Count; i++)
+            {
+                Log.Logging.LogMessage($"[GestureManager] Input Points[{i}]: {e.Points[i].Count} points");
+            }
+
             if (_isGestureStackTimeout)
             {
                 _lastGestureTime = null;
@@ -101,7 +108,14 @@ namespace GestureSign.Common.Gestures
             }
 
             var sourceGesture = _gestureLevel == 0 ? _Gestures : _gestureMatchResult;
-            GestureName = GetGestureSetNameMatch(e.Points.Select(l => l.ToArray()).ToArray(), e.FingerCount, sourceGesture, _gestureLevel, out _gestureMatchResult);
+            Log.Logging.LogMessage($"[GestureManager] Total gestures in database: {sourceGesture?.Count ?? 0}, GestureLevel: {_gestureLevel}");
+
+            var capturedPoints = e.Points.Select(l => l.ToArray()).ToArray();
+            Log.Logging.LogMessage($"[GestureManager] Calling GetGestureSetNameMatch with {capturedPoints.Length} trajectories, FingerCount: {e.FingerCount}");
+
+            GestureName = GetGestureSetNameMatch(capturedPoints, e.FingerCount, sourceGesture, _gestureLevel, out _gestureMatchResult);
+
+            Log.Logging.LogMessage($"[GestureManager] Match result: {GestureName ?? "NULL"}");
 
             if (pointCapture.Mode != CaptureMode.Training)
             {
@@ -255,91 +269,137 @@ namespace GestureSign.Common.Gestures
 
         public static List<IGesture> LoadGesturesFromFile(string filePath, bool throwException = false)
         {
-            if (!File.Exists(filePath)) return null;
+
+            if (!File.Exists(filePath))
+            {
+                Log.Logging.LogMessage($"[LoadGesturesFromFile] File does not exist");
+                return null;
+            }
 
             FileManager.WaitFile(filePath);
 
             List<IGesture> gestureList = new List<IGesture>();
+            int totalGesturesInFile = 0;
+            int skippedLegacyGestures = 0;
+
             try
             {
                 string json = File.ReadAllText(filePath);
+
                 JsonTextReader reader = new JsonTextReader(new StringReader(json));
+
                 while (reader.Read())
                 {
                     if (reader.TokenType == JsonToken.StartObject)
                     {
+                        totalGesturesInFile++;
                         Gesture gesture = new Gesture();
                         List<PointPattern> pointPatternList = new List<PointPattern>();
                         string gestureName = null;
                         int fingerCount = 0;
+                        int totalPointPatternsInGesture = 0;
 
                         while (reader.Read())
                         {
                             if (reader.TokenType == JsonToken.EndObject)
                             {
-                                // Reached end of this gesture object, update PointPatterns with correct FingerCount
-                                if (pointPatternList.Count > 0)
+                                // Update PointPatterns with FingerCount
+                                foreach (var pp in pointPatternList)
                                 {
-                                    // Update all PointPatterns with the gesture's FingerCount
-                                    foreach (var pp in pointPatternList)
-                                    {
-                                        pp.FingerCount = fingerCount;
-                                    }
+                                    pp.FingerCount = fingerCount;
                                 }
 
                                 gesture.Name = gestureName;
                                 gesture.FingerCount = fingerCount;
                                 gesture.PointPatterns = pointPatternList.ToArray();
 
-                                if (gesture.Name != null && gesture.PointPatterns != null)
+                                // Only add gesture if it has valid patterns
+                                if (gesture.Name != null && gesture.PointPatterns != null && gesture.PointPatterns.Length > 0)
                                 {
                                     gestureList.Add(gesture);
+                                }
+                                else
+                                {
+                                    if (totalPointPatternsInGesture > 0)
+                                    {
+                                        skippedLegacyGestures++;
+                                        Log.Logging.LogMessage($"[LoadGesturesFromFile] Skipped legacy gesture '{gestureName}': Had {totalPointPatternsInGesture} PointPatterns but all were filtered (2-trajectory format)");
+                                    }
                                 }
                                 break;
                             }
 
                             if (reader.TokenType != JsonToken.PropertyName) continue;
-                            switch ((string)reader.Value)
+
+                            string propertyName = (string)reader.Value;
+                            if (propertyName == "Name")
                             {
-                                case nameof(Gesture.Name):
+                                gestureName = reader.ReadAsString();
+                            }
+                            else if (propertyName == "FingerCount")
+                            {
+                                fingerCount = reader.ReadAsInt32() ?? 0;
+                            }
+                            else if (propertyName == "PointPatterns")
+                            {
+                                // Read PointPatterns array
+                                if (!reader.Read() || reader.TokenType != JsonToken.StartArray) continue;
+
+                                while (reader.Read() && reader.TokenType != JsonToken.EndArray)
+                                {
+                                    if (reader.TokenType == JsonToken.StartObject)
                                     {
-                                        gestureName = reader.ReadAsString();
-                                        break;
-                                    }
-                                case nameof(Gesture.FingerCount):
-                                    {
-                                        fingerCount = reader.ReadAsInt32() ?? 0;
-                                        break;
-                                    }
-                                case nameof(Gesture.PointPatterns):
-                                    {
-                                        while (reader.Read() && reader.TokenType != JsonToken.EndArray)
+                                        totalPointPatternsInGesture++;
+                                        // Read PointPattern object
+                                        List<Point[]> strokeList = null;
+
+                                        while (reader.Read() && reader.TokenType != JsonToken.EndObject)
                                         {
-                                            if (reader.TokenType == JsonToken.StartArray)
+                                            if (reader.TokenType == JsonToken.PropertyName && (string)reader.Value == "Points")
                                             {
-                                                var strokeList = new List<Point[]>();
+                                                // Read Points array
+                                                if (!reader.Read() || reader.TokenType != JsonToken.StartArray) continue;
+
+                                                strokeList = new List<Point[]>();
                                                 while (reader.Read() && reader.TokenType != JsonToken.EndArray)
                                                 {
                                                     if (reader.TokenType == JsonToken.StartArray)
                                                     {
+                                                        // Read stroke (array of point strings)
                                                         var stroke = new List<Point>();
                                                         while (reader.Read() && reader.TokenType != JsonToken.EndArray)
                                                         {
                                                             if (reader.TokenType == JsonToken.String)
                                                             {
-                                                                var num = ((string)reader.Value).Split(',');
-                                                                stroke.Add(new Point(Convert.ToInt32(num[0]), Convert.ToInt32(num[1])));
+                                                                var parts = ((string)reader.Value).Split(',');
+                                                                if (parts.Length == 2)
+                                                                {
+                                                                    stroke.Add(new Point(
+                                                                        Convert.ToInt32(parts[0].Trim()),
+                                                                        Convert.ToInt32(parts[1].Trim())));
+                                                                }
                                                             }
                                                         }
-                                                        strokeList.Add(stroke.ToArray());
+                                                        if (stroke.Count > 0)
+                                                        {
+                                                            strokeList.Add(stroke.ToArray());
+                                                        }
                                                     }
                                                 }
-                                                PointPattern pointPattern = new PointPattern(strokeList.ToArray(), 0);
-                                                pointPatternList.Add(pointPattern);
                                             }
                                         }
-                                        break;
+
+                                        // Only add if we have exactly 1 trajectory (skip legacy 2-trajectory format)
+                                        if (strokeList != null && strokeList.Count == 1)
+                                        {
+                                            pointPatternList.Add(new PointPattern(strokeList.ToArray(), 0));
+                                        }
+                                        else if (strokeList != null && strokeList.Count > 1)
+                                        {
+                                            Log.Logging.LogMessage($"[LoadGesturesFromFile] Filtering out PointPattern with {strokeList.Count} trajectories (legacy 2-trajectory format)");
+                                        }
                                     }
+                                }
                             }
                         }
                     }
@@ -353,13 +413,34 @@ namespace GestureSign.Common.Gestures
                 return null;
             }
 
+
+            // Log details of loaded gestures
+            foreach (var gesture in gestureList)
+            {
+                int totalPoints = 0;
+                foreach (var pp in gesture.PointPatterns)
+                {
+                    if (pp.Points != null)
+                    {
+                        totalPoints += pp.Points.Length;
+                    }
+                }
+            }
+
             return gestureList;
         }
 
         public string GetGestureSetNameMatch(Point[][] points, int fingerCount, List<IGesture> sourceGestures, int sourceGestureLevel, out List<IGesture> matching)//PointF[]
         {
+            Log.Logging.LogMessage($"[GetGestureSetNameMatch] Input - Trajectories: {points.Length}, FingerCount: {fingerCount}, SourceGestures: {sourceGestures?.Count ?? 0}, Level: {sourceGestureLevel}");
+
             if (points.Length == 0 || sourceGestures == null || sourceGestures.Count == 0)
-            { matching = null; return null; }
+            {
+                Log.Logging.LogMessage($"[GetGestureSetNameMatch] Early exit - points.Length={points.Length}, sourceGestures={(sourceGestures == null ? "null" : sourceGestures.Count.ToString())}");
+                matching = null;
+                return null;
+            }
+
             // Update gesture analyzer with latest gestures and get gesture match from current points array
             // Comparison results are sorted descending from highest to lowest probability
             var gestures =
@@ -368,12 +449,41 @@ namespace GestureSign.Common.Gestures
                         g.PointPatterns[sourceGestureLevel].Points != null &&
                         g.PointPatterns[sourceGestureLevel].Points.Length == points.Length &&
                         g.FingerCount == fingerCount).ToList();
+
+            Log.Logging.LogMessage($"[GetGestureSetNameMatch] Filtered candidates: {gestures.Count}");
+
+            // Log filtering details for debugging
+            foreach (var g in sourceGestures)
+            {
+                bool hasPointPatterns = g.PointPatterns != null && g.PointPatterns.Length > sourceGestureLevel;
+                int? pointsLength = hasPointPatterns && g.PointPatterns[sourceGestureLevel].Points != null
+                    ? g.PointPatterns[sourceGestureLevel].Points.Length
+                    : (int?)null;
+                bool lengthMatch = pointsLength == points.Length;
+                bool fingerMatch = g.FingerCount == fingerCount;
+
+                Log.Logging.LogMessage($"[GetGestureSetNameMatch] Gesture '{g.Name}': PointPatterns={hasPointPatterns}, Points.Length={pointsLength}, LengthMatch={lengthMatch}, FingerCount={g.FingerCount}, FingerMatch={fingerMatch}");
+            }
+
+            if (gestures.Count == 0)
+            {
+                Log.Logging.LogMessage($"[GetGestureSetNameMatch] No matching gestures found after filtering");
+                matching = null;
+                return null;
+            }
+
             List<PointPatternMatchResult>[] comparisonResults = new List<PointPatternMatchResult>[points.Length];
             for (int i = 0; i < points.Length; i++)
             {
                 gestureAnalyzer.PointPatternSet = gestures.Select(gesture => new PointsPatternSet(gesture.Name, gesture.PointPatterns[sourceGestureLevel].Points[i]));
                 comparisonResults[i] = new List<PointPatternMatchResult>(gestures.Count);
                 comparisonResults[i].AddRange(gestureAnalyzer.GetPointPatternMatchResults(points[i]));
+
+                // Log match probabilities
+                foreach (var result in comparisonResults[i])
+                {
+                    Log.Logging.LogMessage($"[GetGestureSetNameMatch] Trajectory[{i}] - Gesture '{result.Name}': Probability={result.Probability:F2}%");
+                }
             }
 
             var numbers = Enumerable.Range(0, gestures.Count);

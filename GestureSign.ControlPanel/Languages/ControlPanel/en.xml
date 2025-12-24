@@ -234,6 +234,7 @@ Email:ccfyzh@gmail.com
     <PickColor>Pick Color...</PickColor>
     <SystemColor>Follow System Color</SystemColor>
     <MinimumPointDistance>Minimum Point Distance {0:F0} px</MinimumPointDistance>
+    <FeatureFingerIndex>Feature Finger Index {0:F0} ({0:F0}th finger)</FeatureFingerIndex>
     <Backup>Backup All User Data</Backup>
     <Restore>Restore User Data</Restore>
     <OpenConfigFolder>Open Configuration Folder</OpenConfigFolder>
@@ -265,6 +266,9 @@ Email:ccfyzh@gmail.com
     <IgnoreTouchInputWhenUsingPen>
       <Header>Ignore Touch Input When Using Pen</Header>
     </IgnoreTouchInputWhenUsingPen>
+    <BlockWindowsGestures>
+      <Header>Block Windows Default Gestures (GestureSign priority)</Header>
+    </BlockWindowsGestures>
     <ShowTrayIconSwitch>
       <Header>Show Tray Icon</Header>
       <OnLabel>Show</OnLabel>

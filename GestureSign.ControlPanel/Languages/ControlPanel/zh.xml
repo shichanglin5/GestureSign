@@ -238,6 +238,7 @@ QQ交流群：576981420
     <PickColor>选择颜色..</PickColor>
     <SystemColor>使用系统主题色</SystemColor>
     <MinimumPointDistance>最小点距 {0:F0} px</MinimumPointDistance>
+    <FeatureFingerIndex>特征手指索引 {0:F0} (第{0:F0}个手指)</FeatureFingerIndex>
     <Backup>备份所有设置</Backup>
     <Restore>导入设置</Restore>
     <BackupFile>GestureSign备份文件</BackupFile>
@@ -269,6 +270,9 @@ QQ交流群：576981420
     <IgnoreTouchInputWhenUsingPen>
       <Header>使用笔时忽略触摸输入</Header>
     </IgnoreTouchInputWhenUsingPen>
+    <BlockWindowsGestures>
+      <Header>阻止Windows默认手势（让GestureSign优先）</Header>
+    </BlockWindowsGestures>
     <ShowTrayIconSwitch>
       <Header>任务栏图标</Header>
       <OnLabel>显示</OnLabel>

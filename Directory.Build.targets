@@ -7,11 +7,12 @@
     <PackageOutputDir>D:\wd\soft\GestureSign</PackageOutputDir>
   </PropertyGroup>
 
-  <!-- Package target - only run for Release configuration and only for main projects -->
-  <Target Name="Package" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND ('$(AssemblyName)' == 'GestureSign' OR '$(AssemblyName)' == 'GestureSignControlPanel')">
+  <!-- Package target - run for both Debug and Release, only for main projects -->
+  <Target Name="Package" AfterTargets="Build" Condition="'$(AssemblyName)' == 'GestureSign' OR '$(AssemblyName)' == 'GestureSignControlPanel'">
 
     <Message Text="========================================" Importance="high" />
-    <Message Text="Packaging $(AssemblyName) to $(PackageOutputDir)" Importance="high" />
+    <Message Text="Packaging $(AssemblyName) [$(Configuration)] to $(PackageOutputDir)" Importance="high" />
+    <Message Text="Output directory: $(OutDir)" Importance="high" />
     <Message Text="========================================" Importance="high" />
 
     <!-- Create output directory if it doesn't exist -->
@@ -36,6 +37,8 @@
       <DependencyDlls Include="$(OutDir)*.dll"
                       Exclude="$(OutDir)$(AssemblyName).dll" />
       <DependencyConfigs Include="$(OutDir)*.dll.config" />
+      <!-- Also copy runtime-specific DLLs from runtimes folder if they exist -->
+      <RuntimeDlls Include="$(OutDir)runtimes\**\*.dll" />
     </ItemGroup>
 
     <Copy SourceFiles="@(DependencyDlls)"
@@ -45,6 +48,12 @@
     <Copy SourceFiles="@(DependencyConfigs)"
           DestinationFolder="$(PackageOutputDir)"
           SkipUnchangedFiles="true" />
+
+    <!-- Copy runtime-specific DLLs maintaining folder structure -->
+    <Copy SourceFiles="@(RuntimeDlls)"
+          DestinationFolder="$(PackageOutputDir)\runtimes\%(RecursiveDir)"
+          SkipUnchangedFiles="true"
+          Condition="'@(RuntimeDlls)' != ''" />
 
     <!-- Copy Languages directory -->
     <ItemGroup>

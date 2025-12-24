@@ -118,6 +118,20 @@
                     Maximum="100"
                     Minimum="3"
                     ValueChanged="MinimumPointDistanceSlider_ValueChanged" />
+            <TextBlock x:Name="FeatureFingerIndexText"
+                       HorizontalAlignment="Center"
+                       TextWrapping="Wrap"
+                       Text="{Binding ElementName=FeatureFingerIndexSlider, Path=Value, StringFormat={localization:LocalisedText Options.FeatureFingerIndex}}"
+                       VerticalAlignment="Top"
+                       Margin="15,15,5,3"
+                       FontSize="14" />
+            <Slider x:Name="FeatureFingerIndexSlider"
+                    Maximum="4"
+                    Minimum="0"
+                    SmallChange="1"
+                    IsSnapToTickEnabled="True"
+                    TickFrequency="1"
+                    ValueChanged="FeatureFingerIndexSlider_ValueChanged" />
             <TextBlock Text="{localization:LocalisedText Options.Language}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Top"
@@ -269,6 +283,11 @@
                                    OnContent="{localization:LocalisedText Options.OnLabel}"
                                    OffContent="{localization:LocalisedText Options.OffLabel}"
                                    Toggled="IgnoreTouchInputWhenUsingPenSwitch_Click" />
+            <controls:ToggleSwitch x:Name="BlockWindowsGesturesSwitch"
+                                   Header="{localization:LocalisedText Options.BlockWindowsGestures.Header}"
+                                   OnContent="{localization:LocalisedText Options.OnLabel}"
+                                   OffContent="{localization:LocalisedText Options.OffLabel}"
+                                   Toggled="BlockWindowsGesturesSwitch_Click" />
             <controls:ToggleSwitch x:Name="ShowTrayIconSwitch"
                                    Header="{localization:LocalisedText Options.ShowTrayIconSwitch.Header}"
                                    OnContent="{localization:LocalisedText Options.ShowTrayIconSwitch.OnLabel}"

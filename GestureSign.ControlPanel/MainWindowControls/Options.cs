@@ -48,6 +48,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 _VisualFeedbackColor = AppConfig.VisualFeedbackColor;
                 VisualFeedbackWidthSlider.Value = AppConfig.VisualFeedbackWidth;
                 MinimumPointDistanceSlider.Value = AppConfig.MinimumPointDistance;
+                FeatureFingerIndexSlider.Value = AppConfig.FeatureFingerIndex;
                 OpacitySlider.Value = AppConfig.Opacity;
                 ShowTrayIconSwitch.IsOn = AppConfig.ShowTrayIcon;
                 SendLogToggleSwitch.IsOn = AppConfig.SendErrorReport;
@@ -55,6 +56,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 TouchScreenSwitch.IsOn = AppConfig.RegisterTouchScreen;
                 IgnoreFullScreenSwitch.IsOn = AppConfig.IgnoreFullScreen;
                 IgnoreTouchInputWhenUsingPenSwitch.IsOn = AppConfig.IgnoreTouchInputWhenUsingPen;
+                BlockWindowsGesturesSwitch.IsOn = AppConfig.BlockWindowsGestures;
                 if (AppConfig.DrawingButton != MouseActions.None)
                 {
                     MouseSwitch.IsOn = true;
@@ -150,6 +152,13 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var newValue = (int)Math.Round(e.NewValue);
             if (newValue == AppConfig.MinimumPointDistance || (int)e.OldValue == 0) return;
             AppConfig.MinimumPointDistance = newValue;
+        }
+
+        private void FeatureFingerIndexSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var newValue = (int)Math.Round(e.NewValue);
+            if (newValue == AppConfig.FeatureFingerIndex || (int)e.OldValue == 0) return;
+            AppConfig.FeatureFingerIndex = newValue;
         }
 
         private int GetAlphaPercentage(double Alpha)
@@ -363,6 +372,11 @@ namespace GestureSign.ControlPanel.MainWindowControls
         private void IgnoreTouchInputWhenUsingPenSwitch_Click(object sender, RoutedEventArgs e)
         {
             AppConfig.IgnoreTouchInputWhenUsingPen = IgnoreTouchInputWhenUsingPenSwitch.IsOn;
+        }
+
+        private void BlockWindowsGesturesSwitch_Click(object sender, RoutedEventArgs e)
+        {
+            AppConfig.BlockWindowsGestures = BlockWindowsGesturesSwitch.IsOn;
         }
 
         private void InitialTimeoutSwitch_Click(object sender, RoutedEventArgs e)

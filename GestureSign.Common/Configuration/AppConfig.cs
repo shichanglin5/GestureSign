@@ -311,6 +311,30 @@ namespace GestureSign.Common.Configuration
             }
         }
 
+        public static int FeatureFingerIndex
+        {
+            get
+            {
+                return (int)GetValue(nameof(FeatureFingerIndex), 1);
+            }
+            set
+            {
+                SetValue(nameof(FeatureFingerIndex), value);
+            }
+        }
+
+        public static bool BlockWindowsGestures
+        {
+            get
+            {
+                return GetValue(nameof(BlockWindowsGestures), false);
+            }
+            set
+            {
+                SetValue(nameof(BlockWindowsGestures), value);
+            }
+        }
+
         #endregion
 
         static AppConfig()

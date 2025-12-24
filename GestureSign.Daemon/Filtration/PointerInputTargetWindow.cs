@@ -51,17 +51,30 @@ namespace GestureSign.Daemon.Filtration
             {
                 if (value)
                 {
-                    if (_isRegistered || !AppConfig.UiAccess) return;
+                    if (_isRegistered) return;
 
                     if (!_isInitialized)
                     {
-                        NativeMethods.InitializeTouchInjection(10, TOUCH_FEEDBACK.NONE);
-                        _isInitialized = true;
+                        try
+                        {
+                            NativeMethods.InitializeTouchInjection(10, TOUCH_FEEDBACK.NONE);
+                            _isInitialized = true;
+                        }
+                        catch
+                        {
+                            // InitializeTouchInjection requires UIAccess, but RegisterPointerInputTarget might still work
+                            // so we continue anyway
+                        }
                     }
 
                     if (NativeMethods.RegisterPointerInputTarget(Handle, POINTER_INPUT_TYPE.TOUCH))
                     {
                         _isRegistered = true;
+                        GestureSign.Common.Log.Logging.LogMessage("[PointerInputTargetWindow] Successfully registered as Pointer Input Target");
+                    }
+                    else
+                    {
+                        GestureSign.Common.Log.Logging.LogMessage("[PointerInputTargetWindow] Failed to register as Pointer Input Target - UIAccess may be required");
                     }
                 }
                 else
@@ -138,12 +151,24 @@ namespace GestureSign.Daemon.Filtration
 
             if (pointerInfos.Length != ptis.Count) return;
 
-            if (pointerInfos.Length < _blockTouchInputThreshold ||
-                Input.PointCapture.Instance.State == Common.Input.CaptureState.CapturingInvalid ||
-                _tempDisable)
+            // Decide whether to inject touch input back to Windows
+            // Block conditions:
+            // 1. Finger count >= threshold AND
+            // 2. Currently capturing (including CapturingInvalid state) AND
+            // 3. Not temporarily disabled
+            bool shouldInject = pointerInfos.Length < _blockTouchInputThreshold || _tempDisable;
+
+
+            // If capturing but finger count is enough to block, don't inject
+            if (shouldInject)
             {
                 if (ptis.Count != 0)
+                {
                     NativeMethods.InjectTouchInput(ptis.Count, ptis.ToArray());
+                }
+            }
+            else
+            {
             }
         }
 

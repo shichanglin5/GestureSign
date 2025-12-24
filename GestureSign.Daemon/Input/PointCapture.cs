@@ -40,6 +40,7 @@ namespace GestureSign.Daemon.Input
         private SurfaceForm _surfaceForm;
 
         private System.Threading.Timer _initialTimeoutTimer;
+        private System.Threading.Timer _inactivityTimer;
         SynchronizationContext _currentContext;
 
         private Dictionary<int, List<Point>> _pointsCaptured;
@@ -223,7 +224,9 @@ namespace GestureSign.Daemon.Input
             _winEventGch = GCHandle.Alloc(_winEventDele);
             _hWinEventHook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND, IntPtr.Zero, _winEventDele, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
 
-            if (AppConfig.UiAccess)
+            // Try to use Pointer Input API to block Windows default gestures
+            // This works best with UIAccess, but we'll try anyway
+            try
             {
                 _pointerInputTargetWindow = new PointerInputTargetWindow();
                 ModeChanged += (o, e) =>
@@ -233,6 +236,13 @@ namespace GestureSign.Daemon.Input
                 };
                 _blockTouchDelayTimer = new System.Threading.Timer(UpdateBlockTouchInputThresholdCallback, null, Timeout.Infinite, Timeout.Infinite);
                 ForegroundApplicationsChanged += PointCapture_ForegroundApplicationsChanged;
+
+                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] PointerInputTargetWindow created (UIAccess={AppConfig.UiAccess})");
+            }
+            catch (Exception ex)
+            {
+                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Failed to create PointerInputTargetWindow: {ex.Message}");
+                _pointerInputTargetWindow = null;
             }
 
             SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
@@ -249,6 +259,7 @@ namespace GestureSign.Daemon.Input
                 if (disposing)
                 {
                     _initialTimeoutTimer?.Dispose();
+                    _inactivityTimer?.Dispose();
                     _blockTouchDelayTimer?.Dispose();
                     _pointerInputTargetWindow?.Dispose();
                     _inputProvider?.Dispose();
@@ -331,8 +342,17 @@ namespace GestureSign.Daemon.Input
 
         protected void PointEventTranslator_PointDown(object sender, InputPointsEventArgs e)
         {
+
             if (State == CaptureState.Ready || State == CaptureState.Capturing || State == CaptureState.CapturingInvalid)
             {
+                // If already capturing, don't restart - just update total finger count
+                // This handles cases where finger count changes mid-gesture (e.g., 2 → 3 → 4 fingers)
+                if (State == CaptureState.Capturing || State == CaptureState.CapturingInvalid)
+                {
+                    _totalFingerCount = Math.Max(_totalFingerCount, e.InputPointList.Count);
+                    return;
+                }
+
                 Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
 
                 var timeout = AppConfig.InitialTimeout;
@@ -344,6 +364,13 @@ namespace GestureSign.Daemon.Input
                     }
                     _initialTimeoutTimer.Change(timeout, Timeout.Infinite);
                 }
+
+                // Start inactivity timer to auto-clear stuck gestures (100ms)
+                if (_inactivityTimer == null)
+                {
+                    _inactivityTimer = new System.Threading.Timer(InactivityTimeoutCallback, null, Timeout.Infinite, Timeout.Infinite);
+                }
+                _inactivityTimer.Change(100, Timeout.Infinite);
 
                 // Try to begin capture process, if capture started then don't notify other applications of a Point event, otherwise do
                 if (!TryBeginCapture(e.InputPointList))
@@ -360,12 +387,19 @@ namespace GestureSign.Daemon.Input
             if (State == CaptureState.Capturing || State == CaptureState.CapturingInvalid)
             {
                 AddPoint(e.InputPointList);
+
+                // Reset inactivity timer on each PointMove
+                _inactivityTimer?.Change(100, Timeout.Infinite);
             }
             UpdateBlockTouchInputThreshold();
         }
 
         protected void PointEventTranslator_PointUp(object sender, InputPointsEventArgs e)
         {
+
+            bool condition1 = State == CaptureState.Capturing;
+            bool condition2 = State == CaptureState.CapturingInvalid && (SourceDevice & Devices.TouchDevice) != 0;
+
             if (State == CaptureState.Capturing || State == CaptureState.CapturingInvalid && (SourceDevice & Devices.TouchDevice) != 0)
             {
                 e.Handled = Mode != CaptureMode.UserDisabled;
@@ -433,6 +467,10 @@ namespace GestureSign.Daemon.Input
             UpdateBlockTouchInputThreshold();
             if (_initialTimeoutTimer != null)
                 _initialTimeoutTimer.Change(Timeout.Infinite, Timeout.Infinite);
+            if (_inactivityTimer != null)
+            {
+                _inactivityTimer.Change(Timeout.Infinite, Timeout.Infinite);
+            }
         }
 
         #endregion
@@ -441,7 +479,7 @@ namespace GestureSign.Daemon.Input
 
         private void UpdateBlockTouchInputThreshold(int? threshold = null)
         {
-            if (!AppConfig.UiAccess) return;
+            if (_pointerInputTargetWindow == null || _blockTouchDelayTimer == null) return;
 
             if (threshold != null)
                 _blockTouchInputThreshold = threshold;
@@ -453,9 +491,11 @@ namespace GestureSign.Daemon.Input
         {
             if (!_blockTouchInputThreshold.HasValue) return;
 
+            var threshold = _blockTouchInputThreshold.GetValueOrDefault();
+
             _currentContext.Post((state) =>
             {
-                _pointerInputTargetWindow.BlockTouchInputThreshold = _blockTouchInputThreshold.GetValueOrDefault();
+                _pointerInputTargetWindow.BlockTouchInputThreshold = threshold;
                 _blockTouchInputThreshold = null;
             }, null);
         }
@@ -504,9 +544,39 @@ namespace GestureSign.Daemon.Input
             }, null);
         }
 
+        private void InactivityTimeoutCallback(object o)
+        {
+            _currentContext.Post((state) =>
+            {
+                // Auto-clear stuck gestures if no PointMove received for 100ms
+                if (State == CaptureState.Capturing || State == CaptureState.CapturingInvalid)
+                {
+                    GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Inactivity timeout (100ms) - Auto-clearing stuck gesture, State: {State}");
+
+                    // Force end capture to clear the gesture
+                    try
+                    {
+                        // Trigger AfterPointsCaptured event to clear the surface display
+                        var emptyArgs = new PointsCapturedEventArgs(new List<Point>());
+                        OnAfterPointsCaptured(emptyArgs);
+
+                        State = CaptureState.Ready;
+                        _pointsCaptured?.Clear();
+                        _featureFingerIds?.Clear();
+                        _totalFingerCount = 0;
+
+                        GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Stuck gesture cleared, State reset to Ready, surface cleared");
+                    }
+                    catch (Exception ex)
+                    {
+                        GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Error clearing stuck gesture: {ex.Message}");
+                    }
+                }
+            }, null);
+        }
+
         private bool TryBeginCapture(List<InputPoint> firstPoint)
         {
-            GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] TryBeginCapture - Device: {SourceDevice}, InputPoints: {firstPoint.Count}");
             for (int i = 0; i < firstPoint.Count; i++)
             {
                 GestureSign.Common.Log.Logging.LogMessage($"  InputPoint[{i}]: ID={firstPoint[i].ContactIdentifier}, Point=({firstPoint[i].Point.X},{firstPoint[i].Point.Y})");
@@ -515,42 +585,61 @@ namespace GestureSign.Daemon.Input
             // Record total finger count for gesture matching
             _totalFingerCount = firstPoint.Count;
 
-            // Select feature fingers (leftmost or rightmost 2 fingers)
+            // Select feature finger based on configuration
+            // FeatureFingerIndex: 0-based index (0=leftmost, 1=2nd from left, etc.)
             List<InputPoint> featureFingers;
-            if (firstPoint.Count > 2)
-            {
-                // Sort by X coordinate to find leftmost/rightmost fingers
-                var sortedByX = firstPoint.OrderBy(p => p.Point.X).ToList();
-                featureFingers = AppConfig.IsLeftHanded
-                    ? sortedByX.Skip(sortedByX.Count - 2).ToList()  // Rightmost 2 for left-handed
-                    : sortedByX.Take(2).ToList();                    // Leftmost 2 for right-handed
-                _featureFingerIds = new HashSet<int>(featureFingers.Select(f => f.ContactIdentifier));
-                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Feature fingers selected: {string.Join(", ", _featureFingerIds)} (IsLeftHanded: {AppConfig.IsLeftHanded})");
-            }
-            else
-            {
-                // Use all fingers if 2 or less
-                featureFingers = firstPoint;
-                _featureFingerIds = new HashSet<int>(firstPoint.Select(f => f.ContactIdentifier));
-            }
+            var sortedByX = firstPoint.OrderBy(p => p.Point.X).ToList();
+
+            // Get configured feature finger index, bounded by actual finger count
+            int configuredIndex = AppConfig.FeatureFingerIndex;
+            int actualIndex = Math.Min(configuredIndex, sortedByX.Count - 1);
+
+            featureFingers = new List<InputPoint> { sortedByX[actualIndex] };
+            _featureFingerIds = new HashSet<int> { sortedByX[actualIndex].ContactIdentifier };
+
 
             // Create capture args so we can notify subscribers that capture has started and allow them to cancel if they want.
+            // IMPORTANT: Pass the total finger count, not just feature finger count
             PointsCapturedEventArgs captureStartedArgs;
             if (SourceDevice == Devices.TouchPad)
             {
                 _touchPadStartPoint = System.Windows.Forms.Cursor.Position;
                 captureStartedArgs = new PointsCapturedEventArgs(featureFingers.Select(p => new List<Point>() { p.Point }).ToList(), new List<Point>() { _touchPadStartPoint });
+                captureStartedArgs.FingerCount = _totalFingerCount;
             }
             else
             {
                 captureStartedArgs = new PointsCapturedEventArgs(featureFingers.Select(p => p.Point).ToList());
+                captureStartedArgs.FingerCount = _totalFingerCount;
             }
             OnCaptureStarted(captureStartedArgs);
 
-            UpdateBlockTouchInputThreshold(Mode == CaptureMode.Normal ? captureStartedArgs.BlockTouchInputThreshold : 0);
+
+            // Determine block threshold: use global setting if enabled, otherwise use app-specific setting
+            int blockThreshold = 0;
+            if (Mode == CaptureMode.Normal)
+            {
+
+                if (AppConfig.BlockWindowsGestures && _totalFingerCount >= 2)
+                {
+                    // Block all multi-finger gestures to prevent Windows default behavior
+                    blockThreshold = 2;
+                }
+                else
+                {
+                    blockThreshold = captureStartedArgs.BlockTouchInputThreshold;
+                    if (AppConfig.BlockWindowsGestures == false && _totalFingerCount >= 2)
+                    {
+                    }
+                }
+            }
+
+            UpdateBlockTouchInputThreshold(blockThreshold);
 
             if (captureStartedArgs.Cancel)
+            {
                 return false;
+            }
 
             State = CaptureState.CapturingInvalid;
 
@@ -574,18 +663,26 @@ namespace GestureSign.Daemon.Input
                 }
             }
             AddPoint(featureFingers);
+
             return true;
         }
 
         private void EndCapture()
         {
-            GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] EndCapture - Device: {SourceDevice}, CapturedPoints: {_pointsCaptured.Count}, Mode: {Mode}");
+
+            // Log captured trajectory details
+            int trajectoryIndex = 0;
+            foreach (var trajectory in _pointsCaptured.Values)
+            {
+                trajectoryIndex++;
+            }
 
             // Create points capture event args, to be used to send off to event subscribers or to simulate original Point event
             PointsCapturedEventArgs pointsInformation = SourceDevice == Devices.TouchPad ?
                 new PointsCapturedEventArgs(_pointsCaptured.Values.ToList(), new List<Point>() { _touchPadStartPoint }) :
                 new PointsCapturedEventArgs(new List<List<Point>>(_pointsCaptured.Values), _pointsCaptured.Values.Select(p => p.FirstOrDefault()).ToList());
             pointsInformation.FingerCount = _totalFingerCount;
+
 
             // Notify subscribers that capture has ended （draw end）
             OnCaptureEnded();
@@ -595,13 +692,11 @@ namespace GestureSign.Daemon.Input
             //CaptureWindow GetGestureName
             OnBeforePointsCaptured(pointsInformation);
 
-            GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] After recognition - GestureName: {GestureManager.Instance.GestureName}");
 
             if (pointsInformation.Cancel) return;
 
             if (Mode == CaptureMode.Training && !(_pointsCaptured.Count == 1 && _pointsCaptured.Values.First().Count == 1))
             {
-                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] In Training mode - sending gesture to ControlPanel");
                 _pointPatternCache.Clear();
                 var pointPattern = new PointPattern(_pointsCaptured.Values, _totalFingerCount);
                 _pointPatternCache.Add(pointPattern);
@@ -611,19 +706,16 @@ namespace GestureSign.Daemon.Input
             }
             else
             {
-                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] NOT in Training mode (Mode={Mode})");
             }
 
             // Fire recognized event if we found a gesture match, otherwise throw not recognized event
             if (GestureManager.Instance.GestureName != null)
             {
-                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Gesture recognized: {GestureManager.Instance.GestureName}");
                 List<Point> capturedPoints = SourceDevice == Devices.TouchPad ? new List<Point>() { _touchPadStartPoint } : pointsInformation.FirstCapturedPoints;
                 OnGestureRecognized(new RecognitionEventArgs(GestureManager.Instance.GestureName, pointsInformation.Points, capturedPoints, _pointsCaptured.Keys.ToList()));
             }
             else
             {
-                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Gesture NOT recognized");
             }
             //else
             //    OnGestureNotRecognized(new RecognitionEventArgs(pointsInformation.Points, pointsInformation.FirstCapturedPoints, _pointsCaptured.Keys.ToList()));
@@ -643,23 +735,35 @@ namespace GestureSign.Daemon.Input
         {
             bool getNewPoint = false;
             int threshold = AppConfig.MinimumPointDistance;
+
             foreach (var p in point)
             {
+
                 // Don't accept point if it's within specified distance of last point unless it's the first point
                 if (_pointsCaptured.TryGetValue(p.ContactIdentifier, out List<Point> stroke))
                 {
+
                     if (stroke.Count != 0)
                     {
+                        double distance = PointPatternMath.GetDistance(stroke.Last(), p.Point);
+
                         if (PointPatternMath.GetDistance(stroke.Last(), p.Point) < threshold)
+                        {
                             continue;
+                        }
 
                         if (State == CaptureState.CapturingInvalid)
+                        {
                             State = CaptureState.Capturing;
+                        }
                     }
 
                     getNewPoint = true;
                     // Add point to captured points list
                     stroke.Add(p.Point);
+                }
+                else
+                {
                 }
             }
             if (getNewPoint)
