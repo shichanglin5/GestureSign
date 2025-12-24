@@ -310,12 +310,12 @@
             <controls:ToggleSwitch x:Name="ToggleAllActionsToggleSwitch"
                                    Style="{StaticResource MahApps.Metro.Styles.ToggleSwitch.Win10}"
                                    IsEnabled="False"
-                                   Click="ToggleAllActionsToggleSwitch_Click"
+                                   Toggled="ToggleAllActionsToggleSwitch_Click"
                                    VerticalAlignment="Center"
                                    HorizontalAlignment="Right"
                                    Margin="0,0,15,0"
-                                   OffLabel=""
-                                   OnLabel="" />
+                                   OffContent=""
+                                   OnContent="" />
         </Grid>
         <!--VirtualizingPanel.IsVirtualizingWhenGrouping="True"-->
         <ListBox x:Name="lstAvailableActions"
@@ -467,14 +467,14 @@
                             <ColumnDefinition Width="60" />
                         </Grid.ColumnDefinitions>
                         <controls:ToggleSwitch  Style="{StaticResource MahApps.Metro.Styles.ToggleSwitch.Win10}"
-                                                Click="CommandCheckBox_Click"
+                                                Toggled="CommandCheckBox_Click"
                                                 Grid.Column="1"
-                                                IsChecked="{Binding Path=IsEnabled}"
+                                                IsOn="{Binding Path=IsEnabled}"
                                                 HorizontalAlignment="Right"
                                                 VerticalAlignment="Center"
                                                 Margin="0,0,0,0"
-                                                OffLabel=""
-                                                OnLabel="">
+                                                OffContent=""
+                                                OnContent="">
                         </controls:ToggleSwitch>
                         <TextBlock Grid.Column="0"
                                    TextWrapping="NoWrap"

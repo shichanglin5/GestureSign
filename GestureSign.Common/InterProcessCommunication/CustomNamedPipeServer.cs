@@ -5,6 +5,7 @@ using System.IO.Pipes;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Security.AccessControl;
 using System.Security.Principal;
+#pragma warning disable SYSLIB0011 // BinaryFormatter is obsolete
 
 namespace GestureSign.Common.InterProcessCommunication
 {
@@ -28,7 +29,7 @@ namespace GestureSign.Common.InterProcessCommunication
             PipeSecurity pipeSecurity = new PipeSecurity();
             pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null), PipeAccessRights.ReadWrite, AccessControlType.Allow));
 
-            _namedPipeServer = new NamedPipeServerStream(NamedPipe.GetUserPipeName(pipeName), PipeDirection.In, 1, PipeTransmissionMode.Message,
+            _namedPipeServer = NamedPipeServerStreamAcl.Create(NamedPipe.GetUserPipeName(pipeName), PipeDirection.In, 1, PipeTransmissionMode.Message,
                 PipeOptions.Asynchronous, 0, 0, pipeSecurity);
 
             AsyncCallback ac = null;

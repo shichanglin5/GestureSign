@@ -11,8 +11,7 @@ using GestureSign.Common;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Log;
 using Microsoft.Win32;
-using SharpRaven;
-using SharpRaven.Data;
+using Sentry;
 
 namespace GestureSign.ControlPanel.Log
 {
@@ -20,27 +19,30 @@ namespace GestureSign.ControlPanel.Log
     {
         private const string Dsn = "https://a828c0c755fc493fa93c0f2ac7963e6d:4e74093b0f6a4a438a95b3bb85273e69@sentry.io/141461";
 
-        public static string Send(string report)
+        public static string? Send(string report)
         {
-            string sendError = null;
-            var ravenClient = new RavenClient(Dsn)
+            string? sendError = null;
+            try
             {
-                ErrorOnCapture = e =>
+                SentrySdk.Init(options =>
                 {
-                    Logging.LogException(e);
-                    sendError = e.Message;
-                },
-                Compression = true
-            };
+                    options.Dsn = Dsn;
+                });
 
-            const int chunkSize = 4096;
-            if (!String.IsNullOrWhiteSpace(report))
-            {
-                foreach (string s in Split(report, chunkSize))
+                const int chunkSize = 4096;
+                if (!String.IsNullOrWhiteSpace(report))
                 {
-                    if (s != string.Empty)
-                        ravenClient.Capture(new SentryEvent(s));
+                    foreach (string s in Split(report, chunkSize))
+                    {
+                        if (s != string.Empty)
+                            SentrySdk.CaptureMessage(s);
+                    }
                 }
+            }
+            catch (Exception e)
+            {
+                Logging.LogException(e);
+                sendError = e.Message;
             }
 
             return sendError;

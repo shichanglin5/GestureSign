@@ -14,7 +14,9 @@ using System.Security.Principal;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
+#if ConvertedDesktopApp
 using Windows.Management.Deployment;
+#endif
 
 namespace GestureSign.ControlPanel
 {
@@ -109,6 +111,7 @@ namespace GestureSign.ControlPanel
             return false;
         }
 
+#if ConvertedDesktopApp
         private bool TryLaunchStoreVersion()
         {
             using (var currentUser = WindowsIdentity.GetCurrent())
@@ -137,6 +140,12 @@ namespace GestureSign.ControlPanel
             }
             return false;
         }
+#else
+        private bool TryLaunchStoreVersion()
+        {
+            return false;
+        }
+#endif
 
         private void Application_Exit(object sender, ExitEventArgs e)
         {

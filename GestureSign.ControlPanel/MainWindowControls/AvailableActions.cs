@@ -135,7 +135,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
         {
             CommandInfo info = UIHelper.GetParentDependencyObject<ListBoxItem>(sender as ToggleSwitch).Content as CommandInfo;
             if (info == null) return;
-            info.Command.IsEnabled = (sender as ToggleSwitch).IsChecked.Value;
+            info.Command.IsEnabled = (sender as ToggleSwitch).IsOn;
             ApplicationManager.Instance.SaveApplications();
         }
 
@@ -439,7 +439,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
             commandInfoProvider.RefreshCommandInfos(selectedApp, lstAvailableActions);
 
             ToggleAllActionsToggleSwitch.IsEnabled = true;
-            ToggleAllActionsToggleSwitch.IsChecked = selectedApp.Actions.SelectMany(a => a.Commands).All(c => c.IsEnabled);
+            ToggleAllActionsToggleSwitch.IsOn = selectedApp.Actions.SelectMany(a => a.Commands).All(c => c.IsEnabled);
 
             Dispatcher.InvokeAsync(() => lstAvailableApplication.ScrollIntoView(selectedApp), DispatcherPriority.Background);
         }
@@ -518,13 +518,13 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 if (app == null) return;
                 foreach (var command in app.Actions.SelectMany(a => a.Commands))
                 {
-                    command.IsEnabled = toggleSwitch.IsChecked.Value;
+                    command.IsEnabled = toggleSwitch.IsOn;
                 }
                 ApplicationManager.Instance.SaveApplications();
 
                 foreach (CommandInfo ai in lstAvailableActions.Items)
                 {
-                    ai.IsEnabled = toggleSwitch.IsChecked.Value;
+                    ai.IsEnabled = toggleSwitch.IsOn;
                 }
             }
             catch { }

@@ -44,20 +44,20 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 //  Common.Configuration.AppConfig.Reload();
                 CheckStartupStatus();
 
-                GestureTrailSwitch.IsChecked = AppConfig.VisualFeedbackWidth > 0;
+                GestureTrailSwitch.IsOn = AppConfig.VisualFeedbackWidth > 0;
                 _VisualFeedbackColor = AppConfig.VisualFeedbackColor;
                 VisualFeedbackWidthSlider.Value = AppConfig.VisualFeedbackWidth;
                 MinimumPointDistanceSlider.Value = AppConfig.MinimumPointDistance;
                 OpacitySlider.Value = AppConfig.Opacity;
-                ShowTrayIconSwitch.IsChecked = AppConfig.ShowTrayIcon;
-                SendLogToggleSwitch.IsChecked = AppConfig.SendErrorReport;
-                TouchPadSwitch.IsChecked = AppConfig.RegisterTouchPad;
-                TouchScreenSwitch.IsChecked = AppConfig.RegisterTouchScreen;
-                IgnoreFullScreenSwitch.IsChecked = AppConfig.IgnoreFullScreen;
-                IgnoreTouchInputWhenUsingPenSwitch.IsChecked = AppConfig.IgnoreTouchInputWhenUsingPen;
+                ShowTrayIconSwitch.IsOn = AppConfig.ShowTrayIcon;
+                SendLogToggleSwitch.IsOn = AppConfig.SendErrorReport;
+                TouchPadSwitch.IsOn = AppConfig.RegisterTouchPad;
+                TouchScreenSwitch.IsOn = AppConfig.RegisterTouchScreen;
+                IgnoreFullScreenSwitch.IsOn = AppConfig.IgnoreFullScreen;
+                IgnoreTouchInputWhenUsingPenSwitch.IsOn = AppConfig.IgnoreTouchInputWhenUsingPen;
                 if (AppConfig.DrawingButton != MouseActions.None)
                 {
-                    MouseSwitch.IsChecked = true;
+                    MouseSwitch.IsOn = true;
                     DrawingButtonComboBox.SelectedValue = AppConfig.DrawingButton;
                 }
 
@@ -65,14 +65,14 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 LanguageComboBox.SelectedValue = AppConfig.CultureName;
                 if (AppConfig.InitialTimeout > 0)
                 {
-                    InitialTimeoutSwitch.IsChecked = true;
+                    InitialTimeoutSwitch.IsOn = true;
                     InitialTimeoutSlider.Value = AppConfig.InitialTimeout / 1000f;
                 }
 
                 var penState = AppConfig.PenGestureButton;
                 if ((penState & (DeviceStates.InRange | DeviceStates.Tip)) != 0 && (penState & (DeviceStates.RightClickButton | DeviceStates.Invert)) != 0)
                 {
-                    PenGestureSwitch.IsChecked = true;
+                    PenGestureSwitch.IsOn = true;
                     TipCheckBox.IsChecked = penState.HasFlag(DeviceStates.Tip);
                     HoverCheckBox.IsChecked = penState.HasFlag(DeviceStates.InRange);
                     RightClickButtonCheckBox.IsChecked = penState.HasFlag(DeviceStates.RightClickButton);
@@ -80,7 +80,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 }
                 else
                 {
-                    PenGestureSwitch.IsChecked = false;
+                    PenGestureSwitch.IsOn = false;
                 }
                 CheckDeviceStates();
             }
@@ -197,7 +197,8 @@ namespace GestureSign.ControlPanel.MainWindowControls
         {
             if (StartupHelper.IsRunAsAdmin)
             {
-                StartupSwitch.IsChecked = RunAsAdminCheckBox.IsChecked = true;
+                StartupSwitch.IsOn = true;
+                RunAsAdminCheckBox.IsChecked = true;
             }
             else
             {
@@ -209,11 +210,11 @@ namespace GestureSign.ControlPanel.MainWindowControls
                     bool result = t.Result;
                     Dispatcher.Invoke(() =>
                     {
-                        StartupSwitch.IsChecked = result;
+                        StartupSwitch.IsOn = result;
                     }, System.Windows.Threading.DispatcherPriority.Background);
                 });
 #else
-                StartupSwitch.IsChecked = StartupHelper.GetStartupStatus();
+                StartupSwitch.IsOn = StartupHelper.GetStartupStatus();
 #endif
 
             }
@@ -228,14 +229,14 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 {
                     Dispatcher.Invoke(() =>
                     {
-                        StartupSwitch.IsChecked = false;
+                        StartupSwitch.IsOn = false;
                     }, System.Windows.Threading.DispatcherPriority.Background);
                 }
             });
 #else
             if (!StartupHelper.EnableNormalStartup())
             {
-                StartupSwitch.IsChecked = false;
+                StartupSwitch.IsOn = false;
             }
 #endif
         }
@@ -249,7 +250,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 {
                     Dispatcher.Invoke(() =>
                     {
-                        StartupSwitch.IsChecked = true;
+                        StartupSwitch.IsOn = true;
                     }, System.Windows.Threading.DispatcherPriority.Background);
                 }
             });
@@ -257,7 +258,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
             if (!StartupHelper.DisableNormalStartup())
             {
-                StartupSwitch.IsChecked = true;
+                StartupSwitch.IsOn = true;
             }
 #endif
         }
@@ -266,7 +267,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
         {
             try
             {
-                if (StartupSwitch.IsChecked.GetValueOrDefault())
+                if (StartupSwitch.IsOn)
                 {
                     EnableStartup();
                 }
@@ -315,24 +316,14 @@ namespace GestureSign.ControlPanel.MainWindowControls
             }
         }
 
-        private void ShowTrayIconSwitch_Checked(object sender, RoutedEventArgs e)
+        private void ShowTrayIconSwitch_Toggled(object sender, RoutedEventArgs e)
         {
-            AppConfig.ShowTrayIcon = true;
+            AppConfig.ShowTrayIcon = ShowTrayIconSwitch.IsOn;
         }
 
-        private void ShowTrayIconSwitch_Unchecked(object sender, RoutedEventArgs e)
+        private void SendLogToggleSwitch_Toggled(object sender, RoutedEventArgs e)
         {
-            AppConfig.ShowTrayIcon = false;
-        }
-
-        private void SendLogToggleSwitch_Checked(object sender, RoutedEventArgs e)
-        {
-            AppConfig.SendErrorReport = true;
-        }
-
-        private void SendLogToggleSwitch_Unchecked(object sender, RoutedEventArgs e)
-        {
-            AppConfig.SendErrorReport = false;
+            AppConfig.SendErrorReport = SendLogToggleSwitch.IsOn;
         }
 
         private void LanguageComboBox_DropDownClosed(object sender, EventArgs e)
@@ -343,7 +334,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void MouseSwitch_Click(object sender, RoutedEventArgs e)
         {
-            if (MouseSwitch.IsChecked != null && MouseSwitch.IsChecked.Value)
+            if (MouseSwitch.IsOn != null && MouseSwitch.IsOn)
                 DrawingButtonComboBox.SelectedValue = AppConfig.DrawingButton = MouseActions.Right;
             else AppConfig.DrawingButton = MouseActions.None;
         }
@@ -355,27 +346,27 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void TouchScreenSwitch_Click(object sender, RoutedEventArgs e)
         {
-            AppConfig.RegisterTouchScreen = TouchScreenSwitch.IsChecked.GetValueOrDefault();
+            AppConfig.RegisterTouchScreen = TouchScreenSwitch.IsOn;
         }
 
         private void TouchPadSwitch_Click(object sender, RoutedEventArgs e)
         {
-            AppConfig.RegisterTouchPad = TouchPadSwitch.IsChecked != null && TouchPadSwitch.IsChecked.Value;
+            AppConfig.RegisterTouchPad = TouchPadSwitch.IsOn != null && TouchPadSwitch.IsOn;
         }
 
         private void IgnoreFullScreenSwitch_Click(object sender, RoutedEventArgs e)
         {
-            AppConfig.IgnoreFullScreen = IgnoreFullScreenSwitch.IsChecked.GetValueOrDefault();
+            AppConfig.IgnoreFullScreen = IgnoreFullScreenSwitch.IsOn;
         }
 
         private void IgnoreTouchInputWhenUsingPenSwitch_Click(object sender, RoutedEventArgs e)
         {
-            AppConfig.IgnoreTouchInputWhenUsingPen = IgnoreTouchInputWhenUsingPenSwitch.IsChecked.GetValueOrDefault();
+            AppConfig.IgnoreTouchInputWhenUsingPen = IgnoreTouchInputWhenUsingPenSwitch.IsOn;
         }
 
         private void InitialTimeoutSwitch_Click(object sender, RoutedEventArgs e)
         {
-            if (InitialTimeoutSwitch.IsChecked.GetValueOrDefault())
+            if (InitialTimeoutSwitch.IsOn)
             {
                 InitialTimeoutSlider.Value = 0.6;
             }
@@ -394,7 +385,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void PenGestureSwitch_Click(object sender, RoutedEventArgs e)
         {
-            if (PenGestureSwitch.IsChecked.GetValueOrDefault())
+            if (PenGestureSwitch.IsOn)
             {
                 AppConfig.PenGestureButton = DeviceStates.RightClickButton | DeviceStates.Tip;
                 RightClickButtonCheckBox.IsChecked = TipCheckBox.IsChecked = true;
@@ -457,7 +448,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void GestureTrailSwitch_Click(object sender, RoutedEventArgs e)
         {
-            if (GestureTrailSwitch.IsChecked.GetValueOrDefault())
+            if (GestureTrailSwitch.IsOn)
             {
                 VisualFeedbackWidthSlider.Value = 9;
             }
