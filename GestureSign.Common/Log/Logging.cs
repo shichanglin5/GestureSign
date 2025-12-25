@@ -4,9 +4,26 @@ using GestureSign.Common.Configuration;
 
 namespace GestureSign.Common.Log
 {
+    public enum LogLevel
+    {
+        Error = 0,      // Only errors and exceptions
+        Warning = 1,    // Warnings and errors
+        Info = 2,       // Important information, warnings and errors
+        Debug = 3,      // Debug information (default for development)
+        Trace = 4       // Detailed trace information (very verbose)
+    }
+
     public class Logging
     {
         private static string _logFilePath;
+        private static StreamWriterWithTimestamp _logWriter;
+        private static LogLevel _currentLogLevel = LogLevel.Info;
+
+        public static LogLevel CurrentLogLevel
+        {
+            get => _currentLogLevel;
+            set => _currentLogLevel = value;
+        }
 
         private class StreamWriterWithTimestamp : StreamWriter
         {
@@ -23,6 +40,20 @@ namespace GestureSign.Common.Log
             {
                 var assemblyName = System.Reflection.Assembly.GetExecutingAssembly().GetName();
                 return $"[{assemblyName.Name} v{assemblyName.Version}] ";
+            }
+
+            public void WriteLineWithLevel(string value, LogLevel level)
+            {
+                string levelPrefix = level switch
+                {
+                    LogLevel.Error => "[ERROR] ",
+                    LogLevel.Warning => "[WARN] ",
+                    LogLevel.Info => "[INFO] ",
+                    LogLevel.Debug => "[DEBUG] ",
+                    LogLevel.Trace => "[TRACE] ",
+                    _ => ""
+                };
+                base.WriteLine(GetTimestamp() + GetNameAndVersion() + levelPrefix + value);
             }
 
             public override void WriteLine(string value)
@@ -46,9 +77,13 @@ namespace GestureSign.Common.Log
             {
                 _logFilePath = Path.Combine(AppConfig.LocalApplicationDataPath, "GestureSign.log");
                 CheckLogSize(_logFilePath);
-                var sw = new StreamWriterWithTimestamp(new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true };
-                Console.SetOut(sw);
-                Console.SetError(sw);
+                _logWriter = new StreamWriterWithTimestamp(new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true };
+                Console.SetOut(_logWriter);
+                Console.SetError(_logWriter);
+
+                // Initialize log level from config
+                _currentLogLevel = AppConfig.LogLevel;
+
                 result = true;
             }
             catch (Exception e)
@@ -81,6 +116,23 @@ namespace GestureSign.Common.Log
             Console.WriteLine(message);
             Console.WriteLine();
         }
+
+        // Log with level - only logs if current level >= message level
+        public static void Log(string message, LogLevel level)
+        {
+            if (_currentLogLevel >= level && _logWriter != null)
+            {
+                _logWriter.WriteLineWithLevel(message, level);
+                _logWriter.WriteLine();
+            }
+        }
+
+        // Convenience methods for different log levels
+        public static void LogError(string message) => Log(message, LogLevel.Error);
+        public static void LogWarning(string message) => Log(message, LogLevel.Warning);
+        public static void LogInfo(string message) => Log(message, LogLevel.Info);
+        public static void LogDebug(string message) => Log(message, LogLevel.Debug);
+        public static void LogTrace(string message) => Log(message, LogLevel.Trace);
 
         private static void CheckLogSize(string logPath)
         {

@@ -130,6 +130,18 @@ namespace GestureSign.Common.Configuration
             }
         }
 
+        public static int TapDistanceThreshold
+        {
+            get
+            {
+                return (int)GetValue(nameof(TapDistanceThreshold), 40);
+            }
+            set
+            {
+                SetValue(nameof(TapDistanceThreshold), value);
+            }
+        }
+
         public static double Opacity
         {
             get
@@ -212,6 +224,20 @@ namespace GestureSign.Common.Configuration
             set
             {
                 SetValue(nameof(InitialTimeout), value);
+            }
+        }
+
+        public static Log.LogLevel LogLevel
+        {
+            get
+            {
+                return (Log.LogLevel)GetValue(nameof(LogLevel), (int)Log.LogLevel.Info);
+            }
+            set
+            {
+                SetValue(nameof(LogLevel), (int)value);
+                // Update current log level in Logging class
+                Log.Logging.CurrentLogLevel = value;
             }
         }
 
@@ -344,6 +370,18 @@ namespace GestureSign.Common.Configuration
             set
             {
                 SetValue(nameof(GestureMatchProbability), value);
+            }
+        }
+
+        public static int MultiFingerDelay
+        {
+            get
+            {
+                return (int)GetValue(nameof(MultiFingerDelay), 50);
+            }
+            set
+            {
+                SetValue(nameof(MultiFingerDelay), value);
             }
         }
 

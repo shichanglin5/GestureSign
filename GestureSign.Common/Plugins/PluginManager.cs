@@ -96,8 +96,19 @@ namespace GestureSign.Common.Plugins
                         {
                             if (executableAction.ActivateWindow == null && pluginInfo.Plugin.ActivateWindowDefault ||
                             executableAction.ActivateWindow.GetValueOrDefault())
-                                if (target.HWnd.ToInt64() != SystemWindow.ForegroundWindow?.HWnd.ToInt64())
-                                    SystemWindow.ForegroundWindow = target;
+                            {
+                                // For touchpad, activate window at current mouse position
+                                // For touchscreen, activate window at gesture location (captured window)
+                                var windowToActivate = target;
+                                if (devices == Input.Devices.TouchPad)
+                                {
+                                    var mousePosition = System.Windows.Forms.Cursor.Position;
+                                    windowToActivate = ApplicationManager.Instance.GetWindowFromPoint(mousePosition);
+                                }
+
+                                if (windowToActivate != null && windowToActivate.HWnd.ToInt64() != SystemWindow.ForegroundWindow?.HWnd.ToInt64())
+                                    SystemWindow.ForegroundWindow = windowToActivate;
+                            }
                         }
 
                         // Load action settings into plugin

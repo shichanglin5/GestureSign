@@ -84,8 +84,8 @@ namespace GestureSign.Common.Applications
             CaptureWindow = GetWindowFromPoint(e.FirstCapturedPoints.FirstOrDefault());
             _recognizedApplication = GetApplicationFromWindow(CaptureWindow);
 
-            Log.Logging.LogMessage($"[ApplicationManager] PointCapture_CaptureStarted - e.Points.Count={e.Points.Count}, e.FingerCount={e.FingerCount}");
-            Log.Logging.LogMessage($"[ApplicationManager] RecognizedApplications count: {_recognizedApplication.Count()}");
+            Log.Logging.LogDebug($"[ApplicationManager] PointCapture_CaptureStarted - e.Points.Count={e.Points.Count}, e.FingerCount={e.FingerCount}");
+            Log.Logging.LogDebug($"[ApplicationManager] RecognizedApplications count: {_recognizedApplication.Count()}");
 
             int maxThreshold = 0, maxLimitNumber = 1;
 
@@ -123,7 +123,7 @@ namespace GestureSign.Common.Applications
             bool fingersLessThanLimit = actualFingerCount < maxLimitNumber;
             e.Cancel = isTouchDevice && fingersLessThanLimit;
 
-            Log.Logging.LogMessage($"[ApplicationManager] Cancel calculation: isTouchDevice={isTouchDevice}, FingerCount={e.FingerCount}, actualFingerCount={actualFingerCount}, maxLimitNumber={maxLimitNumber}, fingersLessThanLimit={fingersLessThanLimit}, Cancel={e.Cancel}");
+            Log.Logging.LogTrace($"[ApplicationManager] Cancel calculation: isTouchDevice={isTouchDevice}, FingerCount={e.FingerCount}, actualFingerCount={actualFingerCount}, maxLimitNumber={maxLimitNumber}, fingersLessThanLimit={fingersLessThanLimit}, Cancel={e.Cancel}");
 
             e.BlockTouchInputThreshold = maxThreshold;
         }

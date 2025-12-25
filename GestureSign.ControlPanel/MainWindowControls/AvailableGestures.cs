@@ -48,7 +48,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
             if (parentWindow == null)
             {
                 // Log the error - parent window not found
-                GestureSign.Common.Log.Logging.LogMessage("[AvailableGestures] btnDelGesture_Click - Parent window is null, cannot show dialog");
+                GestureSign.Common.Log.Logging.LogWarning("[AvailableGestures] btnDelGesture_Click - Parent window is null, cannot show dialog");
                 return;
             }
 

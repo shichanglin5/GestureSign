@@ -103,23 +103,15 @@ namespace GestureSign.ControlPanel.UserControls
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
-            // DEBUG: Write to a test file to verify code execution
-            try
-            {
-                System.IO.File.WriteAllText(@"C:\Users\shich\AppData\Local\GestureSign\GestureSelector_LOADED_TEST.txt",
-                    $"GestureSelector UserControl_Loaded called at {System.DateTime.Now:yyyy-MM-dd HH:mm:ss}\r\nCurrentGesture={(CurrentGesture == null ? "null" : "not null")}\r\nPointPatterns={(CurrentGesture?.PointPatterns == null ? "null" : "not null")}");
-            }
-            catch { }
-
-            Logging.LogMessage($"[GestureSelector] UserControl_Loaded - CurrentGesture={CurrentGesture}, PointPatterns={(CurrentGesture?.PointPatterns == null ? "null" : "not null")}");
+            Logging.LogDebug($"[GestureSelector] UserControl_Loaded - CurrentGesture={CurrentGesture}, PointPatterns={(CurrentGesture?.PointPatterns == null ? "null" : "not null")}");
             if (CurrentGesture?.PointPatterns == null)
             {
-                Logging.LogMessage($"[GestureSelector] CurrentGesture.PointPatterns is null, calling SetTrainingState(true)");
+                Logging.LogDebug($"[GestureSelector] CurrentGesture.PointPatterns is null, calling SetTrainingState(true)");
                 SetTrainingState(true);
             }
             else
             {
-                Logging.LogMessage($"[GestureSelector] CurrentGesture.PointPatterns is not null, NOT entering training mode");
+                Logging.LogDebug($"[GestureSelector] CurrentGesture.PointPatterns is not null, NOT entering training mode");
             }
         }
 

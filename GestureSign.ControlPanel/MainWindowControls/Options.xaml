@@ -118,6 +118,20 @@
                     Maximum="100"
                     Minimum="3"
                     ValueChanged="MinimumPointDistanceSlider_ValueChanged" />
+            <TextBlock x:Name="TapDistanceThresholdText"
+                       HorizontalAlignment="Center"
+                       TextWrapping="Wrap"
+                       Text="{Binding ElementName=TapDistanceThresholdSlider, Path=Value, StringFormat={localization:LocalisedText Options.TapDistanceThreshold}}"
+                       VerticalAlignment="Top"
+                       Margin="15,15,5,3"
+                       FontSize="14" />
+            <Slider x:Name="TapDistanceThresholdSlider"
+                    Maximum="100"
+                    Minimum="10"
+                    SmallChange="5"
+                    IsSnapToTickEnabled="True"
+                    TickFrequency="5"
+                    ValueChanged="TapDistanceThresholdSlider_ValueChanged" />
             <TextBlock x:Name="FeatureFingerIndexText"
                        HorizontalAlignment="Center"
                        TextWrapping="Wrap"
@@ -146,6 +160,20 @@
                     IsSnapToTickEnabled="True"
                     TickFrequency="1"
                     ValueChanged="GestureMatchProbabilitySlider_ValueChanged" />
+            <TextBlock x:Name="MultiFingerDelayText"
+                       HorizontalAlignment="Center"
+                       TextWrapping="Wrap"
+                       Text="{Binding ElementName=MultiFingerDelaySlider, Path=Value, StringFormat={localization:LocalisedText Options.MultiFingerDelay}}"
+                       VerticalAlignment="Top"
+                       Margin="15,15,5,3"
+                       FontSize="14" />
+            <Slider x:Name="MultiFingerDelaySlider"
+                    Maximum="200"
+                    Minimum="0"
+                    SmallChange="10"
+                    IsSnapToTickEnabled="True"
+                    TickFrequency="10"
+                    ValueChanged="MultiFingerDelaySlider_ValueChanged" />
             <TextBlock Text="{localization:LocalisedText Options.Language}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Top"
@@ -312,6 +340,19 @@
                                    OnContent="{localization:LocalisedText Options.OnLabel}"
                                    OffContent="{localization:LocalisedText Options.OffLabel}"
                                    Toggled="SendLogToggleSwitch_Toggled" />
+            <TextBlock Text="{localization:LocalisedText Options.LogLevel}"
+                       FontSize="16"
+                       FontWeight="Bold"
+                       Margin="0,10,0,5" />
+            <ComboBox x:Name="LogLevelComboBox"
+                      SelectionChanged="LogLevelComboBox_SelectionChanged"
+                      Margin="0,0,0,10">
+                <ComboBoxItem Content="{localization:LocalisedText Options.LogLevelError}" Tag="0" />
+                <ComboBoxItem Content="{localization:LocalisedText Options.LogLevelWarning}" Tag="1" />
+                <ComboBoxItem Content="{localization:LocalisedText Options.LogLevelInfo}" Tag="2" />
+                <ComboBoxItem Content="{localization:LocalisedText Options.LogLevelDebug}" Tag="3" />
+                <ComboBoxItem Content="{localization:LocalisedText Options.LogLevelTrace}" Tag="4" />
+            </ComboBox>
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Center"
                         Margin="0,20,0,10">

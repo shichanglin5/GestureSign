@@ -70,11 +70,11 @@ namespace GestureSign.Daemon.Filtration
                     if (NativeMethods.RegisterPointerInputTarget(Handle, POINTER_INPUT_TYPE.TOUCH))
                     {
                         _isRegistered = true;
-                        GestureSign.Common.Log.Logging.LogMessage("[PointerInputTargetWindow] Successfully registered as Pointer Input Target");
+                        GestureSign.Common.Log.Logging.LogInfo("[PointerInputTargetWindow] Successfully registered as Pointer Input Target");
                     }
                     else
                     {
-                        GestureSign.Common.Log.Logging.LogMessage("[PointerInputTargetWindow] Failed to register as Pointer Input Target - UIAccess may be required");
+                        GestureSign.Common.Log.Logging.LogWarning("[PointerInputTargetWindow] Failed to register as Pointer Input Target - UIAccess may be required");
                     }
                 }
                 else

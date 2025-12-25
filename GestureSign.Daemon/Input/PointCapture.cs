@@ -41,11 +41,13 @@ namespace GestureSign.Daemon.Input
 
         private System.Threading.Timer _initialTimeoutTimer;
         private System.Threading.Timer _inactivityTimer;
+        private System.Threading.Timer _multiFingerDelayTimer;
         SynchronizationContext _currentContext;
 
         private Dictionary<int, List<Point>> _pointsCaptured;
         private int _totalFingerCount;
         private HashSet<int> _featureFingerIds;
+        private List<InputPoint> _pendingFirstPoints; // Collect fingers during multi-finger delay
         // Create variable to hold the only allowed instance of this class
         static readonly PointCapture _Instance = new PointCapture();
 
@@ -201,7 +203,7 @@ namespace GestureSign.Daemon.Input
         {
             _surfaceForm = new SurfaceForm();
 
-            CaptureStarted += (o, e) => { if (Mode != CaptureMode.UserDisabled) _surfaceForm.StartDrawing(e.FirstCapturedPoints); };
+            CaptureStarted += (o, e) => { if (Mode != CaptureMode.UserDisabled) _surfaceForm.StartDrawing(e.FirstCapturedPoints, Mode == CaptureMode.Training); };
             CaptureEnded += (o, e) => { _surfaceForm.EndDrawing(); };
             CaptureCanceled += (o, e) => { _surfaceForm.EndDrawing(); };
             PointCaptured += (o, e) =>
@@ -237,11 +239,11 @@ namespace GestureSign.Daemon.Input
                 _blockTouchDelayTimer = new System.Threading.Timer(UpdateBlockTouchInputThresholdCallback, null, Timeout.Infinite, Timeout.Infinite);
                 ForegroundApplicationsChanged += PointCapture_ForegroundApplicationsChanged;
 
-                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] PointerInputTargetWindow created (UIAccess={AppConfig.UiAccess})");
+                GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] PointerInputTargetWindow created (UIAccess={AppConfig.UiAccess})");
             }
             catch (Exception ex)
             {
-                GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Failed to create PointerInputTargetWindow: {ex.Message}");
+                GestureSign.Common.Log.Logging.LogError($"[PointCapture] Failed to create PointerInputTargetWindow: {ex.Message}");
                 _pointerInputTargetWindow = null;
             }
 
@@ -260,6 +262,7 @@ namespace GestureSign.Daemon.Input
                 {
                     _initialTimeoutTimer?.Dispose();
                     _inactivityTimer?.Dispose();
+                    _multiFingerDelayTimer?.Dispose();
                     _blockTouchDelayTimer?.Dispose();
                     _pointerInputTargetWindow?.Dispose();
                     _inputProvider?.Dispose();
@@ -353,8 +356,39 @@ namespace GestureSign.Daemon.Input
                     return;
                 }
 
+                // If waiting for multi-finger delay, just add new fingers to pending list
+                if (_pendingFirstPoints != null)
+                {
+                    // Merge new fingers with existing pending fingers
+                    foreach (var newPoint in e.InputPointList)
+                    {
+                        if (!_pendingFirstPoints.Any(p => p.ContactIdentifier == newPoint.ContactIdentifier))
+                        {
+                            _pendingFirstPoints.Add(newPoint);
+                            GestureSign.Common.Log.Logging.LogTrace($"[PointCapture] Added finger during delay: ID={newPoint.ContactIdentifier}, total={_pendingFirstPoints.Count}");
+                        }
+                    }
+                    return;
+                }
+
                 Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
 
+                // Start multi-finger delay to collect all fingers for tap gestures
+                var multiFingerDelay = AppConfig.MultiFingerDelay;
+                if (multiFingerDelay > 0)
+                {
+                    _pendingFirstPoints = new List<InputPoint>(e.InputPointList);
+                    if (_multiFingerDelayTimer == null)
+                    {
+                        _multiFingerDelayTimer = new System.Threading.Timer(MultiFingerDelayCallback, null, Timeout.Infinite, Timeout.Infinite);
+                    }
+                    _multiFingerDelayTimer.Change(multiFingerDelay, Timeout.Infinite);
+                    GestureSign.Common.Log.Logging.LogTrace($"[PointCapture] Starting multi-finger delay: {multiFingerDelay}ms, fingers={_pendingFirstPoints.Count}");
+                    e.Handled = Mode != CaptureMode.UserDisabled;
+                    return;
+                }
+
+                // No delay configured, start capture immediately
                 var timeout = AppConfig.InitialTimeout;
                 if (timeout > 0)
                 {
@@ -383,6 +417,52 @@ namespace GestureSign.Daemon.Input
 
         protected void PointEventTranslator_PointMove(object sender, InputPointsEventArgs e)
         {
+            // If waiting for multi-finger delay, check if movement is significant enough to start capture
+            if (_pendingFirstPoints != null)
+            {
+                // Calculate maximum movement distance from any finger's initial position
+                double maxMovement = 0;
+                foreach (var currentPoint in e.InputPointList)
+                {
+                    var matchingPoints = _pendingFirstPoints.Where(p => p.ContactIdentifier == currentPoint.ContactIdentifier);
+                    if (matchingPoints.Any())
+                    {
+                        var initialPoint = matchingPoints.First();
+                        double distance = PointPatternMath.GetDistance(initialPoint.Point, currentPoint.Point);
+                        if (distance > maxMovement)
+                            maxMovement = distance;
+                    }
+                }
+
+                // Only start capture if movement exceeds a threshold
+                // Use half of TapDistanceThreshold to distinguish intentional swipe from finger jitter
+                // This prevents accidental finger jitter from triggering capture for tap gestures
+                int threshold = AppConfig.TapDistanceThreshold / 2;
+                if (maxMovement >= threshold)
+                {
+                    _multiFingerDelayTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+                    GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Significant movement detected during delay ({maxMovement:F1}px >= {threshold}px), starting capture with {_pendingFirstPoints.Count} fingers");
+                    StartCaptureAfterDelay();
+                    e.Handled = Mode != CaptureMode.UserDisabled;
+                    return;
+                }
+                else
+                {
+                    // Movement is too small, continue waiting for delay timeout
+                    // Update pending points to track latest positions for tap detection
+                    foreach (var currentPoint in e.InputPointList)
+                    {
+                        var idx = _pendingFirstPoints.FindIndex(p => p.ContactIdentifier == currentPoint.ContactIdentifier);
+                        if (idx >= 0)
+                        {
+                            _pendingFirstPoints[idx] = currentPoint;
+                        }
+                    }
+                    e.Handled = Mode != CaptureMode.UserDisabled;
+                    return;
+                }
+            }
+
             // Only add point if we're capturing
             if (State == CaptureState.Capturing || State == CaptureState.CapturingInvalid)
             {
@@ -396,14 +476,34 @@ namespace GestureSign.Daemon.Input
 
         protected void PointEventTranslator_PointUp(object sender, InputPointsEventArgs e)
         {
+            GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] PointUp - State={State}, PendingPoints={(_pendingFirstPoints != null ? _pendingFirstPoints.Count.ToString() : "null")}, RemainingFingers={e.InputPointList.Count}");
 
-            bool condition1 = State == CaptureState.Capturing;
-            bool condition2 = State == CaptureState.CapturingInvalid && (SourceDevice & Devices.TouchDevice) != 0;
-
-            if (State == CaptureState.Capturing || State == CaptureState.CapturingInvalid && (SourceDevice & Devices.TouchDevice) != 0)
+            // PointUp = gesture end signal
+            // Case 1: During delay (tap gesture) - any finger up ends the gesture
+            if (_pendingFirstPoints != null)
             {
-                e.Handled = Mode != CaptureMode.UserDisabled;
+                // Cancel delay timer and inactivity timer
+                _multiFingerDelayTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+                _inactivityTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 
+                GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Finger lifted during delay - ending gesture");
+
+                // Start capture to record finger count, then immediately end
+                StartCaptureAfterDelay();
+                EndCapture();
+
+                e.Handled = Mode != CaptureMode.UserDisabled;
+                Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Normal;
+                return;
+            }
+
+            // Case 2: Already capturing - any finger up ends the gesture
+            if (State == CaptureState.Capturing || (State == CaptureState.CapturingInvalid && (SourceDevice & Devices.TouchDevice) != 0))
+            {
+                // Stop inactivity timer
+                _inactivityTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+
+                GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Finger lifted during capture - ending gesture");
                 EndCapture();
 
                 if (TemporarilyDisableCapture && Mode == CaptureMode.UserDisabled)
@@ -411,9 +511,14 @@ namespace GestureSign.Daemon.Input
                     TemporarilyDisableCapture = false;
                     ToggleUserDisablePointCapture();
                 }
+
+                e.Handled = Mode != CaptureMode.UserDisabled;
                 Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Normal;
+                return;
             }
-            else if (State == CaptureState.CapturingInvalid && SourceDevice == Devices.Mouse)
+
+            // Case 3: Mouse gesture specific handling
+            if (State == CaptureState.CapturingInvalid && SourceDevice == Devices.Mouse)
             {
                 if (Mode != CaptureMode.UserDisabled)
                 {
@@ -551,7 +656,7 @@ namespace GestureSign.Daemon.Input
                 // Auto-clear stuck gestures if no PointMove received for 100ms
                 if (State == CaptureState.Capturing || State == CaptureState.CapturingInvalid)
                 {
-                    GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Inactivity timeout (100ms) - Auto-clearing stuck gesture, State: {State}");
+                    GestureSign.Common.Log.Logging.LogWarning($"[PointCapture] Inactivity timeout (100ms) - Auto-clearing stuck gesture, State: {State}");
 
                     // Force end capture to clear the gesture
                     try
@@ -565,21 +670,63 @@ namespace GestureSign.Daemon.Input
                         _featureFingerIds?.Clear();
                         _totalFingerCount = 0;
 
-                        GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Stuck gesture cleared, State reset to Ready, surface cleared");
+                        GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] Stuck gesture cleared, State reset to Ready, surface cleared");
                     }
                     catch (Exception ex)
                     {
-                        GestureSign.Common.Log.Logging.LogMessage($"[PointCapture] Error clearing stuck gesture: {ex.Message}");
+                        GestureSign.Common.Log.Logging.LogError($"[PointCapture] Error clearing stuck gesture: {ex.Message}");
                     }
                 }
             }, null);
+        }
+
+        private void MultiFingerDelayCallback(object o)
+        {
+            _currentContext.Post((state) =>
+            {
+                GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Multi-finger delay expired, starting capture");
+                StartCaptureAfterDelay();
+            }, null);
+        }
+
+        private void StartCaptureAfterDelay()
+        {
+            if (_pendingFirstPoints == null) return;
+
+            var firstPoints = _pendingFirstPoints;
+            _pendingFirstPoints = null;
+
+            GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Starting capture with {firstPoints.Count} fingers collected during delay");
+
+            var timeout = AppConfig.InitialTimeout;
+            if (timeout > 0)
+            {
+                if (_initialTimeoutTimer == null)
+                {
+                    _initialTimeoutTimer = new System.Threading.Timer(InitialTimeoutCallback, null, Timeout.Infinite, Timeout.Infinite);
+                }
+                _initialTimeoutTimer.Change(timeout, Timeout.Infinite);
+            }
+
+            // Start inactivity timer
+            if (_inactivityTimer == null)
+            {
+                _inactivityTimer = new System.Threading.Timer(InactivityTimeoutCallback, null, Timeout.Infinite, Timeout.Infinite);
+            }
+            _inactivityTimer.Change(100, Timeout.Infinite);
+
+            // Begin capture with all collected fingers
+            if (!TryBeginCapture(firstPoints))
+            {
+                Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Normal;
+            }
         }
 
         private bool TryBeginCapture(List<InputPoint> firstPoint)
         {
             for (int i = 0; i < firstPoint.Count; i++)
             {
-                GestureSign.Common.Log.Logging.LogMessage($"  InputPoint[{i}]: ID={firstPoint[i].ContactIdentifier}, Point=({firstPoint[i].Point.X},{firstPoint[i].Point.Y})");
+                GestureSign.Common.Log.Logging.LogTrace($"  InputPoint[{i}]: ID={firstPoint[i].ContactIdentifier}, Point=({firstPoint[i].Point.X},{firstPoint[i].Point.Y})");
             }
 
             // Record total finger count for gesture matching
@@ -669,6 +816,7 @@ namespace GestureSign.Daemon.Input
 
         private void EndCapture()
         {
+            GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] EndCapture - Mode={Mode}, Trajectories={_pointsCaptured.Count}, TotalFingerCount={_totalFingerCount}");
 
             // Log captured trajectory details
             int trajectoryIndex = 0;
@@ -695,14 +843,25 @@ namespace GestureSign.Daemon.Input
 
             if (pointsInformation.Cancel) return;
 
-            if (Mode == CaptureMode.Training && !(_pointsCaptured.Count == 1 && _pointsCaptured.Values.First().Count == 1))
+            if (Mode == CaptureMode.Training)
             {
-                _pointPatternCache.Clear();
-                var pointPattern = new PointPattern(_pointsCaptured.Values, _totalFingerCount);
-                _pointPatternCache.Add(pointPattern);
+                // Send gesture to ControlPanel, including tap gestures (even with only 1 point)
+                // Only skip if there are no points at all
+                if (_pointsCaptured.Count > 0 && _pointsCaptured.Values.Any(v => v.Count > 0))
+                {
+                    _pointPatternCache.Clear();
+                    var pointPattern = new PointPattern(_pointsCaptured.Values, _totalFingerCount);
+                    _pointPatternCache.Add(pointPattern);
 
-                if (!NamedPipe.SendMessageAsync(IpcCommands.GotGesture, Constants.ControlPanel, _pointPatternCache.ToArray(), false).Result)
-                    Mode = CaptureMode.Normal;
+                    GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Sending GotGesture IPC to ControlPanel: FingerCount={_totalFingerCount}, Points={_pointsCaptured.Values.First().Count}");
+
+                    if (!NamedPipe.SendMessageAsync(IpcCommands.GotGesture, Constants.ControlPanel, _pointPatternCache.ToArray(), false).Result)
+                        Mode = CaptureMode.Normal;
+                }
+                else
+                {
+                    GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Skipping gesture send - no valid points");
+                }
             }
             else
             {

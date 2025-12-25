@@ -238,8 +238,10 @@ QQ交流群：576981420
     <PickColor>选择颜色..</PickColor>
     <SystemColor>使用系统主题色</SystemColor>
     <MinimumPointDistance>最小点距 {0:F0} px</MinimumPointDistance>
+    <TapDistanceThreshold>点击距离阈值 {0:F0} px (区分点击和滑动的总移动距离)</TapDistanceThreshold>
     <FeatureFingerIndex>特征手指索引 {0:F0} (第{0:F0}个手指)</FeatureFingerIndex>
     <GestureMatchProbability>手势匹配阈值 {0:F0}% (越低越容易匹配)</GestureMatchProbability>
+    <MultiFingerDelay>多指点击延迟 {0:F0}ms (等待所有手指按下的时间)</MultiFingerDelay>
     <Backup>备份所有设置</Backup>
     <Restore>导入设置</Restore>
     <BackupFile>GestureSign备份文件</BackupFile>
@@ -261,6 +263,12 @@ QQ交流群：576981420
     <InitialTimeoutTitle>手势起始超时</InitialTimeoutTitle>
     <InitialTimeout>{0:F1} 秒后超时</InitialTimeout>
     <ErrorLogPrompt>错误日志提示</ErrorLogPrompt>
+    <LogLevel>日志级别</LogLevel>
+    <LogLevelError>错误 (仅错误和异常)</LogLevelError>
+    <LogLevelWarning>警告 (警告和错误)</LogLevelWarning>
+    <LogLevelInfo>信息 (重要信息、警告和错误)</LogLevelInfo>
+    <LogLevelDebug>调试 (调试信息，适合开发)</LogLevelDebug>
+    <LogLevelTrace>跟踪 (详细跟踪，非常详细)</LogLevelTrace>
     <RunAsAdmin>以管理员身份启动</RunAsAdmin>
     <WindowsStartup>
       <Header>开机启动</Header>

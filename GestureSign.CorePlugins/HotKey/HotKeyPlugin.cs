@@ -10,6 +10,8 @@ using ManagedWinapi;
 using System.Collections.Generic;
 using System.Linq;
 
+#pragma warning disable CA1416 // Platform-specific API
+
 namespace GestureSign.CorePlugins.HotKey
 {
     public class HotKeyPlugin : IPlugin

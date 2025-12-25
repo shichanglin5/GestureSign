@@ -124,7 +124,7 @@ namespace GestureSign.CorePlugins.LaunchApp
                         }
                         catch (Exception exception)
                         {
-                            Logging.LogMessage(package.Id.FullName);
+                            Logging.LogDebug(package.Id.FullName);
                             Logging.LogException(exception);
                             continue;
                         }
@@ -158,7 +158,7 @@ namespace GestureSign.CorePlugins.LaunchApp
                         }
                         catch (Exception exception)
                         {
-                            Logging.LogMessage(package.Id.FullName);
+                            Logging.LogDebug(package.Id.FullName);
                             Logging.LogException(exception);
                             continue;
                         }

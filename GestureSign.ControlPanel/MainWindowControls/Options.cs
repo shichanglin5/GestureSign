@@ -48,11 +48,14 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 _VisualFeedbackColor = AppConfig.VisualFeedbackColor;
                 VisualFeedbackWidthSlider.Value = AppConfig.VisualFeedbackWidth;
                 MinimumPointDistanceSlider.Value = AppConfig.MinimumPointDistance;
+                TapDistanceThresholdSlider.Value = AppConfig.TapDistanceThreshold;
                 FeatureFingerIndexSlider.Value = AppConfig.FeatureFingerIndex;
                 GestureMatchProbabilitySlider.Value = AppConfig.GestureMatchProbability;
+                MultiFingerDelaySlider.Value = AppConfig.MultiFingerDelay;
                 OpacitySlider.Value = AppConfig.Opacity;
                 ShowTrayIconSwitch.IsOn = AppConfig.ShowTrayIcon;
                 SendLogToggleSwitch.IsOn = AppConfig.SendErrorReport;
+                LogLevelComboBox.SelectedIndex = (int)AppConfig.LogLevel;
                 TouchPadSwitch.IsOn = AppConfig.RegisterTouchPad;
                 TouchScreenSwitch.IsOn = AppConfig.RegisterTouchScreen;
                 IgnoreFullScreenSwitch.IsOn = AppConfig.IgnoreFullScreen;
@@ -155,6 +158,13 @@ namespace GestureSign.ControlPanel.MainWindowControls
             AppConfig.MinimumPointDistance = newValue;
         }
 
+        private void TapDistanceThresholdSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var newValue = (int)Math.Round(e.NewValue);
+            if (newValue == AppConfig.TapDistanceThreshold || (int)e.OldValue == 0) return;
+            AppConfig.TapDistanceThreshold = newValue;
+        }
+
         private void FeatureFingerIndexSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             var newValue = (int)Math.Round(e.NewValue);
@@ -167,6 +177,13 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var newValue = (int)Math.Round(e.NewValue);
             if (newValue == AppConfig.GestureMatchProbability || (int)e.OldValue == 0) return;
             AppConfig.GestureMatchProbability = newValue;
+        }
+
+        private void MultiFingerDelaySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var newValue = (int)Math.Round(e.NewValue);
+            if (newValue == AppConfig.MultiFingerDelay || (int)e.OldValue == 0) return;
+            AppConfig.MultiFingerDelay = newValue;
         }
 
         private int GetAlphaPercentage(double Alpha)
@@ -341,6 +358,14 @@ namespace GestureSign.ControlPanel.MainWindowControls
         private void SendLogToggleSwitch_Toggled(object sender, RoutedEventArgs e)
         {
             AppConfig.SendErrorReport = SendLogToggleSwitch.IsOn;
+        }
+
+        private void LogLevelComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (LogLevelComboBox.SelectedIndex >= 0)
+            {
+                AppConfig.LogLevel = (GestureSign.Common.Log.LogLevel)LogLevelComboBox.SelectedIndex;
+            }
         }
 
         private void LanguageComboBox_DropDownClosed(object sender, EventArgs e)

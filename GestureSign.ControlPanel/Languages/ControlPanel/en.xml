@@ -234,8 +234,10 @@ Email:ccfyzh@gmail.com
     <PickColor>Pick Color...</PickColor>
     <SystemColor>Follow System Color</SystemColor>
     <MinimumPointDistance>Minimum Point Distance {0:F0} px</MinimumPointDistance>
+    <TapDistanceThreshold>Tap Distance Threshold {0:F0} px (Total movement to distinguish tap from swipe)</TapDistanceThreshold>
     <FeatureFingerIndex>Feature Finger Index {0:F0} ({0:F0}th finger)</FeatureFingerIndex>
     <GestureMatchProbability>Gesture Match Threshold {0:F0}% (Lower = easier to match)</GestureMatchProbability>
+    <MultiFingerDelay>Multi-Finger Tap Delay {0:F0}ms (Time to collect all fingers for tap gestures)</MultiFingerDelay>
     <Backup>Backup All User Data</Backup>
     <Restore>Restore User Data</Restore>
     <OpenConfigFolder>Open Configuration Folder</OpenConfigFolder>
@@ -257,6 +259,12 @@ Email:ccfyzh@gmail.com
     <InitialTimeoutTitle>Drawing Start Timeout</InitialTimeoutTitle>
     <InitialTimeout>Timeout after {0:F1} Second</InitialTimeout>
     <ErrorLogPrompt>Error Log Prompt</ErrorLogPrompt>
+    <LogLevel>Log Level</LogLevel>
+    <LogLevelError>Error (Errors and exceptions only)</LogLevelError>
+    <LogLevelWarning>Warning (Warnings and errors)</LogLevelWarning>
+    <LogLevelInfo>Info (Important information, warnings and errors)</LogLevelInfo>
+    <LogLevelDebug>Debug (Debug information, for development)</LogLevelDebug>
+    <LogLevelTrace>Trace (Detailed trace, very verbose)</LogLevelTrace>
     <RunAsAdmin>Run GestureSign As Administrator At Startup</RunAsAdmin>
     <WindowsStartup>
       <Header>Start GestureSign on Windows Startup</Header>

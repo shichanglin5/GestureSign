@@ -72,12 +72,12 @@ namespace GestureSign.ControlPanel.Flyouts
                         }
                     }
                 }
-                Logging.LogMessage("[RuningApplicationsFlyout] Successfully loaded process info via System.Management");
+                Logging.LogDebug("[RuningApplicationsFlyout] Successfully loaded process info via System.Management");
             }
             catch (Exception ex)
             {
                 // System.Management might not be available - log and continue with fallback method
-                Logging.LogMessage($"[RuningApplicationsFlyout] System.Management not available (using fallback): {ex.Message}");
+                Logging.LogDebug($"[RuningApplicationsFlyout] System.Management not available (using fallback): {ex.Message}");
             }
 
             // Get valid running windows

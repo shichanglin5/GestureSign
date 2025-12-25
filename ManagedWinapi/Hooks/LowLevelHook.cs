@@ -4,6 +4,8 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Text;
 
+#pragma warning disable CA1416 // This project targets Windows-only
+
 namespace ManagedWinapi.Hooks
 {
     /// <summary>
@@ -16,17 +18,17 @@ namespace ManagedWinapi.Hooks
         /// <summary>
         /// Called when a key has been intercepted.
         /// </summary>
-        public event KeyCallback KeyIntercepted;
+        public event KeyCallback? KeyIntercepted;
 
         /// <summary>
         /// Called when a character has been intercepted.
         /// </summary>
-        public event CharCallback CharIntercepted;
+        public event CharCallback? CharIntercepted;
 
         /// <summary>
         /// Called when a key message has been intercepted.
         /// </summary>
-        public event LowLevelMessageCallback MessageIntercepted;
+        public event LowLevelMessageCallback? MessageIntercepted;
 
         /// <summary>
         /// Represents a method that handles an intercepted key.
@@ -170,24 +172,24 @@ namespace ManagedWinapi.Hooks
         /// <summary>
         /// Called when a mouse action has been intercepted.
         /// </summary>
-        public event MouseCallback MouseIntercepted;
+        public event MouseCallback? MouseIntercepted;
 
         /// <summary>
         /// Called when a mouse message has been intercepted.
         /// </summary>
-        public event LowLevelMessageCallback MessageIntercepted;
+        public event LowLevelMessageCallback? MessageIntercepted;
 
         /// <summary>Occurs when the mouse pointer is moved.</summary>
-        public event LowLevelMouseMessageCallback MouseMove;
+        public event LowLevelMouseMessageCallback? MouseMove;
 
         /// <summary>Occurs when a mouse button is pressed.</summary>
-        public event LowLevelMouseMessageCallback MouseDown;
+        public event LowLevelMouseMessageCallback? MouseDown;
 
         /// <summary>Occurs when a mouse button is released.</summary>
-        public event LowLevelMouseMessageCallback MouseUp;
+        public event LowLevelMouseMessageCallback? MouseUp;
 
         /// <summary>Occurs when the mouse wheel moves.</summary>
-        public event LowLevelMouseMessageCallback MouseWheel;
+        public event LowLevelMouseMessageCallback? MouseWheel;
 
         /// <summary>
         /// Represents a method that handles an intercepted mouse action.

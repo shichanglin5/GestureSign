@@ -136,8 +136,13 @@ namespace GestureSign.Daemon.Input
                 {
                     var validContacts = FilterValidContacts(e.RawData, e.SourceDevice);
 
+                    // If no valid contacts, all fingers lifted - trigger PointUp
                     if (validContacts.Count == 0)
-                        return;  // No valid contacts, skip this event
+                    {
+                        OnPointUp(new InputPointsEventArgs(e.RawData, e.SourceDevice));
+                        _lastPointsCount = 0;
+                        return;
+                    }
 
                     var contactsToSend = CreateVirtualContacts(validContacts, e.RawData.Count, e.SourceDevice);
 

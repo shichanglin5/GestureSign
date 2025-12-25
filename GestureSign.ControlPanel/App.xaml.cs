@@ -29,17 +29,9 @@ namespace GestureSign.ControlPanel
 
         private void Application_Startup(object sender, StartupEventArgs e)
         {
-            // DEBUG: Write to a test file to verify code execution
-            try
-            {
-                System.IO.File.WriteAllText(@"C:\Users\shich\AppData\Local\GestureSign\ControlPanel_STARTUP_TEST.txt",
-                    $"ControlPanel Application_Startup called at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-            }
-            catch { }
-
             Logging.LoggedExceptionOccurred += (o, ex) => ShowException(ex);
             var logOpened = Logging.OpenLogFile();
-            Logging.LogMessage($"[ControlPanel] Application_Startup - ControlPanel starting... (LogOpened: {logOpened})");
+            Logging.LogInfo($"[ControlPanel] Application_Startup - ControlPanel starting... (LogOpened: {logOpened})");
             LoadLanguageData();
 
             bool createdNew;
@@ -169,14 +161,14 @@ namespace GestureSign.ControlPanel
         {
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
             {
-                Logging.LogMessage("AppDomain.CurrentDomain.UnhandledException");
+                Logging.LogError("AppDomain.CurrentDomain.UnhandledException");
                 Logging.LogException((Exception)e.ExceptionObject);
                 ShowException((Exception)e.ExceptionObject);
             };
 
             DispatcherUnhandledException += (s, e) =>
             {
-                Logging.LogMessage("Application.Current.DispatcherUnhandledException");
+                Logging.LogError("Application.Current.DispatcherUnhandledException");
                 Logging.LogException(e.Exception);
                 ShowException(e.Exception);
                 e.Handled = true;
@@ -185,7 +177,7 @@ namespace GestureSign.ControlPanel
 
             System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (s, e) =>
             {
-                Logging.LogMessage("TaskScheduler.UnobservedTaskException");
+                Logging.LogError("TaskScheduler.UnobservedTaskException");
                 Logging.LogException(e.Exception);
                 ShowException(e.Exception);
                 e.SetObserved();
