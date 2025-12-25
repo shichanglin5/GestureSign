@@ -49,6 +49,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 VisualFeedbackWidthSlider.Value = AppConfig.VisualFeedbackWidth;
                 MinimumPointDistanceSlider.Value = AppConfig.MinimumPointDistance;
                 FeatureFingerIndexSlider.Value = AppConfig.FeatureFingerIndex;
+                GestureMatchProbabilitySlider.Value = AppConfig.GestureMatchProbability;
                 OpacitySlider.Value = AppConfig.Opacity;
                 ShowTrayIconSwitch.IsOn = AppConfig.ShowTrayIcon;
                 SendLogToggleSwitch.IsOn = AppConfig.SendErrorReport;
@@ -159,6 +160,13 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var newValue = (int)Math.Round(e.NewValue);
             if (newValue == AppConfig.FeatureFingerIndex || (int)e.OldValue == 0) return;
             AppConfig.FeatureFingerIndex = newValue;
+        }
+
+        private void GestureMatchProbabilitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var newValue = (int)Math.Round(e.NewValue);
+            if (newValue == AppConfig.GestureMatchProbability || (int)e.OldValue == 0) return;
+            AppConfig.GestureMatchProbability = newValue;
         }
 
         private int GetAlphaPercentage(double Alpha)

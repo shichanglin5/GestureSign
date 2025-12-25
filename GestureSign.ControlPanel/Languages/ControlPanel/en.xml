@@ -235,6 +235,7 @@ Email:ccfyzh@gmail.com
     <SystemColor>Follow System Color</SystemColor>
     <MinimumPointDistance>Minimum Point Distance {0:F0} px</MinimumPointDistance>
     <FeatureFingerIndex>Feature Finger Index {0:F0} ({0:F0}th finger)</FeatureFingerIndex>
+    <GestureMatchProbability>Gesture Match Threshold {0:F0}% (Lower = easier to match)</GestureMatchProbability>
     <Backup>Backup All User Data</Backup>
     <Restore>Restore User Data</Restore>
     <OpenConfigFolder>Open Configuration Folder</OpenConfigFolder>

@@ -132,6 +132,20 @@
                     IsSnapToTickEnabled="True"
                     TickFrequency="1"
                     ValueChanged="FeatureFingerIndexSlider_ValueChanged" />
+            <TextBlock x:Name="GestureMatchProbabilityText"
+                       HorizontalAlignment="Center"
+                       TextWrapping="Wrap"
+                       Text="{Binding ElementName=GestureMatchProbabilitySlider, Path=Value, StringFormat={localization:LocalisedText Options.GestureMatchProbability}}"
+                       VerticalAlignment="Top"
+                       Margin="15,15,5,3"
+                       FontSize="14" />
+            <Slider x:Name="GestureMatchProbabilitySlider"
+                    Maximum="95"
+                    Minimum="50"
+                    SmallChange="1"
+                    IsSnapToTickEnabled="True"
+                    TickFrequency="1"
+                    ValueChanged="GestureMatchProbabilitySlider_ValueChanged" />
             <TextBlock Text="{localization:LocalisedText Options.Language}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Top"

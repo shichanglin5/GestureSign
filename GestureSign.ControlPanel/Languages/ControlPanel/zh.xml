@@ -239,6 +239,7 @@ QQ交流群：576981420
     <SystemColor>使用系统主题色</SystemColor>
     <MinimumPointDistance>最小点距 {0:F0} px</MinimumPointDistance>
     <FeatureFingerIndex>特征手指索引 {0:F0} (第{0:F0}个手指)</FeatureFingerIndex>
+    <GestureMatchProbability>手势匹配阈值 {0:F0}% (越低越容易匹配)</GestureMatchProbability>
     <Backup>备份所有设置</Backup>
     <Restore>导入设置</Restore>
     <BackupFile>GestureSign备份文件</BackupFile>

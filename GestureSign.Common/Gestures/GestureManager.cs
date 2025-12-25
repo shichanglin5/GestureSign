@@ -15,7 +15,6 @@ namespace GestureSign.Common.Gestures
     {
         #region Private Variables
 
-        private const int ProbabilityThreshold = 80;
         private const int GestureStackTimeout = 800;
 
         private int _gestureLevel = 0;
@@ -461,13 +460,10 @@ namespace GestureSign.Common.Gestures
                     : (int?)null;
                 bool lengthMatch = pointsLength == points.Length;
                 bool fingerMatch = g.FingerCount == fingerCount;
-
-                Log.Logging.LogMessage($"[GetGestureSetNameMatch] Gesture '{g.Name}': PointPatterns={hasPointPatterns}, Points.Length={pointsLength}, LengthMatch={lengthMatch}, FingerCount={g.FingerCount}, FingerMatch={fingerMatch}");
             }
 
             if (gestures.Count == 0)
             {
-                Log.Logging.LogMessage($"[GetGestureSetNameMatch] No matching gestures found after filtering");
                 matching = null;
                 return null;
             }
@@ -478,16 +474,10 @@ namespace GestureSign.Common.Gestures
                 gestureAnalyzer.PointPatternSet = gestures.Select(gesture => new PointsPatternSet(gesture.Name, gesture.PointPatterns[sourceGestureLevel].Points[i]));
                 comparisonResults[i] = new List<PointPatternMatchResult>(gestures.Count);
                 comparisonResults[i].AddRange(gestureAnalyzer.GetPointPatternMatchResults(points[i]));
-
-                // Log match probabilities
-                foreach (var result in comparisonResults[i])
-                {
-                    Log.Logging.LogMessage($"[GetGestureSetNameMatch] Trajectory[{i}] - Gesture '{result.Name}': Probability={result.Probability:F2}%");
-                }
             }
 
             var numbers = Enumerable.Range(0, gestures.Count);
-            numbers = comparisonResults.Aggregate(numbers, (current, matchResultsList) => current.Where(i => matchResultsList[i].Probability > ProbabilityThreshold).ToList());
+            numbers = comparisonResults.Aggregate(numbers, (current, matchResultsList) => current.Where(i => matchResultsList[i].Probability > Configuration.AppConfig.GestureMatchProbability).ToList());
 
             List<IGesture> matchingResult = new List<IGesture>();
             List<KeyValuePair<string, double>> recognizedResult = new List<KeyValuePair<string, double>>();

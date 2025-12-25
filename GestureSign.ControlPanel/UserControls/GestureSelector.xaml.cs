@@ -35,8 +35,6 @@ namespace GestureSign.ControlPanel.UserControls
 
         private void MessageProcessor_GotNewPattern(object sender, PointPattern[] newPattern)
         {
-            Logging.LogMessage($"[GestureSelector] MessageProcessor_GotNewPattern - Received {newPattern?.Length ?? 0} patterns, FingerCount: {newPattern?[0]?.FingerCount ?? 0}");
-
             var currentPatterns = newPattern;
             if (_stackUp && _tempPointPattern != null)
             {
@@ -61,16 +59,13 @@ namespace GestureSign.ControlPanel.UserControls
                 else
                 {
                     ExistingTextBlock.Visibility = Visibility.Visible;
-                    CurrentGesture = GestureManager.Instance.GetNewestGestureSample(existingSimilarGestureName);
-                    Logging.LogMessage($"[GestureSelector] Using similar gesture '{existingSimilarGestureName}'");
-                }
+                    CurrentGesture = GestureManager.Instance.GetNewestGestureSample(existingSimilarGestureName);                }
             }
             SetTrainingState(false);
         }
 
         private void SetTrainingState(bool state)
         {
-            Logging.LogMessage($"[GestureSelector] SetTrainingState called with state={state}");
             if (state)
             {
                 CurrentGesture = null;

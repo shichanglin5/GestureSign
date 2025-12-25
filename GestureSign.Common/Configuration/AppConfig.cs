@@ -335,6 +335,18 @@ namespace GestureSign.Common.Configuration
             }
         }
 
+        public static int GestureMatchProbability
+        {
+            get
+            {
+                return (int)GetValue(nameof(GestureMatchProbability), 80);
+            }
+            set
+            {
+                SetValue(nameof(GestureMatchProbability), value);
+            }
+        }
+
         #endregion
 
         static AppConfig()
