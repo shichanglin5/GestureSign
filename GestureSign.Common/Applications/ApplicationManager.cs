@@ -19,8 +19,8 @@ namespace GestureSign.Common.Applications
     {
         #region Private Variables
 
-        // Create variable to hold the only allowed instance of this class
-        private static ApplicationManager _instance;
+        // Create thread-safe lazy singleton instance
+        private static readonly Lazy<ApplicationManager> _instance = new Lazy<ApplicationManager>(() => new ApplicationManager());
         private List<IApplication> _applications;
         IEnumerable<IApplication> _recognizedApplication;
         private Timer _timer;
@@ -44,7 +44,7 @@ namespace GestureSign.Common.Applications
 
         public static ApplicationManager Instance
         {
-            get { return _instance ?? (_instance = new ApplicationManager()); }
+            get { return _instance.Value; }
         }
 
         public Task LoadingTask { get; }
@@ -467,13 +467,21 @@ namespace GestureSign.Common.Applications
             {
                 className = realWindow.ClassName;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // Expected: window may be closed or inaccessible
+                Logging.LogTrace($"[ApplicationManager] Failed to get window class name: {ex.Message}");
+            }
 
             try
             {
                 fileName = Path.GetFileName(realWindow.GetProcessFilePath());
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // Expected: process may be inaccessible or terminated
+                Logging.LogTrace($"[ApplicationManager] Failed to get process file name: {ex.Message}");
+            }
             return realWindow;
         }
 

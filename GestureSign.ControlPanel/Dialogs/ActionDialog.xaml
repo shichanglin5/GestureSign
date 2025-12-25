@@ -132,7 +132,7 @@
                 <StackPanel Orientation="Horizontal"
                             Margin="20,10,0,0">
                     <CheckBox x:Name="MouseCheckBox"
-                              IsChecked="True"
+                              IsChecked="False"
                               Margin="0,0,15,0"
                               FontSize="14"
                               Content="{localization:LocalisedText ActionDialog.Mouse}" />
@@ -147,7 +147,7 @@
                               FontSize="14"
                               Content="{localization:LocalisedText ActionDialog.TouchPad}" />
                     <CheckBox x:Name="PenCheckBox"
-                              IsChecked="True"
+                              IsChecked="False"
                               FontSize="14"
                               Content="{localization:LocalisedText ActionDialog.Pen}" />
                 </StackPanel>

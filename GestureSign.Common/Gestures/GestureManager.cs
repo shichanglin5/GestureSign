@@ -19,8 +19,8 @@ namespace GestureSign.Common.Gestures
 
         private int _gestureLevel = 0;
 
-        // Create variable to hold the only allowed instance of this class
-        private static GestureManager _instance;
+        // Create thread-safe lazy singleton instance
+        private static readonly Lazy<GestureManager> _instance = new Lazy<GestureManager>(() => new GestureManager());
 
         // Create read/write list of IGestures to hold system gestures
         private List<IGesture> _Gestures;
@@ -69,7 +69,7 @@ namespace GestureSign.Common.Gestures
 
         public static GestureManager Instance
         {
-            get { return _instance ?? (_instance = new GestureManager()); }
+            get { return _instance.Value; }
         }
 
         #endregion
@@ -442,38 +442,25 @@ namespace GestureSign.Common.Gestures
                 return null;
             }
 
-            // Update gesture analyzer with latest gestures and get gesture match from current points array
-            // Comparison results are sorted descending from highest to lowest probability
-            var gestures =
-                sourceGestures.Where(g =>
-                        g.PointPatterns != null && g.PointPatterns.Length > sourceGestureLevel &&
-                        g.PointPatterns[sourceGestureLevel].Points != null &&
-                        g.PointPatterns[sourceGestureLevel].Points.Length == points.Length &&
-                        g.FingerCount == fingerCount).ToList();
+            // Pre-filter gestures inline to avoid allocating intermediate lists
+            // Reuse list instance instead of creating new one
+            List<IGesture> gestures = new List<IGesture>(sourceGestures.Count);
+            int trajectoryCount = points.Length;
 
-            Log.Logging.LogDebug($"[GetGestureSetNameMatch] Input: {fingerCount} fingers, {points.Length} trajectories");
-            Log.Logging.LogDebug($"[GetGestureSetNameMatch] Filtered candidates: {gestures.Count}");
-
-            // Log why gestures were filtered out
-            foreach (var g in sourceGestures)
+            for (int i = 0; i < sourceGestures.Count; i++)
             {
-                bool hasPointPatterns = g.PointPatterns != null && g.PointPatterns.Length > sourceGestureLevel;
-                int? pointsLength = hasPointPatterns && g.PointPatterns[sourceGestureLevel].Points != null
-                    ? g.PointPatterns[sourceGestureLevel].Points.Length
-                    : (int?)null;
-                bool lengthMatch = pointsLength == points.Length;
-                bool fingerMatch = g.FingerCount == fingerCount;
-
-                if (!gestures.Contains(g))
+                IGesture g = sourceGestures[i];
+                if (g.PointPatterns != null &&
+                    g.PointPatterns.Length > sourceGestureLevel &&
+                    g.PointPatterns[sourceGestureLevel].Points != null &&
+                    g.PointPatterns[sourceGestureLevel].Points.Length == trajectoryCount &&
+                    g.FingerCount == fingerCount)
                 {
-                    string reason = !hasPointPatterns ? "no point patterns" :
-                                   pointsLength == null ? "points is null" :
-                                   !lengthMatch ? $"trajectory count mismatch (saved:{pointsLength}, input:{points.Length})" :
-                                   !fingerMatch ? $"finger count mismatch (saved:{g.FingerCount}, input:{fingerCount})" :
-                                   "unknown";
-                    Log.Logging.LogTrace($"[GetGestureSetNameMatch] Filtered out '{g.Name}': {reason}");
+                    gestures.Add(g);
                 }
             }
+
+            Log.Logging.LogDebug($"[GetGestureSetNameMatch] Filtered candidates: {gestures.Count} from {sourceGestures.Count}");
 
             if (gestures.Count == 0)
             {
@@ -481,37 +468,84 @@ namespace GestureSign.Common.Gestures
                 return null;
             }
 
-            List<PointPatternMatchResult>[] comparisonResults = new List<PointPatternMatchResult>[points.Length];
-            for (int i = 0; i < points.Length; i++)
+            // Perform pattern matching for each trajectory
+            List<PointPatternMatchResult>[] comparisonResults = new List<PointPatternMatchResult>[trajectoryCount];
+            for (int i = 0; i < trajectoryCount; i++)
             {
-                gestureAnalyzer.PointPatternSet = gestures.Select(gesture => new PointsPatternSet(gesture.Name, gesture.PointPatterns[sourceGestureLevel].Points[i]));
+                // Build point pattern set for this trajectory - cache to avoid rebuilding
+                var patternSet = new PointsPatternSet[gestures.Count];
+                for (int j = 0; j < gestures.Count; j++)
+                {
+                    patternSet[j] = new PointsPatternSet(gestures[j].Name, gestures[j].PointPatterns[sourceGestureLevel].Points[i]);
+                }
+
+                gestureAnalyzer.PointPatternSet = patternSet;
                 comparisonResults[i] = new List<PointPatternMatchResult>(gestures.Count);
                 comparisonResults[i].AddRange(gestureAnalyzer.GetPointPatternMatchResults(points[i]));
             }
 
-            var numbers = Enumerable.Range(0, gestures.Count);
-            numbers = comparisonResults.Aggregate(numbers, (current, matchResultsList) => current.Where(i => matchResultsList[i].Probability > Configuration.AppConfig.GestureMatchProbability).ToList());
+            // Filter gestures that meet probability threshold across ALL trajectories
+            // Using HashSet for O(1) removal instead of repeated LINQ Where().ToList()
+            double threshold = Configuration.AppConfig.GestureMatchProbability;
+            HashSet<int> validIndices = new HashSet<int>(Enumerable.Range(0, gestures.Count));
 
-            List<IGesture> matchingResult = new List<IGesture>();
-            List<KeyValuePair<string, double>> recognizedResult = new List<KeyValuePair<string, double>>();
-
-            foreach (var number in numbers)
+            for (int trajectoryIdx = 0; trajectoryIdx < trajectoryCount; trajectoryIdx++)
             {
-                var gesture = gestures[number];
+                var matchResults = comparisonResults[trajectoryIdx];
+                validIndices.RemoveWhere(gestureIdx => matchResults[gestureIdx].Probability <= threshold);
+
+                // Early exit if no gestures pass threshold
+                if (validIndices.Count == 0)
+                {
+                    matching = null;
+                    return null;
+                }
+            }
+
+            // Separate gestures into multi-level matches and final matches
+            List<IGesture> matchingResult = new List<IGesture>(validIndices.Count);
+            List<KeyValuePair<string, double>> recognizedResult = new List<KeyValuePair<string, double>>(validIndices.Count);
+
+            foreach (int gestureIdx in validIndices)
+            {
+                IGesture gesture = gestures[gestureIdx];
                 if (gesture.PointPatterns.Length > sourceGestureLevel + 1)
                 {
+                    // Multi-level gesture - needs more input
                     matchingResult.Add(gesture);
                 }
                 else
                 {
-                    double probability = comparisonResults.Sum(matchResultsList => matchResultsList[number].Probability);
+                    // Final level - calculate total probability
+                    double totalProbability = 0;
+                    for (int i = 0; i < trajectoryCount; i++)
+                    {
+                        totalProbability += comparisonResults[i][gestureIdx].Probability;
+                    }
 
-                    recognizedResult.Add(new KeyValuePair<string, double>(gesture.Name, probability));
+                    recognizedResult.Add(new KeyValuePair<string, double>(gesture.Name, totalProbability));
                 }
             }
 
             matching = matchingResult.Count == 0 ? null : matchingResult;
-            return recognizedResult.Count == 0 ? null : recognizedResult.OrderByDescending(r => r.Value).First().Key;
+
+            if (recognizedResult.Count == 0)
+                return null;
+
+            // Find best match
+            string bestMatch = recognizedResult[0].Key;
+            double bestProbability = recognizedResult[0].Value;
+
+            for (int i = 1; i < recognizedResult.Count; i++)
+            {
+                if (recognizedResult[i].Value > bestProbability)
+                {
+                    bestMatch = recognizedResult[i].Key;
+                    bestProbability = recognizedResult[i].Value;
+                }
+            }
+
+            return bestMatch;
         }
 
         public string GetMostSimilarGestureName(PointPattern[] pointPattern)

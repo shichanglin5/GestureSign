@@ -5,6 +5,8 @@ using WindowsInput.Native;
 using GestureSign.Common.Localization;
 using System.Windows.Forms;
 
+#pragma warning disable CA1416 // Platform-specific API
+
 namespace GestureSign.CorePlugins
 {
     public class NextApplication : IPlugin

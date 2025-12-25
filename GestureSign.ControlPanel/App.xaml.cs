@@ -27,6 +27,11 @@ namespace GestureSign.ControlPanel
     {
         Mutex mutex;
 
+        // Event handlers to enable proper cleanup
+        private EventHandler _applicationSavedHandler;
+        private EventHandler _gestureSavedHandler;
+        private EventHandler _configChangedHandler;
+
         private void Application_Startup(object sender, StartupEventArgs e)
         {
             Logging.LoggedExceptionOccurred += (o, ex) => ShowException(ex);
@@ -48,12 +53,16 @@ namespace GestureSign.ControlPanel
 
                 NamedPipe.Instance.RunNamedPipeServer(Constants.ControlPanel, new MessageProcessor());
 
-                ApplicationManager.ApplicationSaved += (o, ea) => NamedPipe.SendMessageAsync(IpcCommands.LoadApplications, Constants.Daemon);
-                GestureManager.GestureSaved += (o, ea) => NamedPipe.SendMessageAsync(IpcCommands.LoadGestures, Constants.Daemon);
-                AppConfig.ConfigChanged += (o, ea) =>
-                {
-                    NamedPipe.SendMessageAsync(IpcCommands.LoadConfiguration, Constants.Daemon);
-                };
+                // Subscribe to events with stored handlers for proper cleanup
+                _applicationSavedHandler = (o, ea) => NamedPipe.SendMessageAsync(IpcCommands.LoadApplications, Constants.Daemon);
+                ApplicationManager.ApplicationSaved += _applicationSavedHandler;
+
+                _gestureSavedHandler = (o, ea) => NamedPipe.SendMessageAsync(IpcCommands.LoadGestures, Constants.Daemon);
+                GestureManager.GestureSaved += _gestureSavedHandler;
+
+                _configChangedHandler = (o, ea) => NamedPipe.SendMessageAsync(IpcCommands.LoadConfiguration, Constants.Daemon);
+                AppConfig.ConfigChanged += _configChangedHandler;
+
                 MainWindow mainWindow = new MainWindow();
                 mainWindow.Show();
             }
@@ -150,8 +159,19 @@ namespace GestureSign.ControlPanel
 
         private void Application_Exit(object sender, ExitEventArgs e)
         {
+            // Unsubscribe from events to prevent memory leaks
+            // Only unsubscribe if handlers were actually subscribed (i.e., if mutex was created)
             if (mutex != null)
             {
+                if (_applicationSavedHandler != null)
+                    ApplicationManager.ApplicationSaved -= _applicationSavedHandler;
+
+                if (_gestureSavedHandler != null)
+                    GestureManager.GestureSaved -= _gestureSavedHandler;
+
+                if (_configChangedHandler != null)
+                    AppConfig.ConfigChanged -= _configChangedHandler;
+
                 NamedPipe.Instance.Dispose();
                 mutex.Dispose();
             }
