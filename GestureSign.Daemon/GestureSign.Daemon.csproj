@@ -10,9 +10,17 @@
     <LangVersion>latest</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <ApplicationManifest>Properties\app.manifest</ApplicationManifest>
     <ApplicationIcon>Resources\normal.ico</ApplicationIcon>
     <Deterministic>false</Deterministic>
+  </PropertyGroup>
+
+  <!-- Application Manifest Selection -->
+  <PropertyGroup Condition="'$(Configuration)' != 'uiAccessRelease'">
+    <ApplicationManifest>Properties\app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'uiAccessRelease'">
+    <ApplicationManifest>Properties\app.uiAccessRelease.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <!-- Build Configurations -->
@@ -46,10 +54,6 @@
     <ProjectReference Include="..\GestureSign.PointPatterns\GestureSign.PointPatterns.csproj" />
     <ProjectReference Include="..\GestureSign.CorePlugins\GestureSign.CorePlugins.csproj" />
     <ProjectReference Include="..\ManagedWinapi\ManagedWinapi.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="Properties\app.manifest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -4,8 +4,11 @@
     <Style TargetType="{x:Type RadioButton}">
         <Setter Property="Foreground"
                 Value="{StaticResource MahApps.Brushes.Highlight}" />
-        <Setter Property="Background"
-                Value="White" />
+        <Setter Property="Background">
+            <Setter.Value>
+                <SolidColorBrush Color="White" />
+            </Setter.Value>
+        </Setter>
         <Setter Property="FontSize"
                 Value="14" />
         <Setter Property="Template">
@@ -34,8 +37,10 @@
                     <BulletDecorator Background="Transparent">
                         <Border x:Name="bd"
                                 HorizontalAlignment="Stretch"
-                                Background="White"
                                 BorderThickness="2">
+                            <Border.Background>
+                                <SolidColorBrush Color="White" />
+                            </Border.Background>
                             <Border.OpacityMask>
                                 <LinearGradientBrush EndPoint="0.5,1"
                                                      StartPoint="0.5,0">
@@ -58,14 +63,20 @@
                         <Trigger Property="IsEnabled"
                                  Value="false">
                             <Setter TargetName="bd"
-                                    Property="Background"
-                                    Value="gray" />
+                                    Property="Background">
+                                <Setter.Value>
+                                    <SolidColorBrush Color="Gray" />
+                                </Setter.Value>
+                            </Setter>
                         </Trigger>
                         <Trigger Property="IsChecked"
                                  Value="false">
                             <Setter TargetName="bd"
-                                    Property="Background"
-                                    Value="{x:Null}" />
+                                    Property="Background">
+                                <Setter.Value>
+                                    <SolidColorBrush Color="Transparent" />
+                                </Setter.Value>
+                            </Setter>
                         </Trigger>
                         <Trigger Property="IsChecked"
                                  Value="true">
@@ -76,8 +87,11 @@
                             <Setter Property="Foreground"
                                     Value="{StaticResource MahApps.Brushes.IdealForeground}"></Setter>
                             <Setter TargetName="bd"
-                                    Property="Background"
-                                    Value="#FF606060" />
+                                    Property="Background">
+                                <Setter.Value>
+                                    <SolidColorBrush Color="#FF606060" />
+                                </Setter.Value>
+                            </Setter>
                             <Setter TargetName="bd"
                                     Property="BorderBrush"
                                     Value="{StaticResource MahApps.Brushes.Accent}" />
@@ -94,8 +108,11 @@
                                            Value="False" />
                             </MultiTrigger.Conditions>
                             <Setter TargetName="bd"
-                                    Property="Background"
-                                    Value="Red" />
+                                    Property="Background">
+                                <Setter.Value>
+                                    <SolidColorBrush Color="Red" />
+                                </Setter.Value>
+                            </Setter>
                         </MultiTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

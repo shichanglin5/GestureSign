@@ -116,7 +116,7 @@ namespace GestureSign.Common.Gestures
 
             GestureName = GetGestureSetNameMatch(capturedPoints, e.FingerCount, sourceGesture, _gestureLevel, out _gestureMatchResult);
 
-            Log.Logging.LogInfo($"[GestureManager] Match result: {GestureName ?? "NULL"}");
+            Log.Logging.LogDebug($"[GestureManager] Match result: {GestureName ?? "NULL"}");
 
             if (pointCapture.Mode != CaptureMode.Training)
             {
