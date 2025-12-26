@@ -92,6 +92,7 @@ namespace GestureSign.Daemon.Input
 
         private void TranslateTouchEvent(object sender, RawPointsDataMessageEventArgs e)
         {
+            GestureSign.Common.Log.Logging.LogWarning($"[PointEventTranslator] RawData.Count={e.RawData.Count}, _lastPointsCount={_lastPointsCount}, SourceDevice={e.SourceDevice}");
             if ((e.SourceDevice & Devices.TouchDevice) != 0)
             {
                 int releaseCount = e.RawData.Count(rtd => rtd.State == 0);
@@ -145,6 +146,7 @@ namespace GestureSign.Daemon.Input
                 }
                 else
                 {
+                    GestureSign.Common.Log.Logging.LogWarning($"[PointEventTranslator] Triggering PointUp - RawData.Count={e.RawData.Count}, releaseCount={releaseCount}");
                     OnPointUp(new InputPointsEventArgs(e.RawData, e.SourceDevice));
                     _lastPointsCount = _lastPointsCount - e.RawData.Count > releaseCount ? e.RawData.Count : _lastPointsCount - releaseCount;
                 }

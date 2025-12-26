@@ -295,15 +295,16 @@ namespace GestureSign.Daemon.Input
                             _outputTouchs = new List<RawData>(contactCount);
                             touchScreen.GetRawDatas(linkCollection[0].NumberOfChildren, _currentScr, ref _requiringContactCount, ref _outputTouchs);
                         }
-                        else if (_requiringContactCount != 0)
-                        {
-                            // All fingers lifted - send final event
-                            _requiringContactCount = 0;
-                            _outputTouchs = new List<RawData>();
-                        }
                         else
                         {
-                            return; // No active gesture, skip
+                            // contactCount == 0, no active touches
+                            if (_requiringContactCount == 0)
+                                return; // No ongoing gesture, skip
+
+                            // Ongoing gesture detected all fingers lifted
+                            GestureSign.Common.Log.Logging.LogWarning($"[MessageWindow-TouchScreen] contactCount=0 with ongoing gesture, sending empty event to end gesture");
+                            _requiringContactCount = 0;
+                            _outputTouchs = new List<RawData>();
                         }
                     }
                 }
@@ -332,15 +333,16 @@ namespace GestureSign.Daemon.Input
                             _outputTouchs = new List<RawData>(contactCount);
                             touchPad.GetRawDatas(linkCollection[0].NumberOfChildren, _currentScr, ref _requiringContactCount, ref _outputTouchs);
                         }
-                        else if (_requiringContactCount != 0)
-                        {
-                            // All fingers lifted - send final event
-                            _requiringContactCount = 0;
-                            _outputTouchs = new List<RawData>();
-                        }
                         else
                         {
-                            return; // No active gesture, skip
+                            // contactCount == 0, no active touches
+                            if (_requiringContactCount == 0)
+                                return; // No ongoing gesture, skip
+
+                            // Ongoing gesture detected all fingers lifted
+                            GestureSign.Common.Log.Logging.LogWarning($"[MessageWindow-TouchPad] contactCount=0 with ongoing gesture, sending empty event to end gesture");
+                            _requiringContactCount = 0;
+                            _outputTouchs = new List<RawData>();
                         }
                     }
                 }

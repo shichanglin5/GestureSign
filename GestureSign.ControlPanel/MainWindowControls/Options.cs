@@ -156,7 +156,15 @@ namespace GestureSign.ControlPanel.MainWindowControls
         private void FeatureFingerIndexSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             var newValue = (int)Math.Round(e.NewValue);
-            if (newValue == AppConfig.FeatureFingerIndex || (int)e.OldValue == 0) return;
+
+            // Skip only during initialization (OldValue and NewValue both 0, and matches config)
+            if ((int)e.OldValue == 0 && newValue == 0 && newValue == AppConfig.FeatureFingerIndex)
+                return;
+
+            // Skip if value didn't actually change
+            if (newValue == AppConfig.FeatureFingerIndex && (int)e.OldValue != 0)
+                return;
+
             AppConfig.FeatureFingerIndex = newValue;
 
             // Update display: show "1st", "2nd", "3rd", etc. instead of 0-based index
