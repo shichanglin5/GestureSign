@@ -37,7 +37,6 @@ namespace GestureSign.Daemon.Triggers
         public void Load()
         {
             AddTrigger(new HotKeyManager());
-            AddTrigger(new MouseTrigger());
             AddTrigger(new ContinuousGestureTrigger());
         }
 

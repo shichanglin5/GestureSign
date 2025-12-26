@@ -22,9 +22,6 @@ namespace GestureSign.Daemon.Input
 
         private Devices _sourceDevice;
         private List<ushort> _registeredDeviceList = new List<ushort>(1);
-        private int? _penLastActivity;
-        private bool _ignoreTouchInputWhenUsingPen;
-        private DeviceStates _penGestureButton;
 
         public event RawPointsDataMessageEventHandler PointsIntercepted;
 
@@ -106,14 +103,9 @@ namespace GestureSign.Daemon.Input
 
         public void UpdateRegistration()
         {
-            _ignoreTouchInputWhenUsingPen = AppConfig.IgnoreTouchInputWhenUsingPen;
-            var penSetting = AppConfig.PenGestureButton;
-            _penGestureButton = penSetting & (DeviceStates.Invert | DeviceStates.RightClickButton);
-
             _validDevices.Clear();
 
             UpdateRegisterState(AppConfig.RegisterTouchScreen, NativeMethods.TouchScreenUsage);
-            UpdateRegisterState(_ignoreTouchInputWhenUsingPen || _penGestureButton != 0 && (penSetting & (DeviceStates.InRange | DeviceStates.Tip)) != 0, NativeMethods.PenUsage);
             UpdateRegisterState(AppConfig.RegisterTouchPad, NativeMethods.TouchPadUsage);
         }
 
@@ -278,59 +270,8 @@ namespace GestureSign.Daemon.Input
 
                 if (usage == 0)
                     return;
-                if (usage == NativeMethods.PenUsage)
+                if (usage == NativeMethods.TouchScreenUsage)
                 {
-                    if (_ignoreTouchInputWhenUsingPen)
-                        _penLastActivity = Environment.TickCount;
-                    else
-                        _penLastActivity = null;
-
-                    if (_penGestureButton == 0)
-                        return;
-
-                    switch (_sourceDevice)
-                    {
-                        case Devices.TouchScreen:
-                        case Devices.None:
-                        case Devices.Pen:
-                            break;
-                        default:
-                            return;
-                    }
-
-                    using (PenDevice penDevice = new PenDevice(buffer, ref raw))
-                    {
-                        DeviceStates state = penDevice.GetPenState();
-
-                        if (_sourceDevice == Devices.None || _sourceDevice == Devices.TouchScreen)
-                        {
-                            if ((state & _penGestureButton) != 0)
-                            {
-                                _currentScr = Screen.FromPoint(Cursor.Position);
-                                if (_currentScr == null)
-                                    return;
-                                _sourceDevice = Devices.Pen;
-                                PenDevice.GetCurrentScreenOrientation();
-                            }
-                            else
-                                return;
-                        }
-                        else if (_sourceDevice == Devices.Pen)
-                        {
-                            if ((state & _penGestureButton) == 0 || (state & DeviceStates.InRange) == 0)
-                            {
-                                state = DeviceStates.None;
-                            }
-                        }
-                        penDevice.GetPhysicalMax(1);
-                        Point point = penDevice.GetCoordinate(0, _currentScr);
-                        _outputTouchs = new List<RawData>(1) { new RawData(state, 0, point) };
-                    }
-                }
-                else if (usage == NativeMethods.TouchScreenUsage)
-                {
-                    if (_penLastActivity != null && Environment.TickCount - _penLastActivity < 100)
-                        return;
                     if (_sourceDevice == Devices.None)
                     {
                         _currentScr = Screen.FromPoint(Cursor.Position);

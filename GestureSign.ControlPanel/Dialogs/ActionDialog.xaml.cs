@@ -66,21 +66,13 @@ namespace GestureSign.ControlPanel.Dialogs
 
         private void MetroWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            if (MouseActionDescription.DescriptionDict.ContainsKey(AppConfig.DrawingButton))
-                DrawingButtonTextBlock.Text = MouseActionDescription.DescriptionDict[AppConfig.DrawingButton] + "  +  ";
-            if (AppConfig.DrawingButton == MouseActions.None)
-                MouseHotKeyTextBlock.Text += LocalizationProvider.Instance.GetTextValue("ActionDialog.MouseGestureNotEnabled");
-
             if (_sourceAction != null)
             {
                 ActionNameTextBox.Text = _sourceAction.Name;
                 ConditionTextBox.Text = _sourceAction.Condition;
-                MouseActionComboBox.SelectedValue = _sourceAction.MouseHotkey;
                 ActivateWindowCheckBox.IsChecked = _sourceAction.ActivateWindow;
-                MouseCheckBox.IsChecked = !_sourceAction.IgnoredDevices.HasFlag(Devices.Mouse);
                 TouchScreenCheckBox.IsChecked = !_sourceAction.IgnoredDevices.HasFlag(Devices.TouchScreen);
                 TouchPadCheckBox.IsChecked = !_sourceAction.IgnoredDevices.HasFlag(Devices.TouchPad);
-                PenCheckBox.IsChecked = !_sourceAction.IgnoredDevices.HasFlag(Devices.Pen);
 
                 var gesture = GestureManager.Instance.GetNewestGestureSample(_sourceAction.GestureName);
                 if (gesture != null)
@@ -170,14 +162,10 @@ namespace GestureSign.ControlPanel.Dialogs
                 : null;
             NewAction.ContinuousGesture = null;
             Devices ignoredDevices = Devices.None;
-            if (!MouseCheckBox.IsChecked.GetValueOrDefault())
-                ignoredDevices |= Devices.Mouse;
             if (!TouchScreenCheckBox.IsChecked.GetValueOrDefault())
                 ignoredDevices |= Devices.TouchScreen;
             if (!TouchPadCheckBox.IsChecked.GetValueOrDefault())
                 ignoredDevices |= Devices.TouchPad;
-            if (!PenCheckBox.IsChecked.GetValueOrDefault())
-                ignoredDevices |= Devices.Pen;
             NewAction.IgnoredDevices = ignoredDevices;
 
             // Save entire list of applications

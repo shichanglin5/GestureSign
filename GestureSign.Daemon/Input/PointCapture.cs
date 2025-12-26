@@ -81,11 +81,6 @@ namespace GestureSign.Daemon.Input
 
         public Devices SourceDevice { get { return _pointEventTranslator.SourceDevice; } }
 
-        public LowLevelMouseHook MouseHook
-        {
-            get { return _inputProvider.LowLevelMouseHook; }
-        }
-
         public bool TemporarilyDisableCapture { get; set; }
 
         public List<Point>[] InputPoints
@@ -516,52 +511,6 @@ namespace GestureSign.Daemon.Input
                 Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Normal;
                 return;
             }
-
-            // Case 3: Mouse gesture specific handling
-            if (State == CaptureState.CapturingInvalid && SourceDevice == Devices.Mouse)
-            {
-                if (Mode != CaptureMode.UserDisabled)
-                {
-                    State = CaptureState.Disabled;
-
-                    var observeExceptionsTask = new Action<Task>(t =>
-                    {
-                        State = CaptureState.Ready;
-                        Console.WriteLine($"{t.Exception.InnerException.GetType().Name}: {t.Exception.InnerException.Message}");
-                    });
-
-                    var clickAsync = Task.Factory.StartNew(delegate
-                    {
-                        InputSimulator simulator = new InputSimulator();
-                        switch (AppConfig.DrawingButton)
-                        {
-                            case MouseActions.Left:
-                                simulator.Mouse.LeftButtonClick();
-                                break;
-                            case MouseActions.Middle:
-                                simulator.Mouse.MiddleButtonClick();
-                                break;
-                            case MouseActions.Right:
-                                simulator.Mouse.RightButtonClick();
-                                break;
-                            case MouseActions.XButton1:
-                                simulator.Mouse.XButtonClick(1);
-                                break;
-                            case MouseActions.XButton2:
-                                simulator.Mouse.XButtonClick(2);
-                                break;
-                        }
-                        State = CaptureState.Ready;
-                    }).ContinueWith(observeExceptionsTask, TaskContinuationOptions.OnlyOnFaulted);
-
-                    e.Handled = true;
-                }
-                else
-                {
-                    State = CaptureState.Ready;
-                }
-                Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Normal;
-            }
             else if (State == CaptureState.TriggerFired)
             {
                 State = CaptureState.Ready;
@@ -617,28 +566,6 @@ namespace GestureSign.Daemon.Input
                     {
                         if (_pointerInputTargetWindow.BlockTouchInputThreshold > 1)
                             _pointerInputTargetWindow.TemporarilyDisable();
-                    }
-                    else if (SourceDevice == Devices.Mouse)
-                    {
-                        InputSimulator simulator = new InputSimulator();
-                        switch (AppConfig.DrawingButton)
-                        {
-                            case MouseActions.Left:
-                                simulator.Mouse.LeftButtonDown();
-                                break;
-                            case MouseActions.Middle:
-                                simulator.Mouse.MiddleButtonDown();
-                                break;
-                            case MouseActions.Right:
-                                simulator.Mouse.RightButtonDown();
-                                break;
-                            case MouseActions.XButton1:
-                                simulator.Mouse.XButtonDown(1);
-                                break;
-                            case MouseActions.XButton2:
-                                simulator.Mouse.XButtonDown(2);
-                                break;
-                        }
                     }
                     State = CaptureState.Ready;
                 }

@@ -59,13 +59,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 TouchPadSwitch.IsOn = AppConfig.RegisterTouchPad;
                 TouchScreenSwitch.IsOn = AppConfig.RegisterTouchScreen;
                 IgnoreFullScreenSwitch.IsOn = AppConfig.IgnoreFullScreen;
-                IgnoreTouchInputWhenUsingPenSwitch.IsOn = AppConfig.IgnoreTouchInputWhenUsingPen;
                 BlockWindowsGesturesSwitch.IsOn = AppConfig.BlockWindowsGestures;
-                if (AppConfig.DrawingButton != MouseActions.None)
-                {
-                    MouseSwitch.IsOn = true;
-                    DrawingButtonComboBox.SelectedValue = AppConfig.DrawingButton;
-                }
 
                 LanguageComboBox.ItemsSource = LocalizationProvider.Instance.GetLanguageList("ControlPanel");
                 LanguageComboBox.SelectedValue = AppConfig.CultureName;
@@ -75,19 +69,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
                     InitialTimeoutSlider.Value = AppConfig.InitialTimeout / 1000f;
                 }
 
-                var penState = AppConfig.PenGestureButton;
-                if ((penState & (DeviceStates.InRange | DeviceStates.Tip)) != 0 && (penState & (DeviceStates.RightClickButton | DeviceStates.Invert)) != 0)
-                {
-                    PenGestureSwitch.IsOn = true;
-                    TipCheckBox.IsChecked = penState.HasFlag(DeviceStates.Tip);
-                    HoverCheckBox.IsChecked = penState.HasFlag(DeviceStates.InRange);
-                    RightClickButtonCheckBox.IsChecked = penState.HasFlag(DeviceStates.RightClickButton);
-                    EraserCheckBox.IsChecked = penState.HasFlag(DeviceStates.Invert);
-                }
-                else
-                {
-                    PenGestureSwitch.IsOn = false;
-                }
                 CheckDeviceStates();
             }
             catch (Exception)
@@ -222,7 +203,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
                         Brush brush = (Brush)TryFindResource("AccentBaseColorBrush");
                         TouchScreenNotFoundText.Foreground = (deviceState & Devices.TouchScreen) != 0 ? Brushes.Transparent : brush;
                         TouchPadNotFoundText.Foreground = (deviceState & Devices.TouchPad) != 0 ? Brushes.Transparent : brush;
-                        PenNotFoundText.Foreground = (deviceState & Devices.Pen) != 0 ? Brushes.Transparent : brush;
                     }, System.Windows.Threading.DispatcherPriority.Loaded);
                 });
         }
@@ -374,19 +354,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
             AppConfig.CultureName = (string)LanguageComboBox.SelectedValue;
         }
 
-        private void MouseSwitch_Click(object sender, RoutedEventArgs e)
-        {
-            if (MouseSwitch.IsOn != null && MouseSwitch.IsOn)
-                DrawingButtonComboBox.SelectedValue = AppConfig.DrawingButton = MouseActions.Right;
-            else AppConfig.DrawingButton = MouseActions.None;
-        }
-
-        private void DrawingButtonComboBox_DropDownClosed(object sender, EventArgs e)
-        {
-            if (DrawingButtonComboBox.SelectedValue == null) return;
-            AppConfig.DrawingButton = (MouseActions)DrawingButtonComboBox.SelectedValue;
-        }
-
         private void TouchScreenSwitch_Click(object sender, RoutedEventArgs e)
         {
             AppConfig.RegisterTouchScreen = TouchScreenSwitch.IsOn;
@@ -400,11 +367,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
         private void IgnoreFullScreenSwitch_Click(object sender, RoutedEventArgs e)
         {
             AppConfig.IgnoreFullScreen = IgnoreFullScreenSwitch.IsOn;
-        }
-
-        private void IgnoreTouchInputWhenUsingPenSwitch_Click(object sender, RoutedEventArgs e)
-        {
-            AppConfig.IgnoreTouchInputWhenUsingPen = IgnoreTouchInputWhenUsingPenSwitch.IsOn;
         }
 
         private void BlockWindowsGesturesSwitch_Click(object sender, RoutedEventArgs e)
@@ -429,69 +391,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var newValue = (int)Math.Round(e.NewValue * 1000);
             if (newValue == AppConfig.InitialTimeout) return;
             AppConfig.InitialTimeout = newValue;
-        }
-
-        private void PenGestureSwitch_Click(object sender, RoutedEventArgs e)
-        {
-            if (PenGestureSwitch.IsOn)
-            {
-                AppConfig.PenGestureButton = DeviceStates.RightClickButton | DeviceStates.Tip;
-                RightClickButtonCheckBox.IsChecked = TipCheckBox.IsChecked = true;
-                EraserCheckBox.IsChecked = HoverCheckBox.IsChecked = false;
-            }
-            else
-            {
-                AppConfig.PenGestureButton = DeviceStates.None;
-                RightClickButtonCheckBox.IsChecked = EraserCheckBox.IsChecked = HoverCheckBox.IsChecked = TipCheckBox.IsChecked = false;
-            }
-        }
-
-        private void RightClickButtonCheckBox_Click(object sender, RoutedEventArgs e)
-        {
-            if (RightClickButtonCheckBox.IsChecked.GetValueOrDefault())
-            {
-                AppConfig.PenGestureButton |= DeviceStates.RightClickButton;
-            }
-            else
-            {
-                AppConfig.PenGestureButton &= ~DeviceStates.RightClickButton;
-            }
-        }
-
-        private void EraserCheckBox_Click(object sender, RoutedEventArgs e)
-        {
-            if (EraserCheckBox.IsChecked.GetValueOrDefault())
-            {
-                AppConfig.PenGestureButton |= DeviceStates.Invert;
-            }
-            else
-            {
-                AppConfig.PenGestureButton &= ~DeviceStates.Invert;
-            }
-        }
-
-        private void TipCheckBox_Click(object sender, RoutedEventArgs e)
-        {
-            if (TipCheckBox.IsChecked.GetValueOrDefault())
-            {
-                AppConfig.PenGestureButton |= DeviceStates.Tip;
-            }
-            else
-            {
-                AppConfig.PenGestureButton &= ~DeviceStates.Tip;
-            }
-        }
-
-        private void HoverCheckBox_Click(object sender, RoutedEventArgs e)
-        {
-            if (HoverCheckBox.IsChecked.GetValueOrDefault())
-            {
-                AppConfig.PenGestureButton |= DeviceStates.InRange;
-            }
-            else
-            {
-                AppConfig.PenGestureButton &= ~DeviceStates.InRange;
-            }
         }
 
         private void GestureTrailSwitch_Click(object sender, RoutedEventArgs e)

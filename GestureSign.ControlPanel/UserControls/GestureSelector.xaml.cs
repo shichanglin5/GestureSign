@@ -46,7 +46,7 @@ namespace GestureSign.ControlPanel.UserControls
             if (existingSimilarGestureName == null)
             {
                 CurrentGesture = new Gesture(null, currentPatterns);
-                Logging.LogMessage($"[GestureSelector] Created new gesture with FingerCount: {CurrentGesture.FingerCount}");
+                Logging.LogDebug($"[GestureSelector] Created new gesture with FingerCount: {CurrentGesture.FingerCount}");
                 ExistingTextBlock.Visibility = Visibility.Collapsed;
             }
             else
@@ -54,7 +54,7 @@ namespace GestureSign.ControlPanel.UserControls
                 if (OldGesture?.Name == existingSimilarGestureName)
                 {
                     CurrentGesture = new Gesture(existingSimilarGestureName, currentPatterns);
-                    Logging.LogMessage($"[GestureSelector] Updated existing gesture '{existingSimilarGestureName}' with FingerCount: {CurrentGesture.FingerCount}");
+                    Logging.LogDebug($"[GestureSelector] Updated existing gesture '{existingSimilarGestureName}' with FingerCount: {CurrentGesture.FingerCount}");
                 }
                 else
                 {
@@ -72,16 +72,16 @@ namespace GestureSign.ControlPanel.UserControls
                 DrawGestureTextBlock.Visibility = Visibility.Visible;
                 ExistingTextBlock.Visibility = RedrawButton.Visibility = Visibility.Collapsed;
                 MessageProcessor.GotNewPattern += MessageProcessor_GotNewPattern;
-                Logging.LogMessage($"[GestureSelector] Sending StartTeaching command...");
+                Logging.LogDebug($"[GestureSelector] Sending StartTeaching command...");
                 var result = NamedPipe.SendMessageAsync(IpcCommands.StartTeaching, Constants.Daemon).Result;
-                Logging.LogMessage($"[GestureSelector] StartTeaching result: {result}");
+                Logging.LogDebug($"[GestureSelector] StartTeaching result: {result}");
             }
             else
             {
                 DrawGestureTextBlock.Visibility = Visibility.Collapsed;
                 RedrawButton.Visibility = Visibility.Visible;
                 MessageProcessor.GotNewPattern -= MessageProcessor_GotNewPattern;
-                Logging.LogMessage($"[GestureSelector] Sending StopTraining command...");
+                Logging.LogDebug($"[GestureSelector] Sending StopTraining command...");
                 NamedPipe.SendMessageAsync(IpcCommands.StopTraining, Constants.Daemon);
             }
         }
@@ -117,7 +117,7 @@ namespace GestureSign.ControlPanel.UserControls
 
         private void UserControl_Unloaded(object sender, RoutedEventArgs e)
         {
-            Logging.LogMessage($"[GestureSelector] UserControl_Unloaded");
+            Logging.LogDebug($"[GestureSelector] UserControl_Unloaded");
             SetTrainingState(false);
         }
     }

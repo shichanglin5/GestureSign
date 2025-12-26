@@ -176,9 +176,6 @@ namespace GestureSign.Daemon.Input
                                 case NativeMethods.TouchScreenUsage:
                                     foundDevices |= Devices.TouchScreen;
                                     break;
-                                case NativeMethods.PenUsage:
-                                    foundDevices |= Devices.Pen;
-                                    break;
                                 default:
                                     continue;
                             }

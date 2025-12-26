@@ -241,18 +241,6 @@ namespace GestureSign.Common.Configuration
             }
         }
 
-        public static MouseActions DrawingButton
-        {
-            get
-            {
-                return (MouseActions)GetValue(nameof(DrawingButton), 0);
-            }
-            set
-            {
-                SetValue(nameof(DrawingButton), (int)value);
-            }
-        }
-
         public static bool RegisterTouchPad
         {
             get
@@ -286,30 +274,6 @@ namespace GestureSign.Common.Configuration
             set
             {
                 SetValue(nameof(IgnoreFullScreen), value);
-            }
-        }
-
-        public static bool IgnoreTouchInputWhenUsingPen
-        {
-            get
-            {
-                return GetValue(nameof(IgnoreTouchInputWhenUsingPen), true);
-            }
-            set
-            {
-                SetValue(nameof(IgnoreTouchInputWhenUsingPen), value);
-            }
-        }
-
-        public static DeviceStates PenGestureButton
-        {
-            get
-            {
-                return (DeviceStates)GetValue(nameof(PenGestureButton), 0);
-            }
-            set
-            {
-                SetValue(nameof(PenGestureButton), (int)value);
             }
         }
 
