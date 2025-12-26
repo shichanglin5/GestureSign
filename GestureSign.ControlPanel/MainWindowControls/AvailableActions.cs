@@ -5,7 +5,6 @@ using GestureSign.Common.Localization;
 using GestureSign.ControlPanel.Common;
 using GestureSign.ControlPanel.Dialogs;
 using GestureSign.ControlPanel.ViewModel;
-using IWshRuntimeLibrary;
 using MahApps.Metro.Controls;
 using MahApps.Metro.Controls.Dialogs;
 using System;
@@ -567,18 +566,10 @@ namespace GestureSign.ControlPanel.MainWindowControls
                                 lstAvailableApplication.SelectedItem = ApplicationManager.Instance.AddApplication(new UserApp(), file);
                                 break;
                             case ".lnk":
-                                try
+                                var targetPath = ShellLinkInterop.GetShortcutTarget(file);
+                                if (!string.IsNullOrEmpty(targetPath) && Path.GetExtension(targetPath).ToLower() == ".exe")
                                 {
-                                    WshShell shell = new WshShell();
-                                    IWshShortcut link = (IWshShortcut)shell.CreateShortcut(file);
-                                    if (Path.GetExtension(link.TargetPath).ToLower() == ".exe")
-                                    {
-                                        lstAvailableApplication.SelectedItem = ApplicationManager.Instance.AddApplication(new UserApp(), link.TargetPath);
-                                    }
-                                }
-                                catch (System.Runtime.InteropServices.COMException)
-                                {
-                                    // COM component not available, skip .lnk file
+                                    lstAvailableApplication.SelectedItem = ApplicationManager.Instance.AddApplication(new UserApp(), targetPath);
                                 }
                                 break;
                             case GestureSign.Common.Constants.ArchivesExtension:

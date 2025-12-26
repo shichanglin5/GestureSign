@@ -1,6 +1,5 @@
 ﻿using GestureSign.Common.Configuration;
 using GestureSign.Common.Localization;
-using IWshRuntimeLibrary;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -63,22 +62,19 @@ namespace GestureSign.ControlPanel.Common
         {
             try
             {
-                WshShell shell = new WshShell();
-                IWshShortcut shortCut = (IWshShortcut)shell.CreateShortcut(lnkPath);
-                shortCut.TargetPath = targetPath;
-                //Application.ResourceAssembly.Location;// System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
-                shortCut.WindowStyle = 7;
-                shortCut.Arguments = "";
-                shortCut.Description = Application.ResourceAssembly.GetName().Version.ToString();
-                // Application.ProductName + Application.ProductVersion;
-                //shortCut.IconLocation = Application.ResourceAssembly.Location;// Application.ExecutablePath;
-                //shortCut.WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory;// Application.ResourceAssembly.;
-                shortCut.Save();
+                ShellLinkInterop.CreateShortcut(
+                    lnkPath: lnkPath,
+                    targetPath: targetPath,
+                    arguments: "",
+                    description: Application.ResourceAssembly.GetName().Version.ToString(),
+                    workingDirectory: null,
+                    windowStyle: 7  // Minimized
+                );
             }
-            catch (System.Runtime.InteropServices.COMException ex)
+            catch (Exception ex)
             {
-                // COM component not available, log but don't crash
-                GestureSign.Common.Log.Logging.LogException(new Exception("WshShell COM component not available. Shortcut creation skipped.", ex));
+                // COM component not available or other error, log but don't crash
+                GestureSign.Common.Log.Logging.LogException(new Exception("Failed to create shortcut. Shortcut creation skipped.", ex));
             }
         }
 
