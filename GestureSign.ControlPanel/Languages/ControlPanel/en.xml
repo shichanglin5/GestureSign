@@ -235,7 +235,7 @@ Email:ccfyzh@gmail.com
     <SystemColor>Follow System Color</SystemColor>
     <MinimumPointDistance>Minimum Point Distance {0:F0} px</MinimumPointDistance>
     <TapDistanceThreshold>Tap Distance Threshold {0:F0} px (Total movement to distinguish tap from swipe)</TapDistanceThreshold>
-    <FeatureFingerIndex>Feature Finger Index {0:F0} ({0:F0}th finger)</FeatureFingerIndex>
+    <FeatureFingerIndex>Feature Finger: {0}</FeatureFingerIndex>
     <GestureMatchProbability>Gesture Match Threshold {0:F0}% (Lower = easier to match)</GestureMatchProbability>
     <MultiFingerDelay>Multi-Finger Tap Delay {0:F0}ms (Time to collect all fingers for tap gestures)</MultiFingerDelay>
     <Backup>Backup All User Data</Backup>

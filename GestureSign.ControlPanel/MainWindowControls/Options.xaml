@@ -133,7 +133,6 @@
             <TextBlock x:Name="FeatureFingerIndexText"
                        HorizontalAlignment="Center"
                        TextWrapping="Wrap"
-                       Text="{Binding ElementName=FeatureFingerIndexSlider, Path=Value, StringFormat={localization:LocalisedText Options.FeatureFingerIndex}}"
                        VerticalAlignment="Top"
                        Margin="15,15,5,3"
                        FontSize="14" />
