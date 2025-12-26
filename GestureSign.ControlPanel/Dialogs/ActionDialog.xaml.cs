@@ -152,7 +152,6 @@ namespace GestureSign.ControlPanel.Dialogs
             NewAction.ActivateWindow = ActivateWindowCheckBox.IsChecked;
             NewAction.GestureName = CurrentGesture?.Name ?? string.Empty;
             NewAction.Name = ActionNameTextBox.Text.Trim();
-            NewAction.MouseHotkey = (MouseActions?)MouseActionComboBox.SelectedValue ?? MouseActions.None;
             NewAction.Hotkey = HotKeyTextBox.HotKey != null
                 ? new Hotkey()
                 {
