@@ -55,11 +55,18 @@ namespace GestureSign.Daemon.Input
         /// </summary>
         private List<RawData> FilterValidContacts(List<RawData> rawData, Devices sourceDevice)
         {
-            // For touchpad: filter out State=None (release state) contacts
-            // For other devices: filter out (0,0) coordinates
-            return sourceDevice == Devices.TouchPad
-                ? rawData.Where(rd => rd.State != 0).ToList()
-                : rawData.Where(rd => !(rd.RawPoints.X == 0 && rd.RawPoints.Y == 0)).ToList();
+            // Filter out State=None (release state) contacts for all devices
+            // State=None (0) indicates the finger has been lifted
+            // For touchscreen, also filter out (0,0) coordinates as invalid
+            if (sourceDevice == Devices.TouchPad)
+            {
+                return rawData.Where(rd => rd.State != 0).ToList();
+            }
+            else
+            {
+                // For TouchScreen: filter out State=None AND (0,0) coordinates
+                return rawData.Where(rd => rd.State != 0 && !(rd.RawPoints.X == 0 && rd.RawPoints.Y == 0)).ToList();
+            }
         }
 
         /// <summary>
