@@ -293,10 +293,18 @@ namespace GestureSign.Daemon.Input
                         {
                             _requiringContactCount = contactCount;
                             _outputTouchs = new List<RawData>(contactCount);
+                            touchScreen.GetRawDatas(linkCollection[0].NumberOfChildren, _currentScr, ref _requiringContactCount, ref _outputTouchs);
                         }
-                        if (_requiringContactCount == 0) return;
-
-                        touchScreen.GetRawDatas(linkCollection[0].NumberOfChildren, _currentScr, ref _requiringContactCount, ref _outputTouchs);
+                        else if (_requiringContactCount != 0)
+                        {
+                            // All fingers lifted - send final event
+                            _requiringContactCount = 0;
+                            _outputTouchs = new List<RawData>();
+                        }
+                        else
+                        {
+                            return; // No active gesture, skip
+                        }
                     }
                 }
                 else if (usage == NativeMethods.TouchPadUsage)
@@ -322,11 +330,18 @@ namespace GestureSign.Daemon.Input
                         {
                             _requiringContactCount = contactCount;
                             _outputTouchs = new List<RawData>(contactCount);
+                            touchPad.GetRawDatas(linkCollection[0].NumberOfChildren, _currentScr, ref _requiringContactCount, ref _outputTouchs);
                         }
-                        if (_requiringContactCount == 0)
-                            return;
-
-                        touchPad.GetRawDatas(linkCollection[0].NumberOfChildren, _currentScr, ref _requiringContactCount, ref _outputTouchs);
+                        else if (_requiringContactCount != 0)
+                        {
+                            // All fingers lifted - send final event
+                            _requiringContactCount = 0;
+                            _outputTouchs = new List<RawData>();
+                        }
+                        else
+                        {
+                            return; // No active gesture, skip
+                        }
                     }
                 }
 
