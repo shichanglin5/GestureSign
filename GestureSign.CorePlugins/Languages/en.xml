@@ -213,5 +213,13 @@
       <Arguments>Arguments</Arguments>
       <Browse>Browse...</Browse>
     </OpenFile>
+    <SetTheme>
+      <Name>Toggle Theme</Name>
+      <ToggleAppTheme>Toggle App Theme</ToggleAppTheme>
+      <ToggleSystemTheme>Toggle Windows Theme</ToggleSystemTheme>
+      <ToggleBoth>Toggle {0} and {1}</ToggleBoth>
+      <ToggleOnly>Toggle {0}</ToggleOnly>
+      <Category>System</Category>
+    </SetTheme>
   </CorePlugins>
 </Language>

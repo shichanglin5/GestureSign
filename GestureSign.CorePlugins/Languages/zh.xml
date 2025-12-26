@@ -214,5 +214,13 @@
       <Arguments>参数</Arguments>
       <Browse>浏览..</Browse>
     </OpenFile>
+    <SetTheme>
+      <Name>切换主题</Name>
+      <ToggleAppTheme>切换应用主题</ToggleAppTheme>
+      <ToggleSystemTheme>切换Windows主题</ToggleSystemTheme>
+      <ToggleBoth>切换{0}和{1}</ToggleBoth>
+      <ToggleOnly>切换{0}</ToggleOnly>
+      <Category>系统</Category>
+    </SetTheme>
   </CorePlugins>
 </Language>
