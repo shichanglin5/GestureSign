@@ -125,25 +125,27 @@ namespace GestureSign.ControlPanel.MainWindowControls
             EnableRelevantButtons();
         }
 
-        private void LstAvailableActions_OnScrollChanged(object sender, ScrollChangedEventArgs e)
-        {
-            HitTestResult hitTest = VisualTreeHelper.HitTest(lstAvailableActions, new Point(5, 5));
-            var element = hitTest.VisualHit as UIElement;
-            if (element != null)
-            {
-                Rect bounds = element.TransformToAncestor(lstAvailableActions).TransformBounds(new Rect(0.0, 0.0, element.RenderSize.Width, element.RenderSize.Height));
-                var gestureImageContainer = element.FindChild<Grid>("GestureImageGrid");
-                if (gestureImageContainer == null) return;
-                if (bounds.Top < 0)
-                {
-                    var topMargin = -bounds.Top + gestureImageContainer.ActualHeight > element.RenderSize.Height
-                        ? element.RenderSize.Height - gestureImageContainer.ActualHeight
-                        : Math.Abs(bounds.Top);
-                    gestureImageContainer.Margin = new Thickness(0, topMargin, 0, 0);
-                }
-                else gestureImageContainer.Margin = new Thickness(0);
-            }
-        }
+        // Disabled: This event handler was causing scroll issues by dynamically modifying margins
+        // which changed total content height and made scrollbar unstable
+        //private void LstAvailableActions_OnScrollChanged(object sender, ScrollChangedEventArgs e)
+        //{
+        //    HitTestResult hitTest = VisualTreeHelper.HitTest(lstAvailableActions, new Point(5, 5));
+        //    var element = hitTest.VisualHit as UIElement;
+        //    if (element != null)
+        //    {
+        //        Rect bounds = element.TransformToAncestor(lstAvailableActions).TransformBounds(new Rect(0.0, 0.0, element.RenderSize.Width, element.RenderSize.Height));
+        //        var gestureImageContainer = element.FindChild<Grid>("GestureImageGrid");
+        //        if (gestureImageContainer == null) return;
+        //        if (bounds.Top < 0)
+        //        {
+        //            var topMargin = -bounds.Top + gestureImageContainer.ActualHeight > element.RenderSize.Height
+        //                ? element.RenderSize.Height - gestureImageContainer.ActualHeight
+        //                : Math.Abs(bounds.Top);
+        //            gestureImageContainer.Margin = new Thickness(0, topMargin, 0, 0);
+        //        }
+        //        else gestureImageContainer.Margin = new Thickness(0);
+        //    }
+        //}
 
         private void CommandCheckBox_Click(object sender, RoutedEventArgs e)
         {

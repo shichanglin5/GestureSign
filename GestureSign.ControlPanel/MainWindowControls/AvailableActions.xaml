@@ -324,8 +324,6 @@
                  ContextMenuOpening="LstAvailableActions_OnContextMenuOpening"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  SelectionChanged="lstAvailableActions_SelectionChanged"
-                 ScrollViewer.ScrollChanged="LstAvailableActions_OnScrollChanged"
-                 ScrollViewer.CanContentScroll="False"
                  Grid.Row="0"
                  Grid.Column="1"
                  BorderBrush="{StaticResource MahApps.Brushes.Accent}"
@@ -519,8 +517,7 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <StackPanel IsItemsHost="True">
-                    </StackPanel>
+                    <VirtualizingStackPanel IsItemsHost="True" />
                 </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
         </ListBox>
