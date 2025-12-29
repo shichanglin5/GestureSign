@@ -163,6 +163,9 @@ QQ交流群：576981420
     <Down>向下滑</Down>
     <Fingers>{0}根手指</Fingers>
     <Sort>排列方式</Sort>
+    <InsertAbove>在上方增加</InsertAbove>
+    <InsertBelow>在下方增加</InsertBelow>
+    <EditGesture>编辑手势</EditGesture>
     <Messages>
       <DeleteConfirmTitle>删除确认</DeleteConfirmTitle>
       <DeleteCommandConfirm>确定要删除这 {0} 个命令吗？</DeleteCommandConfirm>

@@ -159,6 +159,9 @@ Email:ccfyzh@gmail.com
     <Down>Swipe Down</Down>
     <Fingers>{0} Fingers </Fingers>
     <Sort>Sort by</Sort>
+    <InsertAbove>Insert Above</InsertAbove>
+    <InsertBelow>Insert Below</InsertBelow>
+    <EditGesture>Edit Gesture</EditGesture>
     <Messages>
       <DeleteConfirmTitle>Delete Confirm</DeleteConfirmTitle>
       <DeleteCommandConfirm>Are you sure you want to delete these {0} Commands?</DeleteCommandConfirm>

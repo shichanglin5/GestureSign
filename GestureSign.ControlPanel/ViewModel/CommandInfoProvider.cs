@@ -126,12 +126,47 @@ namespace GestureSign.ControlPanel.ViewModel
                 foreach (IAction newAction in e.NewItems)
                 {
                     newAction.CollectionChanged += CommandCollectionChanged;
+
+                    // Find the correct insertion position based on the action's position in the app's Actions list
+                    int actionIndex = app.Actions.ToList().IndexOf(newAction);
+                    int insertIndex = 0;
+
+                    // Calculate where to insert by counting CommandInfos for all actions before this one
+                    if (actionIndex > 0)
+                    {
+                        var actionsBeforeNewAction = app.Actions.Take(actionIndex);
+                        insertIndex = CommandInfos.Count(ci => actionsBeforeNewAction.Contains(ci.Action));
+                    }
+
+                    GestureSign.Common.Log.Logging.LogDebug($"[CommandInfoProvider] Adding action '{newAction.Name}' at actionIndex={actionIndex}, insertIndex={insertIndex}");
+                    GestureSign.Common.Log.Logging.LogDebug($"[CommandInfoProvider] Current CommandInfos: [{string.Join(", ", CommandInfos.Select((ci, i) => $"{i}:{ci.Action.Name}"))}]");
+
                     foreach (ICommand newCommand in newAction.Commands)
                     {
                         var newInfo = CommandInfo.FromCommand(newCommand, newAction);
-                        AddCommandInfo(newInfo);
+
+                        string features;
+                        int patternCount;
+                        GestureItem gi = null;
+                        if (newInfo.Action?.GestureName != null && GestureItemProvider.GestureMap.TryGetValue(newInfo.Action.GestureName, out gi))
+                        {
+                            features = gi.Features;
+                            patternCount = gi.PatternCount;
+                        }
+                        else
+                        {
+                            features = string.Empty;
+                            patternCount = 0;
+                        }
+                        newInfo.GestureFeatures = features;
+                        newInfo.PatternCount = patternCount;
+
+                        CommandInfos.Insert(insertIndex, newInfo);
+                        insertIndex++;
                         _listBox.SelectedItems.Add(newInfo);
                     }
+
+                    GestureSign.Common.Log.Logging.LogDebug($"[CommandInfoProvider] After insert: [{string.Join(", ", CommandInfos.Select((ci, i) => $"{i}:{ci.Action.Name}"))}]");
                 }
                 _listBox.Dispatcher.InvokeAsync(() => _listBox.ScrollIntoView(_listBox.SelectedItem), DispatcherPriority.Background);
             }

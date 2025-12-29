@@ -93,12 +93,6 @@
                 <CollectionViewSource.GroupDescriptions>
                     <PropertyGroupDescription PropertyName="Action" />
                 </CollectionViewSource.GroupDescriptions>
-                <CollectionViewSource.SortDescriptions>
-                    <componentmodel:SortDescription PropertyName="ActionName"
-                                                    Direction="Ascending" />
-                    <componentmodel:SortDescription PropertyName="."
-                                                    Direction="Ascending" />
-                </CollectionViewSource.SortDescriptions>
             </CollectionViewSource>
             <CollectionViewSource x:Key="ApplicationViewSource"
                                   Source="{Binding Source={StaticResource ApplicationItemProvider},Path=ApplicationItems}">
@@ -369,6 +363,11 @@
                                         <DockPanel Margin="5">
                                             <Button x:Name="ActionButton"
                                                     Click="ActionButton_Click"
+                                                    AllowDrop="True"
+                                                    PreviewMouseLeftButtonDown="ActionButton_PreviewMouseLeftButtonDown"
+                                                    PreviewMouseMove="ActionButton_PreviewMouseMove"
+                                                    Drop="ActionButton_Drop"
+                                                    DragOver="ActionButton_DragOver"
                                                     VerticalContentAlignment="Top"
                                                     HorizontalContentAlignment="Center"
                                                     OverridesDefaultStyle="True"
@@ -377,6 +376,27 @@
                                                     BorderThickness="0"
                                                     Background="{StaticResource MahApps.Brushes.Gray10}"
                                                     DockPanel.Dock="Left">
+                                                <Button.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="{localization:LocalisedText Action.EditGesture}"
+                                                                  FontSize="16"
+                                                                  Click="ActionButton_Click" />
+                                                        <Separator />
+                                                        <MenuItem x:Name="InsertActionAboveMenuItem"
+                                                                  Header="{localization:LocalisedText Action.InsertAbove}"
+                                                                  FontSize="16"
+                                                                  Click="InsertActionAboveMenuItem_Click" />
+                                                        <MenuItem x:Name="InsertActionBelowMenuItem"
+                                                                  Header="{localization:LocalisedText Action.InsertBelow}"
+                                                                  FontSize="16"
+                                                                  Click="InsertActionBelowMenuItem_Click" />
+                                                        <Separator />
+                                                        <MenuItem x:Name="DeleteActionMenuItem"
+                                                                  Header="{localization:LocalisedText Action.Delete}"
+                                                                  FontSize="16"
+                                                                  Click="DeleteActionMenuItem_Click" />
+                                                    </ContextMenu>
+                                                </Button.ContextMenu>
                                                 <Grid x:Name="GestureImageGrid"
                                                       VerticalAlignment="Top"
                                                       Height="96">
@@ -441,6 +461,15 @@
             </ListBox.GroupStyle>
             <ListBox.ContextMenu>
                 <ContextMenu>
+                    <MenuItem x:Name="InsertCommandAboveMenuItem"
+                              Header="{localization:LocalisedText Action.InsertAbove}"
+                              FontSize="16"
+                              Click="InsertCommandAboveMenuItem_Click" />
+                    <MenuItem x:Name="InsertCommandBelowMenuItem"
+                              Header="{localization:LocalisedText Action.InsertBelow}"
+                              FontSize="16"
+                              Click="InsertCommandBelowMenuItem_Click" />
+                    <Separator />
                     <MenuItem  x:Name="CutActionMenuItem"
                                Header="{localization:LocalisedText Action.CutAction}"
                                FontSize="16"
@@ -513,6 +542,16 @@
                             Value="Stretch" />
                     <Setter Property="VerticalContentAlignment"
                             Value="Stretch" />
+                    <Setter Property="AllowDrop"
+                            Value="True" />
+                    <EventSetter Event="PreviewMouseLeftButtonDown"
+                                 Handler="CommandItem_PreviewMouseLeftButtonDown" />
+                    <EventSetter Event="PreviewMouseMove"
+                                 Handler="CommandItem_PreviewMouseMove" />
+                    <EventSetter Event="Drop"
+                                 Handler="CommandItem_Drop" />
+                    <EventSetter Event="DragOver"
+                                 Handler="CommandItem_DragOver" />
                 </Style>
             </ListBox.ItemContainerStyle>
             <ListBox.ItemsPanel>

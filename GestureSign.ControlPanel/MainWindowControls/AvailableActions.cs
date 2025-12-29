@@ -15,6 +15,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -34,6 +35,15 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private IApplication _cutActionSource;
         private readonly List<CommandInfo> _commandClipboard = new List<CommandInfo>();
+
+        // Drag and drop support for actions
+        private Point _actionDragStartPoint;
+        private IAction _draggedAction;
+        private bool _dropProcessed; // Prevents multiple Drop events in single drag
+
+        // Drag and drop support for commands
+        private Point _commandDragStartPoint;
+        private CommandInfo _draggedCommand;
 
         private void UserControl_Initialized(object sender, EventArgs eArgs)
         {
@@ -259,10 +269,24 @@ namespace GestureSign.ControlPanel.MainWindowControls
         {
             e.Handled = true;
 
+            // Handle both Button click and MenuItem click
+            Button button;
+            if (sender is MenuItem menuItem)
+            {
+                var contextMenu = menuItem.Parent as ContextMenu;
+                button = contextMenu?.PlacementTarget as Button;
+            }
+            else
+            {
+                button = sender as Button;
+            }
+
+            if (button == null) return;
+
             List<CommandInfo> infoList = new List<CommandInfo>();
-            var groupItem = UIHelper.GetParentDependencyObject<GroupItem>((Button)sender);
-            var collectionViewGroup = groupItem.Content as CollectionViewGroup;
-            if (collectionViewGroup == null) return;
+            var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(button);
+            var collectionViewGroup = groupItem?.Content as CollectionViewGroup;
+            if (collectionViewGroup == null || collectionViewGroup.Items.Count == 0) return;
 
             lstAvailableActions.SelectedItems.Clear();
             foreach (CommandInfo item in collectionViewGroup.Items)
@@ -271,6 +295,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 infoList.Add(item);
             }
 
+            if (infoList.Count == 0) return;
             var sourceAction = infoList.First().Action;
             var selectedApplication = lstAvailableApplication.SelectedItem as IApplication;
             if (selectedApplication == null)
@@ -285,18 +310,28 @@ namespace GestureSign.ControlPanel.MainWindowControls
             if (result != null && result.Value)
             {
                 var newAction = actionDialog.NewAction;
-                selectedApplication.RemoveAction(newAction);
-                selectedApplication.AddAction(newAction);
 
                 if (newAction != sourceAction)
                 {
+                    // Switching to different gesture: replace sourceAction position with newAction
                     lstAvailableActions.SelectedItem = null;
+
+                    // Move commands from source to new action
                     foreach (CommandInfo info in infoList)
                     {
                         sourceAction.RemoveCommand(info.Command);
                         newAction.AddCommand(info.Command);
                     }
+
+                    // Replace sourceAction with newAction at the same position
+                    int sourceIndex = selectedApplication.Actions.ToList().IndexOf(sourceAction);
+                    selectedApplication.RemoveAction(newAction); // Remove the one added by ActionDialog (at end)
+                    selectedApplication.Insert(sourceIndex, newAction); // Insert at source position
+                    selectedApplication.RemoveAction(sourceAction); // Remove old action
                 }
+                // else: Editing existing gesture, ActionDialog has already updated properties
+                // No need to Remove/Insert, which would trigger unnecessary CollectionChanged events
+
                 ApplicationManager.Instance.SaveApplications();
             }
         }
@@ -344,7 +379,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
             {
                 var sourceAction = (GestureSign.Common.Applications.Action)actionGroup.Key;
                 var newAction = sourceAction.DeepCopy();
-                newAction.Commands = new List<ICommand>();
+                newAction.Commands = new List<GestureSign.Common.Applications.ICommand>();
 
                 targetApplication.AddAction(newAction);
 
@@ -421,14 +456,14 @@ namespace GestureSign.ControlPanel.MainWindowControls
             if (commandInfoProvider == null) return;
             commandInfoProvider.RefreshCommandInfos(selectedApp, lstAvailableActions);
 
-            // Always group by finger count, then by action
+            // Keep two-level grouping (FingerCount -> Action)
+            // Sort groups by FingerCount ascending, but don't sort actions within groups
             var lcv = lstAvailableActions.ItemsSource as ListCollectionView;
             if (lcv != null)
             {
                 lcv.SortDescriptions.Clear();
                 lcv.GroupDescriptions.Clear();
                 lcv.SortDescriptions.Add(new SortDescription(nameof(CommandInfo.FingerCount), ListSortDirection.Ascending));
-                lcv.SortDescriptions.Add(new SortDescription(".", ListSortDirection.Ascending));
                 lcv.GroupDescriptions.Add(new PropertyGroupDescription(nameof(CommandInfo.FingerCount)));
                 lcv.GroupDescriptions.Add(new PropertyGroupDescription(nameof(CommandInfo.Action)));
                 lcv.Refresh();
@@ -610,5 +645,387 @@ namespace GestureSign.ControlPanel.MainWindowControls
             }
             e.Handled = true;
         }
+
+        #region Action Drag and Drop
+
+        private void ActionButton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _actionDragStartPoint = e.GetPosition(null);
+            // Clear any previous drag state
+            GestureSign.Common.Log.Logging.LogDebug($"[MouseDown] Clearing drag state. Previous _draggedAction={_draggedAction?.Name ?? "null"}");
+            _draggedAction = null;
+            _dropProcessed = false;
+        }
+
+        private void ActionButton_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            // Prevent new drag if one is already in progress
+            if (e.LeftButton == MouseButtonState.Pressed && _draggedAction == null)
+            {
+                Point mousePos = e.GetPosition(null);
+                Vector diff = _actionDragStartPoint - mousePos;
+
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    var button = sender as Button;
+                    var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(button);
+                    var group = groupItem?.Content as CollectionViewGroup;
+                    if (group == null || group.Items.Count == 0) return;
+
+                    var firstCommand = group.Items[0] as CommandInfo;
+                    _draggedAction = firstCommand?.Action;
+
+                    if (_draggedAction != null)
+                    {
+                        _dropProcessed = false; // Reset flag for new drag operation
+                        GestureSign.Common.Log.Logging.LogDebug($"[MouseMove] Starting DoDragDrop for '{_draggedAction.Name}'");
+                        DataObject dragData = new DataObject("GestureAction", _draggedAction);
+                        DragDrop.DoDragDrop(button, dragData, DragDropEffects.Move);
+                        GestureSign.Common.Log.Logging.LogDebug($"[MouseMove] DoDragDrop returned. Keeping _draggedAction={_draggedAction.Name}");
+                        // DoDragDrop returns when user releases mouse
+                        // DO NOT clear here - mouse might trigger new MouseMove events
+                        // Will be cleared on next MouseDown
+                    }
+                }
+            }
+        }
+
+        private void ActionButton_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("GestureAction"))
+            {
+                // Prevent duplicate Drop processing within single drag operation
+                if (_dropProcessed)
+                {
+                    GestureSign.Common.Log.Logging.LogDebug($"[ActionButton_Drop] Skipped: already processed");
+                    e.Handled = true;
+                    return;
+                }
+
+                var sourceAction = e.Data.GetData("GestureAction") as IAction;
+
+                // Check if this drag operation is valid
+                if (_draggedAction == null || sourceAction != _draggedAction)
+                {
+                    GestureSign.Common.Log.Logging.LogDebug($"[ActionButton_Drop] Skipped: _draggedAction={_draggedAction?.Name ?? "null"}, sourceAction={sourceAction?.Name ?? "null"}");
+                    e.Handled = true;
+                    return;
+                }
+
+                var button = sender as Button;
+                var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(button);
+                var group = groupItem?.Content as CollectionViewGroup;
+
+                if (group != null && group.Items.Count > 0)
+                {
+                    var targetCommand = group.Items[0] as CommandInfo;
+                    var targetAction = targetCommand?.Action;
+
+                    if (sourceAction != null && targetAction != null && sourceAction != targetAction)
+                    {
+                        var app = lstAvailableApplication.SelectedItem as IApplication;
+                        if (app != null)
+                        {
+                            var actions = app.Actions.ToList();
+                            int sourceIndex = actions.IndexOf(sourceAction);
+                            int targetIndex = actions.IndexOf(targetAction);
+
+                            // Log: Before operation
+                            GestureSign.Common.Log.Logging.LogDebug("==================== Action Drag&Drop ====================");
+                            GestureSign.Common.Log.Logging.LogDebug($"Total Actions: {actions.Count}");
+                            GestureSign.Common.Log.Logging.LogDebug($"Source: '{sourceAction.Name}' (index={sourceIndex})");
+                            GestureSign.Common.Log.Logging.LogDebug($"Target: '{targetAction.Name}' (index={targetIndex})");
+                            GestureSign.Common.Log.Logging.LogDebug($"Before: [{string.Join(", ", actions.Select((a, i) => $"{i}:{a.Name}"))}]");
+
+                            if (sourceIndex >= 0 && targetIndex >= 0 && sourceIndex != targetIndex)
+                            {
+                                // Mark as processed to prevent duplicate Drop events during UI refresh
+                                _dropProcessed = true;
+
+                                // Drag semantics: Insert source BEFORE target
+                                // List.Insert(index, item) inserts BEFORE the element at index
+                                // After Remove(source):
+                                //   - If dragging forward (source < target): target shifts left, use targetIndex
+                                //   - If dragging backward (source > target): target stays, use targetIndex
+                                // Result: Always use targetIndex!
+
+                                app.RemoveAction(sourceAction);
+                                var actionsAfterRemove = app.Actions.ToList();
+                                GestureSign.Common.Log.Logging.LogDebug($"After Remove: [{string.Join(", ", actionsAfterRemove.Select((a, i) => $"{i}:{a.Name}"))}]");
+
+                                // Always insert at target's position (source goes before target)
+                                app.Insert(targetIndex, sourceAction);
+
+                                var actionsAfterInsert = app.Actions.ToList();
+                                GestureSign.Common.Log.Logging.LogDebug($"After Insert({targetIndex}): [{string.Join(", ", actionsAfterInsert.Select((a, i) => $"{i}:{a.Name}"))}]");
+                                GestureSign.Common.Log.Logging.LogDebug("========================================================");
+
+                                ApplicationManager.Instance.SaveApplications();
+
+                                // Refresh UI to ensure correct display order
+                                // CollectionView sorting may be unstable after drag-drop
+                                var commandInfoProvider = ((ObjectDataProvider)Resources["CommandInfoProvider"]).ObjectInstance as CommandInfoProvider;
+                                if (commandInfoProvider != null)
+                                {
+                                    commandInfoProvider.RefreshCommandInfos(app, lstAvailableActions);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                e.Handled = true;
+            }
+        }
+
+        private void ActionButton_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("GestureAction"))
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
+
+        #endregion
+
+        #region Command Drag and Drop
+
+        private void CommandItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _commandDragStartPoint = e.GetPosition(null);
+        }
+
+        private void CommandItem_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                Point mousePos = e.GetPosition(null);
+                Vector diff = _commandDragStartPoint - mousePos;
+
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    var listBoxItem = sender as ListBoxItem;
+                    _draggedCommand = listBoxItem?.Content as CommandInfo;
+
+                    if (_draggedCommand != null)
+                    {
+                        DataObject dragData = new DataObject("GestureCommand", _draggedCommand);
+                        DragDrop.DoDragDrop(listBoxItem, dragData, DragDropEffects.Move);
+                    }
+                }
+            }
+        }
+
+        private void CommandItem_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("GestureCommand"))
+            {
+                var sourceCommand = e.Data.GetData("GestureCommand") as CommandInfo;
+                var listBoxItem = sender as ListBoxItem;
+                var targetCommand = listBoxItem?.Content as CommandInfo;
+
+                if (sourceCommand != null && targetCommand != null &&
+                    sourceCommand != targetCommand &&
+                    sourceCommand.Action == targetCommand.Action) // Only within same action
+                {
+                    var action = sourceCommand.Action;
+                    var commands = action.Commands.ToList();
+
+                    int sourceIndex = commands.IndexOf(sourceCommand.Command);
+                    int targetIndex = commands.IndexOf(targetCommand.Command);
+
+                    // Log: Before operation
+                    GestureSign.Common.Log.Logging.LogDebug("==================== Command Drag&Drop ====================");
+                    GestureSign.Common.Log.Logging.LogDebug($"Action: '{action.Name}'");
+                    GestureSign.Common.Log.Logging.LogDebug($"Source: '{sourceCommand.CommandName}' (index={sourceIndex})");
+                    GestureSign.Common.Log.Logging.LogDebug($"Target: '{targetCommand.CommandName}' (index={targetIndex})");
+                    GestureSign.Common.Log.Logging.LogDebug($"Before: [{string.Join(", ", commands.Select((c, i) => $"{i}:{((GestureSign.Common.Applications.Command)c).Name}"))}]");
+
+                    if (sourceIndex >= 0 && targetIndex >= 0)
+                    {
+                        action.RemoveCommand(sourceCommand.Command);
+
+                        // Log: After remove
+                        var commandsAfterRemove = action.Commands.ToList();
+                        GestureSign.Common.Log.Logging.LogDebug($"After Remove: [{string.Join(", ", commandsAfterRemove.Select((c, i) => $"{i}:{((GestureSign.Common.Applications.Command)c).Name}"))}]");
+
+                        // Insert source at target position
+                        // No adjustment needed: targetIndex represents the desired final position
+                        action.InsertCommand(targetIndex, sourceCommand.Command);
+
+                        // Log: After insert
+                        var commandsAfterInsert = action.Commands.ToList();
+                        GestureSign.Common.Log.Logging.LogDebug($"After Insert({targetIndex}): [{string.Join(", ", commandsAfterInsert.Select((c, i) => $"{i}:{((GestureSign.Common.Applications.Command)c).Name}"))}]");
+                        GestureSign.Common.Log.Logging.LogDebug("===========================================================");
+
+                        ApplicationManager.Instance.SaveApplications();
+                    }
+                }
+
+                e.Handled = true;
+            }
+        }
+
+        private void CommandItem_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("GestureCommand"))
+            {
+                var sourceCommand = e.Data.GetData("GestureCommand") as CommandInfo;
+                var listBoxItem = sender as ListBoxItem;
+                var targetCommand = listBoxItem?.Content as CommandInfo;
+
+                // Only allow drag within same action
+                if (sourceCommand?.Action == targetCommand?.Action)
+                {
+                    e.Effects = DragDropEffects.Move;
+                }
+                else
+                {
+                    e.Effects = DragDropEffects.None;
+                }
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
+
+        #endregion
+
+        #region Insert Above Menu Items
+
+        private void InsertActionAboveMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var menuItem = sender as MenuItem;
+            var contextMenu = menuItem?.Parent as ContextMenu;
+            var button = contextMenu?.PlacementTarget as Button;
+            var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(button);
+            var group = groupItem?.Content as CollectionViewGroup;
+
+            if (group != null && group.Items.Count > 0)
+            {
+                var firstCommand = group.Items[0] as CommandInfo;
+                var targetAction = firstCommand?.Action;
+                var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+
+                if (targetAction != null && selectedApp != null)
+                {
+                    var newCommand = new Command
+                    {
+                        Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
+                    };
+                    var newAction = new GestureSign.Common.Applications.Action();
+                    newAction.AddCommand(newCommand);
+
+                    int targetIndex = selectedApp.Actions.ToList().IndexOf(targetAction);
+                    if (targetIndex >= 0)
+                    {
+                        selectedApp.Insert(targetIndex, newAction);
+                        ApplicationManager.Instance.SaveApplications();
+                    }
+                }
+            }
+        }
+
+        private void InsertActionBelowMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var menuItem = sender as MenuItem;
+            var contextMenu = menuItem?.Parent as ContextMenu;
+            var button = contextMenu?.PlacementTarget as Button;
+            var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(button);
+            var group = groupItem?.Content as CollectionViewGroup;
+
+            if (group != null && group.Items.Count > 0)
+            {
+                var firstCommand = group.Items[0] as CommandInfo;
+                var targetAction = firstCommand?.Action;
+                var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+
+                if (targetAction != null && selectedApp != null)
+                {
+                    var newCommand = new Command
+                    {
+                        Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
+                    };
+                    var newAction = new GestureSign.Common.Applications.Action();
+                    newAction.AddCommand(newCommand);
+
+                    int targetIndex = selectedApp.Actions.ToList().IndexOf(targetAction);
+                    if (targetIndex >= 0)
+                    {
+                        selectedApp.Insert(targetIndex + 1, newAction);
+                        ApplicationManager.Instance.SaveApplications();
+                    }
+                }
+            }
+        }
+
+        private void DeleteActionMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var menuItem = sender as MenuItem;
+            var contextMenu = menuItem?.Parent as ContextMenu;
+            var button = contextMenu?.PlacementTarget as Button;
+            var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(button);
+            var group = groupItem?.Content as CollectionViewGroup;
+
+            if (group != null && group.Items.Count > 0)
+            {
+                var firstCommand = group.Items[0] as CommandInfo;
+                var targetAction = firstCommand?.Action;
+                var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+
+                if (targetAction != null && selectedApp != null)
+                {
+                    selectedApp.RemoveAction(targetAction);
+                    ApplicationManager.Instance.SaveApplications();
+                }
+            }
+        }
+
+        private void InsertCommandAboveMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedCommand = lstAvailableActions.SelectedItem as CommandInfo;
+            if (selectedCommand == null) return;
+
+            var newCommand = new Command
+            {
+                Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
+            };
+
+            int commandIndex = selectedCommand.Action.Commands.ToList().IndexOf(selectedCommand.Command);
+            if (commandIndex >= 0)
+            {
+                selectedCommand.Action.InsertCommand(commandIndex, newCommand);
+                ApplicationManager.Instance.SaveApplications();
+            }
+        }
+
+        private void InsertCommandBelowMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedCommand = lstAvailableActions.SelectedItem as CommandInfo;
+            if (selectedCommand == null) return;
+
+            var newCommand = new Command
+            {
+                Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
+            };
+
+            int commandIndex = selectedCommand.Action.Commands.ToList().IndexOf(selectedCommand.Command);
+            if (commandIndex >= 0)
+            {
+                selectedCommand.Action.InsertCommand(commandIndex + 1, newCommand);
+                ApplicationManager.Instance.SaveApplications();
+            }
+        }
+
+        #endregion
     }
 }
