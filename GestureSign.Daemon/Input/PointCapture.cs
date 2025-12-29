@@ -48,6 +48,7 @@ namespace GestureSign.Daemon.Input
         private int _totalFingerCount;
         private HashSet<int> _featureFingerIds;
         private List<InputPoint> _pendingFirstPoints; // Collect fingers during multi-finger delay
+        private int _pendingTotalFingerCount; // Total finger count for pending points
         // Create variable to hold the only allowed instance of this class
         static readonly PointCapture _Instance = new PointCapture();
 
@@ -347,7 +348,7 @@ namespace GestureSign.Daemon.Input
                 // This handles cases where finger count changes mid-gesture (e.g., 2 → 3 → 4 fingers)
                 if (State == CaptureState.Capturing || State == CaptureState.CapturingInvalid)
                 {
-                    _totalFingerCount = Math.Max(_totalFingerCount, e.InputPointList.Count);
+                    _totalFingerCount = Math.Max(_totalFingerCount, e.TotalFingerCount);
                     return;
                 }
 
@@ -363,6 +364,8 @@ namespace GestureSign.Daemon.Input
                             GestureSign.Common.Log.Logging.LogTrace($"[PointCapture] Added finger during delay: ID={newPoint.ContactIdentifier}, total={_pendingFirstPoints.Count}");
                         }
                     }
+                    // Update total finger count to match the current event
+                    _pendingTotalFingerCount = Math.Max(_pendingTotalFingerCount, e.TotalFingerCount);
                     return;
                 }
 
@@ -373,6 +376,7 @@ namespace GestureSign.Daemon.Input
                 if (multiFingerDelay > 0)
                 {
                     _pendingFirstPoints = new List<InputPoint>(e.InputPointList);
+                    _pendingTotalFingerCount = e.TotalFingerCount;
                     if (_multiFingerDelayTimer == null)
                     {
                         _multiFingerDelayTimer = new System.Threading.Timer(MultiFingerDelayCallback, null, Timeout.Infinite, Timeout.Infinite);
@@ -402,7 +406,7 @@ namespace GestureSign.Daemon.Input
                 _inactivityTimer.Change(100, Timeout.Infinite);
 
                 // Try to begin capture process, if capture started then don't notify other applications of a Point event, otherwise do
-                if (!TryBeginCapture(e.InputPointList))
+                if (!TryBeginCapture(e.InputPointList, e.TotalFingerCount))
                 {
                     Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Normal;
                 }
@@ -621,9 +625,11 @@ namespace GestureSign.Daemon.Input
             if (_pendingFirstPoints == null) return;
 
             var firstPoints = _pendingFirstPoints;
+            var totalFingerCount = _pendingTotalFingerCount;
             _pendingFirstPoints = null;
+            _pendingTotalFingerCount = 0;
 
-            GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Starting capture with {firstPoints.Count} fingers collected during delay");
+            GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Starting capture with {firstPoints.Count} fingers collected during delay (total: {totalFingerCount})");
 
             var timeout = AppConfig.InitialTimeout;
             if (timeout > 0)
@@ -643,13 +649,13 @@ namespace GestureSign.Daemon.Input
             _inactivityTimer.Change(100, Timeout.Infinite);
 
             // Begin capture with all collected fingers
-            if (!TryBeginCapture(firstPoints))
+            if (!TryBeginCapture(firstPoints, totalFingerCount))
             {
                 Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Normal;
             }
         }
 
-        private bool TryBeginCapture(List<InputPoint> firstPoint)
+        private bool TryBeginCapture(List<InputPoint> firstPoint, int totalFingerCount)
         {
             for (int i = 0; i < firstPoint.Count; i++)
             {
@@ -657,7 +663,9 @@ namespace GestureSign.Daemon.Input
             }
 
             // Record total finger count for gesture matching
-            _totalFingerCount = firstPoint.Count;
+            // Use totalFingerCount parameter instead of firstPoint.Count to get the original finger count
+            // (firstPoint may have fewer elements if some fingers have State=None)
+            _totalFingerCount = totalFingerCount;
 
             // Select feature finger based on configuration
             // FeatureFingerIndex: 0-based index (0=leftmost, 1=2nd from left, etc.)

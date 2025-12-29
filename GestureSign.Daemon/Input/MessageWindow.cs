@@ -295,6 +295,7 @@ namespace GestureSign.Daemon.Input
                     {
                         // contactCount: HID 驱动报告的触点数量（从 HID 报告头部解析）
                         int contactCount = touchScreen.GetContactCount();
+
                         HidNativeApi.HIDP_LINK_COLLECTION_NODE[] linkCollection = touchScreen.GetLinkCollectionNodes();
                         touchScreen.GetPhysicalMax(linkCollection.Length);
 
@@ -400,11 +401,17 @@ namespace GestureSign.Daemon.Input
 
                     // Log touch data for debugging
                     string touchStates = string.Join(", ", _outputTouchs.Select(rd => $"{rd.ContactIdentifier}:{rd.State}"));
-                    GestureSign.Common.Log.Logging.LogWarning($"[MessageWindow] Sending {_outputTouchs.Count} touches (requiring={_requiringContactCount}): [{touchStates}]");
+
+                    // Use _outputTouchs.Count (actual collected slots) as total finger count
+                    // This includes all slots even if some have State=None
+                    int totalFingerCount = _outputTouchs.Count;
+
+                    GestureSign.Common.Log.Logging.LogDebug($"[MessageWindow] Sending {_outputTouchs.Count} touches (totalFingerCount={totalFingerCount}, requiring={_requiringContactCount}): [{touchStates}]");
 
                     // 发送触点数据给 PointEventTranslator
                     // 即使 _requiringContactCount > 0（数据不完整），也要发送
-                    PointsIntercepted(this, new RawPointsDataMessageEventArgs(_outputTouchs, _sourceDevice));
+                    // 传递 totalFingerCount（实际收集到的触点槽位数）以保留手指总数信息
+                    PointsIntercepted(this, new RawPointsDataMessageEventArgs(_outputTouchs, _sourceDevice, totalFingerCount));
 
                     // 重置设备状态：当所有触点的 State 都是 None 时
                     if (_outputTouchs.TrueForAll(rd => rd.State == DeviceStates.None))

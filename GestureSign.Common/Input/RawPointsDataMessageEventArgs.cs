@@ -7,10 +7,11 @@ namespace GestureSign.Common.Input
     {
         #region Constructors
 
-        public RawPointsDataMessageEventArgs(List<RawData> rawData, Devices device)
+        public RawPointsDataMessageEventArgs(List<RawData> rawData, Devices device, int originalContactCount)
         {
             this.RawData = rawData;
             SourceDevice = device;
+            OriginalContactCount = originalContactCount;
         }
 
 
@@ -20,6 +21,12 @@ namespace GestureSign.Common.Input
 
         public List<RawData> RawData { get; set; }
         public Devices SourceDevice { get; set; }
+
+        /// <summary>
+        /// Original contact count reported by HID driver (before filtering)
+        /// This represents the total number of fingers, including those with State=None
+        /// </summary>
+        public int OriginalContactCount { get; set; }
 
         #endregion
     }
