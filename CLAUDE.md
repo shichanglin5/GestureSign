@@ -270,3 +270,60 @@ Stored in user AppData directory:
 ### Localization
 - Multi-language support via `LocalizationProvider`
 - Resource files in `GestureSign.Common/Localization/`
+
+### Touch Input Hardware Limitations
+
+**Critical Understanding: TouchPad Hardware Only Provides 2 Finger Trajectories Maximum**
+
+Real-world testing reveals that most touchpad hardware/drivers have significant limitations in multi-finger gesture reporting:
+
+**Observed Behavior (from production logs):**
+- **4-finger gesture**: HID reports `contactCount=4`, but only provides 2 actual touch coordinates
+  ```
+  Sending 4 touches (totalFingerCount=4): [0:Tip, 1:Tip, 0:None, 0:None]
+  ```
+  - 4 slots allocated (indicating 4 fingers detected)
+  - Only ContactID 0 and 1 have valid coordinates (State=Tip)
+  - ContactID 2 and 3 have State=None (no coordinate data)
+
+- **3-finger gesture**: HID reports `contactCount=3`, but only provides 2 actual touch coordinates
+  ```
+  Sending 3 touches (totalFingerCount=3): [0:Tip, 1:Tip, 0:None]
+  Sending 3 touches (totalFingerCount=3): [0:Tip, 2:Tip, 0:None]
+  ```
+  - 3 slots allocated
+  - Only 2 contacts have valid coordinates
+  - 1 slot has State=None
+
+**Architectural Implications:**
+
+1. **Finger Count vs Trajectory Count**:
+   - `TotalFingerCount` (from `_outputTouchs.Count`): Total fingers detected by hardware (4, 3, 2, 1)
+   - Actual trajectory data: Usually limited to 2 fingers maximum
+   - After feature finger selection: May be reduced to 1 trajectory for pattern matching
+
+2. **Why We Need TotalFingerCount Parameter**:
+   - Cannot rely on InputPointList.Count alone - it only contains valid coordinates
+   - Need to preserve the original finger count detected by HID layer
+   - Used to distinguish 2-finger vs 3-finger vs 4-finger gestures
+   - Critical for gesture recognition even when trajectory data is incomplete
+
+3. **HID Data Completeness**:
+   - `_requiringContactCount`: Countdown of expected contacts from HID header
+   - Frequently ends >0 on finger lift (incomplete HID packet)
+   - Solution: Send all collected data regardless, let PointEventTranslator detect finger changes
+
+4. **Historical Context - Virtual Touch Contacts (Removed)**:
+   - Previous implementation used "virtual contacts" to pad missing finger data
+   - Virtual contacts copied feature finger trajectory to maintain finger count
+   - Refactored to explicit `TotalFingerCount` parameter for clarity
+   - Achieves same result with simpler, more maintainable code
+
+**Key Code Locations**:
+- `MessageWindow.cs:407`: `totalFingerCount = _outputTouchs.Count` (slot count, not coordinate count)
+- `MessageWindow.cs:414`: Sends data even when `_requiringContactCount > 0`
+- `PointEventTranslator.cs:88`: Passes `OriginalContactCount` through pipeline
+- `PointCapture.cs:156`: Uses `TotalFingerCount` for gesture finger count
+- Log analysis: Search for "totalFingerCount=" to see actual hardware behavior
+
+**Important**: When debugging multi-finger gestures, always check logs for the pattern `[ContactID:State, ...]` to understand which fingers have actual trajectory data vs just presence detection.
