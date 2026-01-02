@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <RootNamespace>GestureSign.ControlPanel</RootNamespace>
     <AssemblyName>GestureSignControlPanel</AssemblyName>
@@ -15,6 +14,16 @@
     <NoWarn>$(NoWarn);SYSLIB0011;CA1416</NoWarn>
     <!-- Enable XAML build-time validation -->
     <EnableXamlGeneratedMarkupExtensionReferences>true</EnableXamlGeneratedMarkupExtensionReferences>
+  </PropertyGroup>
+
+  <!-- Debug: Show console window for easy control -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <!-- Release/Other: No console window -->
+  <PropertyGroup Condition="'$(Configuration)' != 'Debug'">
+    <OutputType>WinExe</OutputType>
   </PropertyGroup>
 
   <!-- Build Configurations -->

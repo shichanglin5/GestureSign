@@ -35,7 +35,10 @@ namespace GestureSign.ControlPanel
         private void Application_Startup(object sender, StartupEventArgs e)
         {
             Logging.LoggedExceptionOccurred += (o, ex) => ShowException(ex);
-            var logOpened = Logging.OpenLogFile();
+
+            // Parse command line arguments
+            bool redirectToStd = ParseRedirectToStdArgument(e.Args);
+            var logOpened = Logging.OpenLogFile(redirectToStd);
             Logging.LogInfo($"[ControlPanel] Application_Startup - ControlPanel starting... (LogOpened: {logOpened})");
             LoadLanguageData();
 
@@ -225,6 +228,27 @@ namespace GestureSign.ControlPanel
             AppContext.SetSwitch("Switch.System.Windows.DoNotScaleForDpiChanges", false);
             AppContext.SetSwitch("Switch.System.Windows.Input.Stylus.DisableStylusAndTouchSupport", true);
             base.OnStartup(e);
+        }
+
+        /// <summary>
+        /// Parses the --log.redirectToStd command line argument
+        /// </summary>
+        /// <param name="args">Command line arguments</param>
+        /// <returns>True if --log.redirectToStd is present, false otherwise</returns>
+        private static bool ParseRedirectToStdArgument(string[] args)
+        {
+            if (args == null || args.Length == 0)
+                return false;
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i].Equals("--log.redirectToStd", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <RootNamespace>GestureSign.Daemon</RootNamespace>
     <AssemblyName>GestureSign</AssemblyName>
@@ -12,6 +11,16 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Resources\normal.ico</ApplicationIcon>
     <Deterministic>false</Deterministic>
+  </PropertyGroup>
+
+  <!-- Debug: Show console window for easy control -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <!-- Release/Other: No console window (background service) -->
+  <PropertyGroup Condition="'$(Configuration)' != 'Debug'">
+    <OutputType>WinExe</OutputType>
   </PropertyGroup>
 
   <!-- Application Manifest Selection -->

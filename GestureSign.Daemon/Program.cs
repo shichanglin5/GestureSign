@@ -19,7 +19,7 @@ namespace GestureSign.Daemon
         /// 应用程序的主入口点。
         /// </summary>
         [STAThread]
-        static void Main()
+        static void Main(string[] args)
         {
             bool createdNew;
             using (new Mutex(true, Constants.Daemon, out createdNew))
@@ -32,7 +32,10 @@ namespace GestureSign.Daemon
                     {
                         Application.ThreadException += Application_ThreadException;
                         Logging.LoggedExceptionOccurred += (o, e) => ShowException(e);
-                        Logging.OpenLogFile();
+
+                        // Parse command line arguments
+                        bool redirectToStd = ParseRedirectToStdArgument(args);
+                        Logging.OpenLogFile(redirectToStd);
 
                         if (!LocalizationProvider.Instance.LoadFromFile("Daemon"))
                         {
@@ -118,6 +121,27 @@ namespace GestureSign.Daemon
                 exception = exception.InnerException;
 
             MessageBox.Show(exception.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+        }
+
+        /// <summary>
+        /// Parses the --log.redirectToStd command line argument
+        /// </summary>
+        /// <param name="args">Command line arguments</param>
+        /// <returns>True if --log.redirectToStd is present, false otherwise</returns>
+        private static bool ParseRedirectToStdArgument(string[] args)
+        {
+            if (args == null || args.Length == 0)
+                return false;
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i].Equals("--log.redirectToStd", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

@@ -70,16 +70,32 @@ namespace GestureSign.Common.Log
         public static string LogFilePath => _logFilePath;
         public static event EventHandler<Exception> LoggedExceptionOccurred;
 
-        public static bool OpenLogFile()
+        /// <summary>
+        /// Opens the log file for writing
+        /// </summary>
+        /// <param name="redirectToStd">If true, outputs to console; otherwise outputs to file</param>
+        /// <returns>True if successful, false otherwise</returns>
+        public static bool OpenLogFile(bool redirectToStd = false)
         {
             bool result;
             try
             {
-                _logFilePath = Path.Combine(AppConfig.LocalApplicationDataPath, "GestureSign.log");
-                CheckLogSize(_logFilePath);
-                _logWriter = new StreamWriterWithTimestamp(new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true };
-                Console.SetOut(_logWriter);
-                Console.SetError(_logWriter);
+                if (redirectToStd)
+                {
+                    // Console mode: log to console window
+                    _logFilePath = null;
+                    _logWriter = null;
+                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Logging to Console");
+                }
+                else
+                {
+                    // File mode (default behavior)
+                    _logFilePath = Path.Combine(AppConfig.LocalApplicationDataPath, "GestureSign.log");
+                    CheckLogSize(_logFilePath);
+                    _logWriter = new StreamWriterWithTimestamp(new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true };
+                    Console.SetOut(_logWriter);
+                    Console.SetError(_logWriter);
+                }
 
                 // Initialize log level from config
                 _currentLogLevel = AppConfig.LogLevel;
@@ -120,10 +136,28 @@ namespace GestureSign.Common.Log
         // Log with level - only logs if current level >= message level
         public static void Log(string message, LogLevel level)
         {
-            if (_currentLogLevel >= level && _logWriter != null)
+            if (_currentLogLevel >= level)
             {
-                _logWriter.WriteLineWithLevel(message, level);
-                _logWriter.WriteLine();
+                if (_logWriter != null)
+                {
+                    // File mode: write to log file
+                    _logWriter.WriteLineWithLevel(message, level);
+                    _logWriter.WriteLine();
+                }
+                else
+                {
+                    // Console mode: write to console
+                    string levelPrefix = level switch
+                    {
+                        LogLevel.Error => "[ERROR] ",
+                        LogLevel.Warning => "[WARN] ",
+                        LogLevel.Info => "[INFO] ",
+                        LogLevel.Debug => "[DEBUG] ",
+                        LogLevel.Trace => "[TRACE] ",
+                        _ => ""
+                    };
+                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {levelPrefix}{message}");
+                }
             }
         }
 
