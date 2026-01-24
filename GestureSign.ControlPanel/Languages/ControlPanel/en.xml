@@ -67,7 +67,7 @@ Email:ccfyzh@gmail.com
     <MatchString>Match String</MatchString>
     <MatchUsing>Match Using</MatchUsing>
     <GetMatchString>Get Match String</GetMatchString>
-    <Browse>Browse..</Browse>
+    <Browse>Browse Start Menu Programs</Browse>
     <UsingRegularExpression>Match as pattern</UsingRegularExpression>
     <DragCrosshair>Drag and drop the crosshair on the target window</DragCrosshair>
     <Or>Or</Or>

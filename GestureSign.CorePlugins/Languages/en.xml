@@ -221,5 +221,23 @@
       <ToggleOnly>Toggle {0}</ToggleOnly>
       <Category>System</Category>
     </SetTheme>
+    <ActivateApp>
+      <Name>Activate Application Window</Name>
+      <Description>Activate or launch an application</Description>
+      <SpecificDescription>Activate/Launch: {0}</SpecificDescription>
+      <ConfigMethod>Configuration Method:</ConfigMethod>
+      <BrowseApp>Browse for Application</BrowseApp>
+      <SelectWindow>Select from Running Windows</SelectWindow>
+      <AppPath>Application Path:</AppPath>
+      <Browse>Browse Start Menu Programs</Browse>
+      <Or>Or</Or>
+      <RunningWindows>Running Windows:</RunningWindows>
+      <Refresh>Refresh</Refresh>
+      <AdvancedFilters>Advanced Filters (Optional)</AdvancedFilters>
+      <WindowClassName>Window Class Name:</WindowClassName>
+      <WindowTitlePattern>Window Title Pattern:</WindowTitlePattern>
+      <UseRegex>Use Regular Expression</UseRegex>
+      <DisplayName>Display Name:</DisplayName>
+    </ActivateApp>
   </CorePlugins>
 </Language>

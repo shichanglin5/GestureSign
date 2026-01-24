@@ -222,5 +222,23 @@
       <ToggleOnly>切换{0}</ToggleOnly>
       <Category>系统</Category>
     </SetTheme>
+    <ActivateApp>
+      <Name>激活应用程序窗口</Name>
+      <Description>激活或启动应用程序</Description>
+      <SpecificDescription>激活/启动: {0}</SpecificDescription>
+      <ConfigMethod>配置方式:</ConfigMethod>
+      <BrowseApp>浏览应用程序</BrowseApp>
+      <SelectWindow>从运行中的窗口选择</SelectWindow>
+      <AppPath>应用程序路径:</AppPath>
+      <Browse>浏览开始菜单程序</Browse>
+      <Or>或</Or>
+      <RunningWindows>运行中的窗口:</RunningWindows>
+      <Refresh>刷新</Refresh>
+      <AdvancedFilters>高级过滤器(可选)</AdvancedFilters>
+      <WindowClassName>窗口类名:</WindowClassName>
+      <WindowTitlePattern>窗口标题模式:</WindowTitlePattern>
+      <UseRegex>使用正则表达式</UseRegex>
+      <DisplayName>显示名称:</DisplayName>
+    </ActivateApp>
   </CorePlugins>
 </Language>

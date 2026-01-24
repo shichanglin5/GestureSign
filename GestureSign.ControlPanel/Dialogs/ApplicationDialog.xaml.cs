@@ -128,7 +128,10 @@ namespace GestureSign.ControlPanel.Dialogs
         {
             OpenFileDialog ofdExecutable = new OpenFileDialog
             {
-                Filter = LocalizationProvider.Instance.GetTextValue("ApplicationDialog.ExecutableFile") + "|*.exe"
+                Filter = LocalizationProvider.Instance.GetTextValue("ApplicationDialog.ExecutableFile") + "|*.exe",
+                InitialDirectory = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu),
+                    "Programs")
             };
             if (ofdExecutable.ShowDialog().Value)
             {

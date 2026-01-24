@@ -71,7 +71,7 @@ QQ交流群：576981420
     <MatchString>匹配文本</MatchString>
     <MatchUsing>匹配类型</MatchUsing>
     <GetMatchString>捕获目标程序</GetMatchString>
-    <Browse>浏览选择exe文件..</Browse>
+    <Browse>浏览开始菜单程序</Browse>
     <UsingRegularExpression>使用正则表达式</UsingRegularExpression>
     <DragCrosshair>将右侧准星拖至目标程序窗口上</DragCrosshair>
     <Or>或</Or>

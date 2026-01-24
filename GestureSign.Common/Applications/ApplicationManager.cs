@@ -84,11 +84,7 @@ namespace GestureSign.Common.Applications
             CaptureWindow = GetWindowFromPoint(e.FirstCapturedPoints.FirstOrDefault());
             _recognizedApplication = GetApplicationFromWindow(CaptureWindow);
 
-            Log.Logging.LogDebug($"[ApplicationManager] PointCapture_CaptureStarted - e.Points.Count={e.Points.Count}, e.FingerCount={e.FingerCount}");
-            Log.Logging.LogDebug($"[ApplicationManager] RecognizedApplications count: {_recognizedApplication.Count()}");
-
             int maxThreshold = 0, maxLimitNumber = 1;
-
             foreach (IApplication app in _recognizedApplication)
             {
                 switch (app)
