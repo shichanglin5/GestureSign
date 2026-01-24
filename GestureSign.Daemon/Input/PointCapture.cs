@@ -102,7 +102,6 @@ namespace GestureSign.Daemon.Input
             {
                 if (_state != value)
                 {
-                    GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] State changing: {_state} → {value}");
                     _state = value;
                 }
             }
@@ -363,13 +362,15 @@ namespace GestureSign.Daemon.Input
             // Track input timing for sleep/wake debugging
             var now = DateTime.Now;
             var timeSinceLastInput = now - _lastInputReceivedTime;
-            _lastInputReceivedTime = now;
 
             // Log if it's been more than 10 seconds since last input (possible wake from sleep)
-            if (timeSinceLastInput.TotalSeconds > 10)
+            // Skip logging if this is the first input (avoid huge time delta from MinValue)
+            if (_lastInputReceivedTime != DateTime.MinValue && timeSinceLastInput.TotalSeconds > 10)
             {
                 GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] First input after {timeSinceLastInput.TotalSeconds:F1}s idle - State: {State}, Fingers: {e.TotalFingerCount}");
             }
+
+            _lastInputReceivedTime = now;
 
             if (State == CaptureState.Ready || State == CaptureState.Capturing || State == CaptureState.CapturingInvalid)
             {
@@ -469,7 +470,6 @@ namespace GestureSign.Daemon.Input
                 if (maxMovement >= threshold)
                 {
                     _multiFingerDelayTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-                    GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Significant movement detected during delay ({maxMovement:F1}px >= {threshold}px), starting capture with {_pendingFirstPoints.Count} fingers");
                     StartCaptureAfterDelay();
                     e.Handled = Mode != CaptureMode.UserDisabled;
                     return;
@@ -504,8 +504,6 @@ namespace GestureSign.Daemon.Input
 
         protected void PointEventTranslator_PointUp(object sender, InputPointsEventArgs e)
         {
-            GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] PointUp - State={State}, PendingPoints={(_pendingFirstPoints != null ? _pendingFirstPoints.Count.ToString() : "null")}, RemainingFingers={e.InputPointList.Count}");
-
             // PointUp = gesture end signal
             // Case 1: During delay (tap gesture) - any finger up ends the gesture
             if (_pendingFirstPoints != null)
@@ -513,8 +511,6 @@ namespace GestureSign.Daemon.Input
                 // Cancel delay timer and inactivity timer
                 _multiFingerDelayTimer?.Change(Timeout.Infinite, Timeout.Infinite);
                 _inactivityTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-
-                GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Finger lifted during delay - ending gesture");
 
                 // Start capture to record finger count, then immediately end
                 StartCaptureAfterDelay();
@@ -530,8 +526,6 @@ namespace GestureSign.Daemon.Input
             {
                 // Stop inactivity timer
                 _inactivityTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-
-                GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Finger lifted during capture - ending gesture");
                 EndCapture();
 
                 if (TemporarilyDisableCapture && Mode == CaptureMode.UserDisabled)
@@ -644,7 +638,6 @@ namespace GestureSign.Daemon.Input
         {
             _currentContext.Post((state) =>
             {
-                GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Multi-finger delay expired, starting capture");
                 StartCaptureAfterDelay();
             }, null);
         }
@@ -657,8 +650,6 @@ namespace GestureSign.Daemon.Input
             var totalFingerCount = _pendingTotalFingerCount;
             _pendingFirstPoints = null;
             _pendingTotalFingerCount = 0;
-
-            GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Starting capture with {firstPoints.Count} fingers collected during delay (total: {totalFingerCount})");
 
             var timeout = AppConfig.InitialTimeout;
             if (timeout > 0)
@@ -780,8 +771,6 @@ namespace GestureSign.Daemon.Input
 
         private void EndCapture()
         {
-            GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] EndCapture - Mode={Mode}, Trajectories={_pointsCaptured.Count}, TotalFingerCount={_totalFingerCount}");
-
             // Log captured trajectory details
             int trajectoryIndex = 0;
             foreach (var trajectory in _pointsCaptured.Values)
@@ -817,14 +806,8 @@ namespace GestureSign.Daemon.Input
                     var pointPattern = new PointPattern(_pointsCaptured.Values, _totalFingerCount);
                     _pointPatternCache.Add(pointPattern);
 
-                    GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Sending GotGesture IPC to ControlPanel: FingerCount={_totalFingerCount}, Points={_pointsCaptured.Values.First().Count}");
-
                     if (!NamedPipe.SendMessageAsync(IpcCommands.GotGesture, Constants.ControlPanel, _pointPatternCache.ToArray(), false).Result)
                         Mode = CaptureMode.Normal;
-                }
-                else
-                {
-                    GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] Skipping gesture send - no valid points");
                 }
             }
             else

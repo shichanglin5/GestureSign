@@ -138,9 +138,6 @@ namespace GestureSign.ControlPanel.ViewModel
                         insertIndex = CommandInfos.Count(ci => actionsBeforeNewAction.Contains(ci.Action));
                     }
 
-                    GestureSign.Common.Log.Logging.LogDebug($"[CommandInfoProvider] Adding action '{newAction.Name}' at actionIndex={actionIndex}, insertIndex={insertIndex}");
-                    GestureSign.Common.Log.Logging.LogDebug($"[CommandInfoProvider] Current CommandInfos: [{string.Join(", ", CommandInfos.Select((ci, i) => $"{i}:{ci.Action.Name}"))}]");
-
                     foreach (ICommand newCommand in newAction.Commands)
                     {
                         var newInfo = CommandInfo.FromCommand(newCommand, newAction);
@@ -166,7 +163,6 @@ namespace GestureSign.ControlPanel.ViewModel
                         _listBox.SelectedItems.Add(newInfo);
                     }
 
-                    GestureSign.Common.Log.Logging.LogDebug($"[CommandInfoProvider] After insert: [{string.Join(", ", CommandInfos.Select((ci, i) => $"{i}:{ci.Action.Name}"))}]");
                 }
                 _listBox.Dispatcher.InvokeAsync(() => _listBox.ScrollIntoView(_listBox.SelectedItem), DispatcherPriority.Background);
             }

@@ -433,8 +433,6 @@ namespace GestureSign.Daemon.Input
                     // This includes all slots even if some have State=None
                     int totalFingerCount = _outputTouchs.Count;
 
-                    GestureSign.Common.Log.Logging.LogDebug($"[MessageWindow] Sending {_outputTouchs.Count} touches (totalFingerCount={totalFingerCount}, requiring={_requiringContactCount}): [{touchStates}]");
-
                     // 发送触点数据给 PointEventTranslator
                     // 即使 _requiringContactCount > 0（数据不完整），也要发送
                     // 传递 totalFingerCount（实际收集到的触点槽位数）以保留手指总数信息

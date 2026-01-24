@@ -76,12 +76,12 @@ namespace GestureSign.PointPatterns
                 if (compareToIsTap && pointsIsTap)
                 {
                     comparisonResults.Probability = 100d;
-                    System.Diagnostics.Debug.WriteLine($"[PointPatternAnalyzer] Both are tap gestures → 100%");
+                    // System.Diagnostics.Debug.WriteLine($"[PointPatternAnalyzer] Both are tap gestures → 100%");
                 }
                 else
                 {
                     comparisonResults.Probability = 0d;
-                    System.Diagnostics.Debug.WriteLine($"[PointPatternAnalyzer] Tap/swipe mismatch: saved={compareToIsTap}, input={pointsIsTap} → 0%");
+                    // System.Diagnostics.Debug.WriteLine($"[PointPatternAnalyzer] Tap/swipe mismatch: saved={compareToIsTap}, input={pointsIsTap} → 0%");
                 }
             }
             else
@@ -120,7 +120,7 @@ namespace GestureSign.PointPatterns
             // If total movement is less than TapThreshold, treat as tap
             bool isTap = totalDistance < TapThreshold;
 
-            System.Diagnostics.Debug.WriteLine($"[PointPatternAnalyzer] IsTapGesture: {points.Length} points, distance={totalDistance:F1}px, threshold={TapThreshold}px → {isTap}");
+            // System.Diagnostics.Debug.WriteLine($"[PointPatternAnalyzer] IsTapGesture: {points.Length} points, distance={totalDistance:F1}px, threshold={TapThreshold}px → {isTap}");
             return isTap;
         }
 

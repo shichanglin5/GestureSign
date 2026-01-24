@@ -85,14 +85,6 @@ namespace GestureSign.Common.Gestures
         protected void PointCapture_BeforePointsCaptured(object sender, PointsCapturedEventArgs e)
         {
             var pointCapture = (IPointCapture)sender;
-
-            Log.Logging.LogDebug($"[GestureManager] PointCapture_BeforePointsCaptured - Mode: {pointCapture.Mode}");
-            Log.Logging.LogDebug($"[GestureManager] Input - Points.Count: {e.Points.Count}, FingerCount: {e.FingerCount}");
-            for (int i = 0; i < e.Points.Count; i++)
-            {
-                Log.Logging.LogTrace($"[GestureManager] Input Points[{i}]: {e.Points[i].Count} points");
-            }
-
             if (_isGestureStackTimeout)
             {
                 _lastGestureTime = null;
@@ -109,15 +101,9 @@ namespace GestureSign.Common.Gestures
             }
 
             var sourceGesture = _gestureLevel == 0 ? _Gestures : _gestureMatchResult;
-            Log.Logging.LogDebug($"[GestureManager] Total gestures in database: {sourceGesture?.Count ?? 0}, GestureLevel: {_gestureLevel}");
-
             var capturedPoints = e.Points.Select(l => l.ToArray()).ToArray();
-            Log.Logging.LogDebug($"[GestureManager] Calling GetGestureSetNameMatch with {capturedPoints.Length} trajectories, FingerCount: {e.FingerCount}");
 
             GestureName = GetGestureSetNameMatch(capturedPoints, e.FingerCount, sourceGesture, _gestureLevel, out _gestureMatchResult);
-
-            Log.Logging.LogDebug($"[GestureManager] Match result: {GestureName ?? "NULL"}");
-
             if (pointCapture.Mode != CaptureMode.Training)
             {
                 if (_gestureMatchResult != null && _gestureMatchResult.Count != 0)
@@ -273,7 +259,6 @@ namespace GestureSign.Common.Gestures
 
             if (!File.Exists(filePath))
             {
-                Log.Logging.LogDebug($"[LoadGesturesFromFile] File does not exist: {filePath}");
                 return null;
             }
 
@@ -324,7 +309,6 @@ namespace GestureSign.Common.Gestures
                                     if (totalPointPatternsInGesture > 0)
                                     {
                                         skippedLegacyGestures++;
-                                        Log.Logging.LogDebug($"[LoadGesturesFromFile] Skipped legacy gesture '{gestureName}': Had {totalPointPatternsInGesture} PointPatterns but all were filtered (2-trajectory format)");
                                     }
                                 }
                                 break;
@@ -433,11 +417,8 @@ namespace GestureSign.Common.Gestures
 
         public string GetGestureSetNameMatch(Point[][] points, int fingerCount, List<IGesture> sourceGestures, int sourceGestureLevel, out List<IGesture> matching)//PointF[]
         {
-            Log.Logging.LogDebug($"[GetGestureSetNameMatch] Input - Trajectories: {points.Length}, FingerCount: {fingerCount}, SourceGestures: {sourceGestures?.Count ?? 0}, Level: {sourceGestureLevel}");
-
             if (points.Length == 0 || sourceGestures == null || sourceGestures.Count == 0)
             {
-                Log.Logging.LogDebug($"[GetGestureSetNameMatch] Early exit - points.Length={points.Length}, sourceGestures={(sourceGestures == null ? "null" : sourceGestures.Count.ToString())}");
                 matching = null;
                 return null;
             }
@@ -459,8 +440,6 @@ namespace GestureSign.Common.Gestures
                     gestures.Add(g);
                 }
             }
-
-            Log.Logging.LogDebug($"[GetGestureSetNameMatch] Filtered candidates: {gestures.Count} from {sourceGestures.Count}");
 
             if (gestures.Count == 0)
             {

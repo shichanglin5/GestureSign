@@ -652,7 +652,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
         {
             _actionDragStartPoint = e.GetPosition(null);
             // Clear any previous drag state
-            GestureSign.Common.Log.Logging.LogDebug($"[MouseDown] Clearing drag state. Previous _draggedAction={_draggedAction?.Name ?? "null"}");
             _draggedAction = null;
             _dropProcessed = false;
         }
@@ -679,10 +678,8 @@ namespace GestureSign.ControlPanel.MainWindowControls
                     if (_draggedAction != null)
                     {
                         _dropProcessed = false; // Reset flag for new drag operation
-                        GestureSign.Common.Log.Logging.LogDebug($"[MouseMove] Starting DoDragDrop for '{_draggedAction.Name}'");
                         DataObject dragData = new DataObject("GestureAction", _draggedAction);
                         DragDrop.DoDragDrop(button, dragData, DragDropEffects.Move);
-                        GestureSign.Common.Log.Logging.LogDebug($"[MouseMove] DoDragDrop returned. Keeping _draggedAction={_draggedAction.Name}");
                         // DoDragDrop returns when user releases mouse
                         // DO NOT clear here - mouse might trigger new MouseMove events
                         // Will be cleared on next MouseDown
@@ -698,7 +695,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 // Prevent duplicate Drop processing within single drag operation
                 if (_dropProcessed)
                 {
-                    GestureSign.Common.Log.Logging.LogDebug($"[ActionButton_Drop] Skipped: already processed");
                     e.Handled = true;
                     return;
                 }
@@ -708,7 +704,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 // Check if this drag operation is valid
                 if (_draggedAction == null || sourceAction != _draggedAction)
                 {
-                    GestureSign.Common.Log.Logging.LogDebug($"[ActionButton_Drop] Skipped: _draggedAction={_draggedAction?.Name ?? "null"}, sourceAction={sourceAction?.Name ?? "null"}");
                     e.Handled = true;
                     return;
                 }
@@ -731,13 +726,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
                             int sourceIndex = actions.IndexOf(sourceAction);
                             int targetIndex = actions.IndexOf(targetAction);
 
-                            // Log: Before operation
-                            GestureSign.Common.Log.Logging.LogDebug("==================== Action Drag&Drop ====================");
-                            GestureSign.Common.Log.Logging.LogDebug($"Total Actions: {actions.Count}");
-                            GestureSign.Common.Log.Logging.LogDebug($"Source: '{sourceAction.Name}' (index={sourceIndex})");
-                            GestureSign.Common.Log.Logging.LogDebug($"Target: '{targetAction.Name}' (index={targetIndex})");
-                            GestureSign.Common.Log.Logging.LogDebug($"Before: [{string.Join(", ", actions.Select((a, i) => $"{i}:{a.Name}"))}]");
-
                             if (sourceIndex >= 0 && targetIndex >= 0 && sourceIndex != targetIndex)
                             {
                                 // Mark as processed to prevent duplicate Drop events during UI refresh
@@ -752,14 +740,11 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
                                 app.RemoveAction(sourceAction);
                                 var actionsAfterRemove = app.Actions.ToList();
-                                GestureSign.Common.Log.Logging.LogDebug($"After Remove: [{string.Join(", ", actionsAfterRemove.Select((a, i) => $"{i}:{a.Name}"))}]");
 
                                 // Always insert at target's position (source goes before target)
                                 app.Insert(targetIndex, sourceAction);
 
                                 var actionsAfterInsert = app.Actions.ToList();
-                                GestureSign.Common.Log.Logging.LogDebug($"After Insert({targetIndex}): [{string.Join(", ", actionsAfterInsert.Select((a, i) => $"{i}:{a.Name}"))}]");
-                                GestureSign.Common.Log.Logging.LogDebug("========================================================");
 
                                 ApplicationManager.Instance.SaveApplications();
 
@@ -841,20 +826,12 @@ namespace GestureSign.ControlPanel.MainWindowControls
                     int sourceIndex = commands.IndexOf(sourceCommand.Command);
                     int targetIndex = commands.IndexOf(targetCommand.Command);
 
-                    // Log: Before operation
-                    GestureSign.Common.Log.Logging.LogDebug("==================== Command Drag&Drop ====================");
-                    GestureSign.Common.Log.Logging.LogDebug($"Action: '{action.Name}'");
-                    GestureSign.Common.Log.Logging.LogDebug($"Source: '{sourceCommand.CommandName}' (index={sourceIndex})");
-                    GestureSign.Common.Log.Logging.LogDebug($"Target: '{targetCommand.CommandName}' (index={targetIndex})");
-                    GestureSign.Common.Log.Logging.LogDebug($"Before: [{string.Join(", ", commands.Select((c, i) => $"{i}:{((GestureSign.Common.Applications.Command)c).Name}"))}]");
-
                     if (sourceIndex >= 0 && targetIndex >= 0)
                     {
                         action.RemoveCommand(sourceCommand.Command);
 
                         // Log: After remove
                         var commandsAfterRemove = action.Commands.ToList();
-                        GestureSign.Common.Log.Logging.LogDebug($"After Remove: [{string.Join(", ", commandsAfterRemove.Select((c, i) => $"{i}:{((GestureSign.Common.Applications.Command)c).Name}"))}]");
 
                         // Insert source at target position
                         // No adjustment needed: targetIndex represents the desired final position
@@ -862,9 +839,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
                         // Log: After insert
                         var commandsAfterInsert = action.Commands.ToList();
-                        GestureSign.Common.Log.Logging.LogDebug($"After Insert({targetIndex}): [{string.Join(", ", commandsAfterInsert.Select((c, i) => $"{i}:{((GestureSign.Common.Applications.Command)c).Name}"))}]");
-                        GestureSign.Common.Log.Logging.LogDebug("===========================================================");
-
                         ApplicationManager.Instance.SaveApplications();
                     }
                 }
