@@ -1,9 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using GestureSign.Common.Log;
-using Microsoft.Win32;
 
 namespace GestureSign.CorePlugins.ActivateApp
 {
@@ -12,6 +12,7 @@ namespace GestureSign.CorePlugins.ActivateApp
         #region Private Variables
 
         private ActivateAppSettings _settings;
+        private string _tempAUMID;
 
         #endregion
 
@@ -33,13 +34,23 @@ namespace GestureSign.CorePlugins.ActivateApp
                 if (_settings == null)
                     _settings = new ActivateAppSettings();
 
-                _settings.ApplicationPath = AppPathTextBox.Text.Trim();
-                _settings.WindowClassName = WindowClassNameTextBox.Text.Trim();
+                // Only save user-editable fields (DisplayName and title filters)
+                _settings.DisplayName = DisplayNameTextBox.Text.Trim();
                 _settings.WindowTitlePattern = WindowTitlePatternTextBox.Text.Trim();
                 _settings.UseRegexMatching = UseRegexCheckBox.IsChecked ?? false;
-                _settings.DisplayName = DisplayNameTextBox.Text.Trim();
 
-                // Extract process name from path
+                // Parse cache expiration
+                if (int.TryParse(CacheExpirationTextBox.Text.Trim(), out int cacheExpiration))
+                {
+                    _settings.CacheExpirationSeconds = cacheExpiration;
+                }
+                else
+                {
+                    _settings.CacheExpirationSeconds = 5; // Default value
+                }
+
+                // AUMID, ClassName, ApplicationPath are set when selecting a window
+                // ProcessName is derived from ApplicationPath
                 if (!string.IsNullOrEmpty(_settings.ApplicationPath))
                 {
                     _settings.ProcessName = Path.GetFileNameWithoutExtension(_settings.ApplicationPath);
@@ -51,17 +62,24 @@ namespace GestureSign.CorePlugins.ActivateApp
             {
                 _settings = value ?? new ActivateAppSettings();
 
-                AppPathTextBox.Text = _settings.ApplicationPath ?? string.Empty;
-                WindowClassNameTextBox.Text = _settings.WindowClassName ?? string.Empty;
+                // Display read-only fields (no text boxes for them now)
+                // DisplayName and filters are user-editable
+                DisplayNameTextBox.Text = _settings.DisplayName ?? string.Empty;
                 WindowTitlePatternTextBox.Text = _settings.WindowTitlePattern ?? string.Empty;
                 UseRegexCheckBox.IsChecked = _settings.UseRegexMatching;
-                DisplayNameTextBox.Text = _settings.DisplayName ?? string.Empty;
+                CacheExpirationTextBox.Text = _settings.CacheExpirationSeconds.ToString();
+
+                // Restore AUMID
+                _tempAUMID = _settings.AUMID;
 
                 // Set default display name if empty
-                if (string.IsNullOrEmpty(DisplayNameTextBox.Text) && !string.IsNullOrEmpty(_settings.ApplicationPath))
+                if (string.IsNullOrEmpty(DisplayNameTextBox.Text) && !string.IsNullOrEmpty(_settings.ProcessName))
                 {
-                    DisplayNameTextBox.Text = Path.GetFileNameWithoutExtension(_settings.ApplicationPath);
+                    DisplayNameTextBox.Text = _settings.ProcessName;
                 }
+
+                // Update configuration display table
+                UpdateConfigDisplay();
             }
         }
 
@@ -82,16 +100,28 @@ namespace GestureSign.CorePlugins.ActivateApp
                 {
                     var windowInfo = dialog.SelectedWindow;
 
-                    AppPathTextBox.Text = windowInfo.ProcessPath;
-                    WindowClassNameTextBox.Text = windowInfo.ClassName;
+                    // Auto-fill core matching information
+                    if (_settings == null)
+                        _settings = new ActivateAppSettings();
 
-                    // Auto-fill display name
+                    _settings.AUMID = windowInfo.AUMID ?? string.Empty;
+                    _settings.WindowClassName = windowInfo.ClassName;
+                    _settings.ApplicationPath = windowInfo.ProcessPath;
+                    _settings.ProcessName = windowInfo.ProcessName;
+
+                    // Store AUMID in temp field as well
+                    _tempAUMID = windowInfo.AUMID;
+
+                    // Auto-fill display name (if empty)
                     if (string.IsNullOrEmpty(DisplayNameTextBox.Text))
                     {
                         DisplayNameTextBox.Text = windowInfo.ProcessName;
                     }
 
-                    Logging.LogDebug($"[ActivateAppUI] Selected window: {windowInfo.ProcessName} ({windowInfo.ClassName})");
+                    Logging.LogDebug($"[ActivateAppUI] Selected window: {windowInfo.ProcessName}, AUMID: {windowInfo.AUMID}, ClassName: {windowInfo.ClassName}");
+
+                    // Update configuration display table
+                    UpdateConfigDisplay();
                 }
             }
             catch (Exception ex)
@@ -101,27 +131,94 @@ namespace GestureSign.CorePlugins.ActivateApp
             }
         }
 
-        private void BrowseButton_Click(object sender, RoutedEventArgs e)
+        #endregion
+
+        #region Private Methods
+
+        private void UpdateConfigDisplay()
         {
-            var openFileDialog = new OpenFileDialog
-            {
-                Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*",
-                Title = "Select Application",
-                InitialDirectory = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu),
-                    "Programs")
-            };
+            var configs = new List<ConfigProperty>();
 
-            if (openFileDialog.ShowDialog() == true)
+            // AUMID - most important matching condition
+            configs.Add(new ConfigProperty
             {
-                AppPathTextBox.Text = openFileDialog.FileName;
+                Name = "AUMID",
+                Value = string.IsNullOrEmpty(_tempAUMID) ? "(Not set / 未设置)" : _tempAUMID
+            });
 
-                // Auto-fill display name
-                if (string.IsNullOrEmpty(DisplayNameTextBox.Text))
-                {
-                    DisplayNameTextBox.Text = Path.GetFileNameWithoutExtension(openFileDialog.FileName);
-                }
-            }
+            // Window Class Name - core matching condition
+            configs.Add(new ConfigProperty
+            {
+                Name = "Window Class Name",
+                Value = string.IsNullOrEmpty(_settings?.WindowClassName)
+                    ? "(Not set / 未设置)"
+                    : _settings.WindowClassName
+            });
+
+            // Process Path - core matching condition
+            configs.Add(new ConfigProperty
+            {
+                Name = "Process Path",
+                Value = string.IsNullOrEmpty(_settings?.ApplicationPath)
+                    ? "(Not set / 未设置)"
+                    : _settings.ApplicationPath
+            });
+
+            // Process Name
+            configs.Add(new ConfigProperty
+            {
+                Name = "Process Name",
+                Value = string.IsNullOrEmpty(_settings?.ProcessName)
+                    ? "(Not set / 未设置)"
+                    : _settings.ProcessName
+            });
+
+            // Display Name
+            configs.Add(new ConfigProperty
+            {
+                Name = "Display Name",
+                Value = string.IsNullOrEmpty(DisplayNameTextBox.Text)
+                    ? "(Not set / 未设置)"
+                    : DisplayNameTextBox.Text
+            });
+
+            // Window Title Pattern (optional filter)
+            configs.Add(new ConfigProperty
+            {
+                Name = "Window Title Pattern",
+                Value = string.IsNullOrEmpty(WindowTitlePatternTextBox.Text)
+                    ? "(Any / 任意)"
+                    : WindowTitlePatternTextBox.Text
+            });
+
+            // Use Regex Matching
+            configs.Add(new ConfigProperty
+            {
+                Name = "Use Regex Matching",
+                Value = (UseRegexCheckBox.IsChecked ?? false) ? "Yes / 是" : "No / 否"
+            });
+
+            // Cache Expiration (from settings or default)
+            int cacheExpiration = _settings?.CacheExpirationSeconds ?? 5;
+            configs.Add(new ConfigProperty
+            {
+                Name = "Cache Expiration (seconds)",
+                Value = cacheExpiration <= 0
+                    ? "Disabled / 已禁用"
+                    : $"{cacheExpiration} seconds / 秒"
+            });
+
+            ConfigDataGrid.ItemsSource = configs;
+        }
+
+        #endregion
+
+        #region Helper Classes
+
+        public class ConfigProperty
+        {
+            public string Name { get; set; }
+            public string Value { get; set; }
         }
 
         #endregion

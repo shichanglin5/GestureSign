@@ -25,7 +25,14 @@ namespace GestureSign.CorePlugins.ActivateApp
         private IHostControl _hostControl;
 
         // Dictionary to track last activated window per application path
-        private static Dictionary<string, IntPtr> _lastActivatedWindows = new Dictionary<string, IntPtr>();
+        private static Dictionary<string, IntPtr> _lastActivatedWindows = new();
+
+        // Cache dictionary: Key = AUMID or ClassName+ProcessPath, Value = (WindowHandles, LastUpdateTime)
+        private readonly Dictionary<string, (List<IntPtr> Handles, DateTime LastUpdate)> _windowCache = new();
+
+        // Settings cache: Key = serializedData (JSON string), Value = deserialized settings
+        // Avoids redundant JSON deserialization when configuration is unchanged
+        private readonly Dictionary<string, ActivateAppSettings> _settingsCache = new();
 
         #endregion
 
@@ -107,7 +114,9 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         public void Initialize()
         {
-            // No initialization needed
+            // Settings cache (_settingsCache) will naturally invalidate when configuration changes
+            // Window cache (_windowCache) uses complete matching configuration as key, so it naturally invalidates too
+            // No need to clear caches manually - this allows per-application cache invalidation
         }
 
         public bool Gestured(PointInfo actionPoint)
@@ -148,7 +157,23 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         public bool Deserialize(string serializedData)
         {
-            return PluginHelper.DeserializeSettings(serializedData, out _settings);
+            // Use settings cache to avoid redundant JSON deserialization
+            // When configuration is unchanged, the serializedData (JSON) will be identical
+            if (_settingsCache.TryGetValue(serializedData, out var cachedSettings))
+            {
+                _settings = cachedSettings;
+                return true;
+            }
+
+            // Cache miss - deserialize and cache the result
+            bool success = PluginHelper.DeserializeSettings(serializedData, out _settings);
+
+            if (success && _settings != null)
+            {
+                _settingsCache[serializedData] = _settings;
+            }
+
+            return success;
         }
 
         public string Serialize()
@@ -166,70 +191,182 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         #region Core Logic Methods
 
+        /// <summary>
+        /// Generate cache key from matching configuration
+        /// Includes all parameters that affect window matching
+        /// </summary>
+        private string GenerateCacheKey(ActivateAppSettings settings)
+        {
+            // Include all matching criteria to ensure cache invalidates when any configuration changes
+            return $"{settings.AUMID ?? ""}|{settings.WindowClassName ?? ""}|{settings.ApplicationPath ?? ""}|{settings.WindowTitlePattern ?? ""}|{settings.UseRegexMatching}";
+        }
+
         private List<IntPtr> GetApplicationWindows(ActivateAppSettings settings)
         {
             var windows = new List<IntPtr>();
-            var processName = Path.GetFileNameWithoutExtension(settings.ApplicationPath);
 
-            if (string.IsNullOrEmpty(processName))
-                return windows;
-
-            // Get all processes matching the process name
-            var processes = Process.GetProcessesByName(processName);
-
-            foreach (var process in processes)
+            // Strategy 1: If AUMID is configured, use AUMID matching (highest priority)
+            if (!string.IsNullOrEmpty(settings.AUMID))
             {
-                try
+                // Generate cache key from complete matching configuration
+                // This ensures cache invalidates when ANY matching parameter changes
+                string cacheKey = GenerateCacheKey(settings);
+
+                // Cache strategy: only use cache when CacheExpirationSeconds > 0
+                if (settings.CacheExpirationSeconds > 0 && _windowCache.TryGetValue(cacheKey, out var cachedData))
                 {
-                    // Verify the process path matches (important for apps with common names)
-                    var processPath = process.MainModule?.FileName;
-                    if (string.IsNullOrEmpty(processPath))
-                        continue;
-
-                    // Path comparison (case-insensitive)
-                    if (!string.Equals(processPath, settings.ApplicationPath, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    // Enumerate windows for this process
-                    EnumWindows((hWnd, lParam) =>
+                    var elapsed = (DateTime.Now - cachedData.LastUpdate).TotalSeconds;
+                    if (elapsed <= settings.CacheExpirationSeconds)
                     {
-                        GetWindowThreadProcessId(hWnd, out int pid);
+                        // Cache is still valid - validate windows
+                        var validWindows = new List<IntPtr>();
 
-                        if (pid == process.Id && IsSwitchableWindow(hWnd))
+                        foreach (var hWnd in cachedData.Handles)
                         {
-                            // Apply optional filters
+                            // Check if window still exists and is valid
+                            if (IsWindow(hWnd) && IsSwitchableWindow(hWnd))
+                            {
+                                try
+                                {
+                                    // Verify AUMID still matches (window handle may be reused)
+                                    string windowAUMID = GetWindowAUMID(hWnd);
+                                    if (!string.IsNullOrEmpty(windowAUMID) &&
+                                        string.Equals(windowAUMID, settings.AUMID, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        validWindows.Add(hWnd);
+                                    }
+                                }
+                                catch
+                                {
+                                    // Access failed, skip this window
+                                }
+                            }
+                        }
+
+                        // If cache has valid windows, return them (avoid EnumWindows traversal)
+                        if (validWindows.Count > 0)
+                        {
+                            // Update cache with valid windows
+                            _windowCache[cacheKey] = (validWindows, DateTime.Now);
+                            return validWindows;
+                        }
+                    }
+                    else
+                    {
+                        // Cache expired
+                    }
+
+                    // Remove expired or invalid cache
+                    _windowCache.Remove(cacheKey);
+                }
+
+                // Cache miss, disabled, or invalidated - perform full scan
+                windows = GetWindowsByAUMID(settings.AUMID, settings);
+
+                // Update cache (only when CacheExpirationSeconds > 0)
+                if (settings.CacheExpirationSeconds > 0 && windows.Count > 0)
+                {
+                    _windowCache[cacheKey] = (new List<IntPtr>(windows), DateTime.Now);
+                }
+
+                return windows;
+            }
+
+            // Strategy 2: ClassName + ProcessPath matching
+            if (!string.IsNullOrEmpty(settings.WindowClassName) &&
+                !string.IsNullOrEmpty(settings.ApplicationPath))
+            {
+                // Generate cache key from complete matching configuration
+                string cacheKey = GenerateCacheKey(settings);
+
+                // Try to use cache first
+                if (settings.CacheExpirationSeconds > 0 && _windowCache.TryGetValue(cacheKey, out var cachedData))
+                {
+                    var elapsed = (DateTime.Now - cachedData.LastUpdate).TotalSeconds;
+                    if (elapsed <= settings.CacheExpirationSeconds)
+                    {
+                        // Validate cached windows
+                        var validWindows = cachedData.Handles.Where(hWnd =>
+                            IsWindow(hWnd) && IsSwitchableWindow(hWnd)).ToList();
+
+                        if (validWindows.Count > 0)
+                        {
+                            _windowCache[cacheKey] = (validWindows, DateTime.Now);
+                            return validWindows;
+                        }
+                    }
+
+                    // Cache expired or invalid
+                    _windowCache.Remove(cacheKey);
+                }
+
+                // Cache miss or disabled - perform full scan
+                windows = GetWindowsByClassNameAndPath(settings);
+                Logging.LogDebug($"[ActivateApp] Matched by ClassName + ProcessPath for {settings.DisplayName}: {windows.Count} windows found");
+
+                // Update cache
+                if (settings.CacheExpirationSeconds > 0 && windows.Count > 0)
+                {
+                    _windowCache[cacheKey] = (new List<IntPtr>(windows), DateTime.Now);
+                }
+
+                return windows;
+            }
+
+            // No valid configuration
+            Logging.LogWarning($"[ActivateApp] No valid matching configuration for {settings.DisplayName}");
+            return windows;
+        }
+
+        private List<IntPtr> GetWindowsByClassNameAndPath(ActivateAppSettings settings)
+        {
+            var windows = new List<IntPtr>();
+
+            EnumWindows((hWnd, lParam) =>
+            {
+                if (IsSwitchableWindow(hWnd))
+                {
+                    try
+                    {
+                        var window = new SystemWindow(hWnd);
+
+                        // Check ClassName
+                        if (window.ClassName != settings.WindowClassName)
+                            return true; // Continue enumeration
+
+                        // Check ProcessPath
+                        GetWindowThreadProcessId(hWnd, out int pid);
+                        var process = Process.GetProcessById(pid);
+                        var processPath = process.MainModule?.FileName;
+
+                        if (string.Equals(processPath, settings.ApplicationPath,
+                            StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Apply title filters
                             if (MatchesFilters(hWnd, settings))
                             {
                                 windows.Add(hWnd);
                             }
                         }
-                        return true;
-                    }, IntPtr.Zero);
+                    }
+                    catch
+                    {
+                        // Process may have exited or access denied
+                    }
                 }
-                catch
-                {
-                    // Process may have exited
-                    continue;
-                }
-            }
+                return true;
+            }, IntPtr.Zero);
 
             return windows;
         }
 
         private bool MatchesFilters(IntPtr hWnd, ActivateAppSettings settings)
         {
-            var window = new SystemWindow(hWnd);
-
-            // Class name filter
-            if (!string.IsNullOrEmpty(settings.WindowClassName))
-            {
-                if (window.ClassName != settings.WindowClassName)
-                    return false;
-            }
-
-            // Title pattern filter
+            // Only apply title pattern filter (ClassName is now a core matching condition, not a filter)
             if (!string.IsNullOrEmpty(settings.WindowTitlePattern))
             {
+                var window = new SystemWindow(hWnd);
+
                 if (settings.UseRegexMatching)
                 {
                     if (!Regex.IsMatch(window.Title, settings.WindowTitlePattern, RegexOptions.IgnoreCase))
@@ -390,15 +527,118 @@ namespace GestureSign.CorePlugins.ActivateApp
             return zOrder;
         }
 
-        private string GetWindowTitle(IntPtr hWnd)
-        {
-            int length = GetWindowTextLength(hWnd);
-            if (length == 0)
-                return string.Empty;
+        #endregion
 
-            StringBuilder sb = new StringBuilder(length + 1);
-            GetWindowText(hWnd, sb, sb.Capacity);
-            return sb.ToString();
+        #region AUMID Helper Methods
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindow(IntPtr hWnd);
+
+        [DllImport("shell32.dll", SetLastError = true)]
+        private static extern int SHGetPropertyStoreForWindow(IntPtr hwnd, ref Guid iid, out IPropertyStore propertyStore);
+
+        [ComImport]
+        [Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IPropertyStore
+        {
+            [PreserveSig]
+            int GetCount(out uint count);
+            [PreserveSig]
+            int GetAt(uint iProp, out PropertyKey pkey);
+            [PreserveSig]
+            int GetValue(ref PropertyKey key, out PropVariant pv);
+            [PreserveSig]
+            int SetValue(ref PropertyKey key, ref PropVariant pv);
+            [PreserveSig]
+            int Commit();
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PropertyKey
+        {
+            public Guid fmtid;
+            public uint pid;
+
+            public PropertyKey(Guid fmtid, uint pid)
+            {
+                this.fmtid = fmtid;
+                this.pid = pid;
+            }
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct PropVariant
+        {
+            [FieldOffset(0)] public ushort vt;
+            [FieldOffset(8)] public IntPtr pwszVal;
+        }
+
+        private string GetWindowAUMID(IntPtr hWnd)
+        {
+            try
+            {
+                Guid iid = new Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99");
+                PropertyKey PKEY_AppUserModel_ID = new PropertyKey(
+                    new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), 5);
+
+                int result = SHGetPropertyStoreForWindow(hWnd, ref iid, out IPropertyStore propertyStore);
+                if (result != 0)
+                    return null;
+
+                try
+                {
+                    PropVariant pv;
+                    result = propertyStore.GetValue(ref PKEY_AppUserModel_ID, out pv);
+                    if (result != 0 || pv.vt != 31)
+                        return null;
+
+                    string aumid = Marshal.PtrToStringUni(pv.pwszVal);
+                    return string.IsNullOrEmpty(aumid) ? null : aumid;
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(propertyStore);
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private List<IntPtr> GetWindowsByAUMID(string aumid, ActivateAppSettings settings)
+        {
+            var windows = new List<IntPtr>();
+
+            EnumWindows((hWnd, lParam) =>
+            {
+                if (IsSwitchableWindow(hWnd))
+                {
+                    try
+                    {
+                        string windowAUMID = GetWindowAUMID(hWnd);
+
+                        // AUMID matching (case-insensitive)
+                        if (!string.IsNullOrEmpty(windowAUMID) &&
+                            string.Equals(windowAUMID, aumid, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Apply additional filters (ClassName, TitlePattern)
+                            if (MatchesFilters(hWnd, settings))
+                            {
+                                windows.Add(hWnd);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Access denied or other errors
+                    }
+                }
+                return true;
+            }, IntPtr.Zero);
+
+            return windows;
         }
 
         #endregion

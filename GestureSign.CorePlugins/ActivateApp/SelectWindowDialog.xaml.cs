@@ -68,6 +68,83 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         #endregion
 
+        #region AUMID Retrieval
+
+        [DllImport("shell32.dll", SetLastError = true)]
+        private static extern int SHGetPropertyStoreForWindow(IntPtr hwnd, ref Guid iid, out IPropertyStore propertyStore);
+
+        [ComImport]
+        [Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IPropertyStore
+        {
+            [PreserveSig]
+            int GetCount(out uint count);
+            [PreserveSig]
+            int GetAt(uint iProp, out PropertyKey pkey);
+            [PreserveSig]
+            int GetValue(ref PropertyKey key, out PropVariant pv);
+            [PreserveSig]
+            int SetValue(ref PropertyKey key, ref PropVariant pv);
+            [PreserveSig]
+            int Commit();
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PropertyKey
+        {
+            public Guid fmtid;
+            public uint pid;
+
+            public PropertyKey(Guid fmtid, uint pid)
+            {
+                this.fmtid = fmtid;
+                this.pid = pid;
+            }
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct PropVariant
+        {
+            [FieldOffset(0)] public ushort vt;
+            [FieldOffset(8)] public IntPtr pwszVal;
+        }
+
+        private string GetWindowAUMID(IntPtr hWnd)
+        {
+            try
+            {
+                Guid iid = new Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99");
+                PropertyKey PKEY_AppUserModel_ID = new PropertyKey(
+                    new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), 5);
+
+                int result = SHGetPropertyStoreForWindow(hWnd, ref iid, out IPropertyStore propertyStore);
+                if (result != 0)
+                    return null;
+
+                try
+                {
+                    PropVariant pv;
+                    result = propertyStore.GetValue(ref PKEY_AppUserModel_ID, out pv);
+                    if (result != 0 || pv.vt != 31) // VT_LPWSTR = 31
+                        return null;
+
+                    string aumid = Marshal.PtrToStringUni(pv.pwszVal);
+                    return string.IsNullOrEmpty(aumid) ? null : aumid;
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(propertyStore);
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        #endregion
+
         #region Event Handlers
 
         private void SelectWindowDialog_Loaded(object sender, RoutedEventArgs e)
@@ -89,6 +166,20 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             if (WindowListView.SelectedItem is WindowInfo windowInfo)
             {
+                // Automatically extract AUMID
+                try
+                {
+                    string aumid = GetWindowAUMID(windowInfo.Handle);
+                    if (!string.IsNullOrEmpty(aumid))
+                    {
+                        windowInfo.AUMID = aumid;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logging.LogWarning($"[SelectWindowDialog] Failed to get AUMID: {ex.Message}");
+                }
+
                 _selectedWindow = windowInfo;
                 DialogResult = true;
             }
@@ -103,6 +194,40 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             DialogResult = false;
             Close();
+        }
+
+        private void DetailsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (WindowListView.SelectedItem is WindowInfo selectedWindow)
+            {
+                try
+                {
+                    // 创建并显示窗口详细信息对话框
+                    var detailsDialog = new WindowDetailsDialog(selectedWindow.Handle)
+                    {
+                        Owner = this
+                    };
+
+                    detailsDialog.ShowDialog();
+                }
+                catch (Exception ex)
+                {
+                    Logging.LogError($"[SelectWindowDialog] Failed to show window details: {ex.Message}");
+                    MessageBox.Show(
+                        $"Failed to show window details: {ex.Message}",
+                        "Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+            }
+            else
+            {
+                MessageBox.Show(
+                    "Please select a window first.",
+                    "No Window Selected",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
         }
 
         #endregion
@@ -217,6 +342,7 @@ namespace GestureSign.CorePlugins.ActivateApp
         public string ProcessName { get; set; }
         public string ProcessPath { get; set; }
         public BitmapSource Icon { get; set; }
+        public string AUMID { get; set; }
     }
 
     #endregion

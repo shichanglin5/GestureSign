@@ -21,41 +21,22 @@
                 FontSize="14"
                 FontWeight="Bold"
                 HorizontalAlignment="Left"
-                Margin="0,5,0,0" />
-
-        <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.Or}"
-                   Margin="0,5,0,0" />
-
-        <!-- Browse for Application Button -->
-        <Button x:Name="BrowseButton"
-                Content="{localization:LocalisedText CorePlugins.ActivateApp.Browse}"
-                Click="BrowseButton_Click"
-                FontSize="14"
-                FontWeight="Bold"
-                HorizontalAlignment="Left"
                 Margin="0,5,0,10" />
 
-        <!-- Application Path Display -->
-        <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.AppPath}"
+        <!-- Display Name -->
+        <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.DisplayName}"
                    Margin="0,10,0,5" />
 
-        <TextBox x:Name="AppPathTextBox"
+        <TextBox x:Name="DisplayNameTextBox"
                  Height="23"
-                 IsReadOnly="True"
-                 VerticalAlignment="Top" />
+                 VerticalAlignment="Top"
+                 Margin="0,0,0,10" />
 
         <!-- Advanced Filters -->
         <Expander Header="{localization:LocalisedText CorePlugins.ActivateApp.AdvancedFilters}"
                   IsExpanded="False"
                   Margin="0,10,0,0">
             <StackPanel Margin="10,10,0,10">
-                <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.WindowClassName}"
-                           Margin="0,0,0,5" />
-
-                <TextBox x:Name="WindowClassNameTextBox"
-                         Height="23"
-                         Margin="0,0,0,10" />
-
                 <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.WindowTitlePattern}"
                            Margin="0,0,0,5" />
 
@@ -67,12 +48,50 @@
                           Content="{localization:LocalisedText CorePlugins.ActivateApp.UseRegex}"
                           Margin="0,0,0,10" />
 
-                <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.DisplayName}"
+                <TextBlock Text="Cache Expiration (seconds) / 缓存过期时间（秒）"
                            Margin="0,0,0,5" />
 
-                <TextBox x:Name="DisplayNameTextBox"
-                         Height="23" />
+                <TextBox x:Name="CacheExpirationTextBox"
+                         Height="23"
+                         Margin="0,0,0,5" />
+
+                <TextBlock Text="Set to 0 to disable caching / 设置为 0 禁用缓存"
+                           FontSize="11"
+                           Foreground="Gray"
+                           Margin="0,0,0,10" />
             </StackPanel>
         </Expander>
+
+        <!-- Matching Configuration Display -->
+        <TextBlock Text="Current Matching Configuration / 当前匹配配置"
+                   FontWeight="Bold"
+                   Margin="0,20,0,5" />
+
+        <DataGrid x:Name="ConfigDataGrid"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  Height="150"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="None"
+                  CanUserResizeRows="False"
+                  CanUserSortColumns="False"
+                  SelectionMode="Single">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Property / 属性"
+                                    Binding="{Binding Name}"
+                                    Width="150"
+                                    FontWeight="Bold" />
+                <DataGridTextColumn Header="Value / 值"
+                                    Binding="{Binding Value}"
+                                    Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                            <Setter Property="FontFamily" Value="Consolas" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
     </StackPanel>
 </UserControl>
