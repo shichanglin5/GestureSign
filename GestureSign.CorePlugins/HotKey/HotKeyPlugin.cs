@@ -169,16 +169,12 @@ namespace GestureSign.CorePlugins.HotKey
                 }
 
                 // Check if safe mode is enabled in action settings
-                Logging.LogDebug($"[HotKeyPlugin] Window: {ActionPoint.Window?.Title}, SendByKeybdEvent: {_Settings.SendByKeybdEvent}");
-
                 if (_Settings.SendByKeybdEvent)
                 {
-                    Logging.LogDebug("[HotKeyPlugin] Using safe keyboard simulation (keybd_event)");
                     SendKeysSeparately(_Settings);
                 }
                 else
                 {
-                    Logging.LogDebug("[HotKeyPlugin] Using batch keyboard simulation (SendInput)");
                     SendShortcutKeys(_Settings);
                 }
             }
@@ -204,9 +200,7 @@ namespace GestureSign.CorePlugins.HotKey
 
         public bool Deserialize(string SerializedData)
         {
-            Logging.LogDebug($"[HotKeyPlugin.Deserialize] Input data: {SerializedData}");
             bool result = PluginHelper.DeserializeSettings(SerializedData, out _Settings);
-            Logging.LogDebug($"[HotKeyPlugin.Deserialize] Result: {result}, SendByKeybdEvent: {_Settings?.SendByKeybdEvent}");
             return result;
         }
 
@@ -219,7 +213,6 @@ namespace GestureSign.CorePlugins.HotKey
                 _Settings = new HotKeySettings();
 
             string serialized = PluginHelper.SerializeSettings(_Settings);
-            Logging.LogDebug($"[HotKeyPlugin.Serialize] SendByKeybdEvent: {_Settings.SendByKeybdEvent}, Output: {serialized}");
             return serialized;
         }
 

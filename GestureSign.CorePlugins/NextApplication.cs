@@ -118,7 +118,6 @@ namespace GestureSign.CorePlugins
                 // If current window is not in the list, start from beginning
                 if (currentIndex == -1)
                 {
-                    Logging.LogDebug("[NextApplication] Current window not in switchable list, starting from first window");
                     currentIndex = -1; // Will become 0 after +1
                 }
 

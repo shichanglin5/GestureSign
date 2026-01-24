@@ -325,20 +325,13 @@ namespace GestureSign.Daemon.Input
                 case SessionSwitchReason.SessionUnlock:
                     if (State == CaptureState.Disabled)
                     {
-                        GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] Changing state from Disabled to Ready after {e.Reason}");
                         State = CaptureState.Ready;
-                    }
-                    else
-                    {
-                        GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] State already {State}, no change needed");
                     }
                     break;
                 case SessionSwitchReason.SessionLock:
-                    GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] Changing state from {State} to Disabled after SessionLock");
                     State = CaptureState.Disabled;
                     break;
                 default:
-                    GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] SessionSwitch {e.Reason} - no action taken");
                     break;
             }
         }

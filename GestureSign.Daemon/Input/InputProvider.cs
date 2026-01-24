@@ -44,8 +44,6 @@ namespace GestureSign.Daemon.Input
 
         private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
-            GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] PowerModeChanged event received: {e.Mode}");
-
             if (e.Mode == PowerModes.Resume)
             {
                 GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] System resumed from sleep/hibernate, triggering UpdateDeviceState");
