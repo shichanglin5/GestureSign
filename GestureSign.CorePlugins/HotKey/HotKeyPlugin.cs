@@ -1,14 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 using WindowsInput;
 using WindowsInput.Native;
 using GestureSign.Common.Localization;
+using GestureSign.Common.Log;
 using GestureSign.Common.Plugins;
 using ManagedWinapi;
-using System.Collections.Generic;
-using System.Linq;
 
 #pragma warning disable CA1416 // Platform-specific API
 
@@ -21,7 +21,6 @@ namespace GestureSign.CorePlugins.HotKey
         private HotKey _GUI;
         private HotKeySettings _Settings;
         private const string User32 = "user32.dll";
-        private readonly string _exceptionWindow = "Microsoft Edge";
 
         #endregion
 
@@ -160,6 +159,8 @@ namespace GestureSign.CorePlugins.HotKey
             {
                 if (_Settings == null)
                     return false;
+
+                // Win+L lockstation special handling
                 if (_Settings.Windows &&
                   _Settings.KeyCode.Count != 0 && _Settings.KeyCode[0] == Keys.L)
                 {
@@ -167,15 +168,23 @@ namespace GestureSign.CorePlugins.HotKey
                     return true;
                 }
 
-                if (ActionPoint.Window.Title.Contains(_exceptionWindow))
+                // Check if safe mode is enabled in action settings
+                Logging.LogDebug($"[HotKeyPlugin] Window: {ActionPoint.Window?.Title}, SendByKeybdEvent: {_Settings.SendByKeybdEvent}");
+
+                if (_Settings.SendByKeybdEvent)
                 {
+                    Logging.LogDebug("[HotKeyPlugin] Using safe keyboard simulation (keybd_event)");
                     SendKeysSeparately(_Settings);
                 }
                 else
+                {
+                    Logging.LogDebug("[HotKeyPlugin] Using batch keyboard simulation (SendInput)");
                     SendShortcutKeys(_Settings);
+                }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Logging.LogError($"[HotKeyPlugin] Error: {ex.Message}");
                 var keyList = new List<Keys>();
                 if (_Settings.Shift)
                     keyList.Add(Keys.LShiftKey);
@@ -195,7 +204,10 @@ namespace GestureSign.CorePlugins.HotKey
 
         public bool Deserialize(string SerializedData)
         {
-            return PluginHelper.DeserializeSettings(SerializedData, out _Settings);
+            Logging.LogDebug($"[HotKeyPlugin.Deserialize] Input data: {SerializedData}");
+            bool result = PluginHelper.DeserializeSettings(SerializedData, out _Settings);
+            Logging.LogDebug($"[HotKeyPlugin.Deserialize] Result: {result}, SendByKeybdEvent: {_Settings?.SendByKeybdEvent}");
+            return result;
         }
 
         public string Serialize()
@@ -206,7 +218,9 @@ namespace GestureSign.CorePlugins.HotKey
             if (_Settings == null)
                 _Settings = new HotKeySettings();
 
-            return PluginHelper.SerializeSettings(_Settings);
+            string serialized = PluginHelper.SerializeSettings(_Settings);
+            Logging.LogDebug($"[HotKeyPlugin.Serialize] SendByKeybdEvent: {_Settings.SendByKeybdEvent}, Output: {serialized}");
+            return serialized;
         }
 
         #endregion
@@ -260,49 +274,93 @@ namespace GestureSign.CorePlugins.HotKey
 
         private void SendKeysSeparately(HotKeySettings settings)
         {
-            InputSimulator simulator = new InputSimulator();
+            // Use keybd_event API (KeyboardKey) for safe mode - more reliable than SendInput
+            // This ensures each key event is processed individually without batching
 
-            // Deceide which keys to press
-            // Windows
-            if (settings.Windows)
-                simulator.Keyboard.KeyDown(VirtualKeyCode.LWIN).Sleep(30);
+            KeyboardKey winKey = null;
+            KeyboardKey controlKey = null;
+            KeyboardKey altKey = null;
+            KeyboardKey shiftKey = null;
 
-            // Control
-            if (settings.Control)
-                simulator.Keyboard.KeyDown(VirtualKeyCode.LCONTROL).Sleep(30);
-
-            // Alt
-            if (settings.Alt)
-                simulator.Keyboard.KeyDown(VirtualKeyCode.LMENU).Sleep(30);
-
-            // Shift
-            if (settings.Shift)
-                simulator.Keyboard.KeyDown(VirtualKeyCode.LSHIFT).Sleep(30);
-
-            // Modifier
-            if (settings.KeyCode != null)
-                foreach (var k in settings.KeyCode)
+            try
+            {
+                // Press modifier keys
+                if (settings.Windows)
                 {
-                    if (!Enum.IsDefined(typeof(VirtualKeyCode), k.GetHashCode())) continue;
-
-                    var key = (VirtualKeyCode)k;
-                    simulator.Keyboard.KeyPress(key).Sleep(30);
+                    winKey = new KeyboardKey(Keys.LWin);
+                    winKey.Press();
+                    System.Threading.Thread.Sleep(50);
                 }
-            // Release Shift
-            if (settings.Shift)
-                simulator.Keyboard.KeyUp(VirtualKeyCode.LSHIFT).Sleep(30);
 
-            // Release Alt
-            if (settings.Alt)
-                simulator.Keyboard.KeyUp(VirtualKeyCode.LMENU).Sleep(30);
+                if (settings.Control)
+                {
+                    controlKey = new KeyboardKey(Keys.LControlKey);
+                    controlKey.Press();
+                    System.Threading.Thread.Sleep(50);
+                }
 
-            // Release Control
-            if (settings.Control)
-                simulator.Keyboard.KeyUp(VirtualKeyCode.LCONTROL).Sleep(30);
+                if (settings.Alt)
+                {
+                    altKey = new KeyboardKey(Keys.LMenu);
+                    altKey.Press();
+                    System.Threading.Thread.Sleep(50);
+                }
 
-            // Release Windows
-            if (settings.Windows)
-                simulator.Keyboard.KeyUp(VirtualKeyCode.LWIN).Sleep(30);
+                if (settings.Shift)
+                {
+                    shiftKey = new KeyboardKey(Keys.LShiftKey);
+                    shiftKey.Press();
+                    System.Threading.Thread.Sleep(50);
+                }
+
+                // Press and release main keys
+                if (settings.KeyCode != null)
+                {
+                    foreach (var k in settings.KeyCode)
+                    {
+                        KeyboardKey modifierKey = new KeyboardKey(k);
+                        if (!String.IsNullOrEmpty(modifierKey.KeyName))
+                        {
+                            modifierKey.PressAndRelease();
+                            System.Threading.Thread.Sleep(50);
+                        }
+                    }
+                }
+
+                // Release modifier keys in reverse order
+                if (settings.Shift && shiftKey != null)
+                {
+                    shiftKey.Release();
+                    System.Threading.Thread.Sleep(50);
+                }
+
+                if (settings.Alt && altKey != null)
+                {
+                    altKey.Release();
+                    System.Threading.Thread.Sleep(50);
+                }
+
+                if (settings.Control && controlKey != null)
+                {
+                    controlKey.Release();
+                    System.Threading.Thread.Sleep(50);
+                }
+
+                if (settings.Windows && winKey != null)
+                {
+                    winKey.Release();
+                    System.Threading.Thread.Sleep(50);
+                }
+            }
+            catch
+            {
+                // Ensure all keys are released on error
+                shiftKey?.Release();
+                altKey?.Release();
+                controlKey?.Release();
+                winKey?.Release();
+                throw;
+            }
         }
 
         private void SendShortcutKeys(HotKeySettings settings)

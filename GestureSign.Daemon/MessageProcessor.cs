@@ -4,6 +4,7 @@ using GestureSign.Common.Gestures;
 using GestureSign.Common.Input;
 using GestureSign.Common.InterProcessCommunication;
 using GestureSign.Daemon.Input;
+using System.Linq;
 using System.Threading;
 
 namespace GestureSign.Daemon
@@ -35,7 +36,9 @@ namespace GestureSign.Daemon
                             PointCapture.Instance.Mode = CaptureMode.Normal;
                         break;
                     case IpcCommands.LoadApplications:
+                        GestureSign.Common.Log.Logging.LogDebug($"[MessageProcessor] Loading applications...");
                         ApplicationManager.Instance.LoadApplications().Wait();
+                        GestureSign.Common.Log.Logging.LogDebug($"[MessageProcessor] Applications loaded, count: {ApplicationManager.Instance.Applications.Count()}");
                         break;
                     case IpcCommands.LoadGestures:
                         GestureManager.Instance.LoadGestures().Wait();

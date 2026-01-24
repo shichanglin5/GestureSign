@@ -30,7 +30,7 @@
       <Tip>Hot Key(Use keyboard to enter)</Tip>
       <Reset>Reset</Reset>
       <AddExtraKey>(Click to add a extra key)</AddExtraKey>
-      <SendByKeybdEvent>Send By Legacy Method</SendByKeybdEvent>
+      <SendByKeybdEvent>Use Safe Keyboard Simulation (Fix shortcuts in WeChat, etc.)</SendByKeybdEvent>
       <FailureMessage>Failed to send {0}. The most common reason for this happening are insufficient permissions (please try running as admin) or you have a bad antivirus that needs disabled.</FailureMessage>
       <ResetFailure>Failed to release {0}. Please release the keys by keyboard.</ResetFailure>
       <ExtraKeys>
