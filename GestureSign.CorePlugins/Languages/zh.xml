@@ -166,13 +166,9 @@
       <Description>最小化当前窗口</Description>
     </Minimize>
     <NextApplication>
-      <Name>下一窗口</Name>
-      <Description>切换到下一个窗口 (相当于 Alt + Tab)</Description>
+      <Name>切换窗口</Name>
+      <Description>切换到下一个窗口</Description>
     </NextApplication>
-    <PreviousApplication>
-      <Name>上一窗口</Name>
-      <Description>切换到上一窗口 (相当于 Shift + Alt + Tab)</Description>
-    </PreviousApplication>
     <TemporarilyDisable>
       <Name>临时禁用手势识别</Name>
       <Description>停止接收下一次触屏数据</Description>

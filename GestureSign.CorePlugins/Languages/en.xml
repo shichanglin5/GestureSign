@@ -165,13 +165,9 @@
       <Description>Minimize current window</Description>
     </Minimize>
     <NextApplication>
-      <Name>Next Window</Name>
-      <Description>Switches to the next window (Same as Alt + Tab)</Description>
+      <Name>Switch Window</Name>
+      <Description>Switches to the next window</Description>
     </NextApplication>
-    <PreviousApplication>
-      <Name>Previous Window</Name>
-      <Description>Switches to the previous window (Same as Shift + Alt + Tab)</Description>
-    </PreviousApplication>
     <TemporarilyDisable>
       <Name>Temporarily Disable</Name>
       <Description>Disables GestureSign for the next contact only</Description>

@@ -317,8 +317,6 @@ namespace GestureSign.CorePlugins.ActivateApp
 
             // Update last activated window
             _lastActivatedWindows[appKey] = targetWindow;
-
-            Logging.LogDebug($"[ActivateApp] Cycled to window {targetWindow} (index {windows.IndexOf(targetWindow)} of {windows.Count})");
             return true;
         }
 
