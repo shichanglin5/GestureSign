@@ -54,6 +54,7 @@ namespace GestureSign.Daemon.Input
 
         private CaptureMode _mode = CaptureMode.Normal;
         private volatile CaptureState _state;
+        private DateTime _lastInputReceivedTime = DateTime.MinValue; // Track last input for sleep/wake debugging
 
         delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
 
@@ -97,7 +98,14 @@ namespace GestureSign.Daemon.Input
         public CaptureState State
         {
             get { return _state; }
-            set { _state = value; }
+            set
+            {
+                if (_state != value)
+                {
+                    GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] State changing: {_state} → {value}");
+                    _state = value;
+                }
+            }
         }
 
         public CaptureMode Mode
@@ -309,18 +317,29 @@ namespace GestureSign.Daemon.Input
 
         private void SystemEvents_SessionSwitch(object sender, SessionSwitchEventArgs e)
         {
+            GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] SessionSwitch event: {e.Reason}, Current State: {State}");
+
             switch (e.Reason)
             {
                 case SessionSwitchReason.RemoteConnect:
                 case SessionSwitchReason.SessionLogon:
                 case SessionSwitchReason.SessionUnlock:
                     if (State == CaptureState.Disabled)
+                    {
+                        GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] Changing state from Disabled to Ready after {e.Reason}");
                         State = CaptureState.Ready;
+                    }
+                    else
+                    {
+                        GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] State already {State}, no change needed");
+                    }
                     break;
                 case SessionSwitchReason.SessionLock:
+                    GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] Changing state from {State} to Disabled after SessionLock");
                     State = CaptureState.Disabled;
                     break;
                 default:
+                    GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] SessionSwitch {e.Reason} - no action taken");
                     break;
             }
         }
@@ -341,6 +360,16 @@ namespace GestureSign.Daemon.Input
 
         protected void PointEventTranslator_PointDown(object sender, InputPointsEventArgs e)
         {
+            // Track input timing for sleep/wake debugging
+            var now = DateTime.Now;
+            var timeSinceLastInput = now - _lastInputReceivedTime;
+            _lastInputReceivedTime = now;
+
+            // Log if it's been more than 10 seconds since last input (possible wake from sleep)
+            if (timeSinceLastInput.TotalSeconds > 10)
+            {
+                GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] First input after {timeSinceLastInput.TotalSeconds:F1}s idle - State: {State}, Fingers: {e.TotalFingerCount}");
+            }
 
             if (State == CaptureState.Ready || State == CaptureState.Capturing || State == CaptureState.CapturingInvalid)
             {

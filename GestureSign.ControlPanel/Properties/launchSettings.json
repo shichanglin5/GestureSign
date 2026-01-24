@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "GestureSignControlPanel": {
+      "commandName": "Project",
+      "commandLineArgs": "--log.redirectToStd"
+    }
+  }
+}

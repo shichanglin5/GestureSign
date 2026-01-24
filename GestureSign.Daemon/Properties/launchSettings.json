@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "GestureSign": {
+      "commandName": "Project",
+      "commandLineArgs": "--log.redirectToStd"
+    }
+  }
+}

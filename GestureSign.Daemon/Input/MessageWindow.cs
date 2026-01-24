@@ -111,26 +111,37 @@ namespace GestureSign.Daemon.Input
 
         public void UpdateRegistration()
         {
+            GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] UpdateRegistration called, clearing {_validDevices.Count} cached devices");
             _validDevices.Clear();
 
+            GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] Registering devices - TouchScreen: {AppConfig.RegisterTouchScreen}, TouchPad: {AppConfig.RegisterTouchPad}");
             UpdateRegisterState(AppConfig.RegisterTouchScreen, NativeMethods.TouchScreenUsage);
             UpdateRegisterState(AppConfig.RegisterTouchPad, NativeMethods.TouchPadUsage);
+            GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] UpdateRegistration completed, {_registeredDeviceList.Count} devices registered");
         }
 
         private void UpdateRegisterState(bool register, ushort usage)
         {
+            string deviceName = usage == NativeMethods.TouchScreenUsage ? "TouchScreen" :
+                               usage == NativeMethods.TouchPadUsage ? "TouchPad" : $"Unknown(0x{usage:X})";
+
             if (register)
             {
+                GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] Registering {deviceName} (usage: 0x{usage:X})");
                 RegisterDevice(usage);
             }
             else
             {
+                GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] Unregistering {deviceName} (usage: 0x{usage:X})");
                 UnregisterDevice(usage);
             }
         }
 
         private void RegisterDevice(ushort usage)
         {
+            string deviceName = usage == NativeMethods.TouchScreenUsage ? "TouchScreen" :
+                               usage == NativeMethods.TouchPadUsage ? "TouchPad" : $"Unknown(0x{usage:X})";
+
             UnregisterDevice(usage);
 
             RAWINPUTDEVICE[] rid = new RAWINPUTDEVICE[1];
@@ -140,17 +151,25 @@ namespace GestureSign.Daemon.Input
             rid[0].dwFlags = NativeMethods.RIDEV_INPUTSINK | NativeMethods.RIDEV_DEVNOTIFY;
             rid[0].hwndTarget = Handle;
 
+            GestureSign.Common.Log.Logging.LogDebug($"[MessageWindow] Calling RegisterRawInputDevices for {deviceName} (hwnd: 0x{Handle:X})");
+
             if (!NativeMethods.RegisterRawInputDevices(rid, (uint)rid.Length, (uint)Marshal.SizeOf(rid[0])))
             {
-                throw new ApplicationException("Failed to register raw input device(s).");
+                int error = Marshal.GetLastWin32Error();
+                GestureSign.Common.Log.Logging.LogError($"[MessageWindow] Failed to register {deviceName}: Win32Error={error}");
+                throw new ApplicationException($"Failed to register raw input device {deviceName} (error: {error})");
             }
             _registeredDeviceList.Add(usage);
+            GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] Successfully registered {deviceName}");
         }
 
         private void UnregisterDevice(ushort usage)
         {
             if (_registeredDeviceList.Contains(usage))
             {
+                string deviceName = usage == NativeMethods.TouchScreenUsage ? "TouchScreen" :
+                                   usage == NativeMethods.TouchPadUsage ? "TouchPad" : $"Unknown(0x{usage:X})";
+
                 RAWINPUTDEVICE[] rid = new RAWINPUTDEVICE[1];
 
                 rid[0].usUsagePage = NativeMethods.DigitizerUsagePage;
@@ -158,11 +177,16 @@ namespace GestureSign.Daemon.Input
                 rid[0].dwFlags = NativeMethods.RIDEV_REMOVE;
                 rid[0].hwndTarget = IntPtr.Zero;
 
+                GestureSign.Common.Log.Logging.LogDebug($"[MessageWindow] Unregistering {deviceName}");
+
                 if (!NativeMethods.RegisterRawInputDevices(rid, (uint)rid.Length, (uint)Marshal.SizeOf(rid[0])))
                 {
-                    throw new ApplicationException("Failed to unregister raw input device.");
+                    int error = Marshal.GetLastWin32Error();
+                    GestureSign.Common.Log.Logging.LogWarning($"[MessageWindow] Failed to unregister {deviceName}: Win32Error={error}");
+                    throw new ApplicationException($"Failed to unregister raw input device {deviceName} (error: {error})");
                 }
                 _registeredDeviceList.Remove(usage);
+                GestureSign.Common.Log.Logging.LogDebug($"[MessageWindow] Successfully unregistered {deviceName}");
             }
         }
 
@@ -218,6 +242,9 @@ namespace GestureSign.Daemon.Input
                     }
                 case NativeMethods.WM_INPUT_DEVICE_CHANGE:
                     {
+                        // wParam indicates GIDC_ARRIVAL (1) or GIDC_REMOVAL (2)
+                        string changeType = message.WParam.ToInt32() == 1 ? "ARRIVAL" : "REMOVAL";
+                        GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] WM_INPUT_DEVICE_CHANGE received: {changeType}, clearing device cache ({_validDevices.Count} devices)");
                         _validDevices.Clear();
                         break;
                     }

@@ -9,6 +9,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <!-- Build Configurations -->
@@ -24,7 +25,7 @@
 
   <PropertyGroup Condition="'$(Configuration)' == 'Portable'">
     <OutputPath>..\bin\Portable\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;Portable</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Centennial'">
@@ -37,17 +38,29 @@
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
 
+  <!-- Project References -->
+  <ItemGroup>
+    <ProjectReference Include="..\GestureSign.Common\GestureSign.Common.csproj" />
+    <ProjectReference Include="..\ManagedWinapi\ManagedWinapi.csproj" />
+    <ProjectReference Include="..\WindowsInput\WindowsInput.csproj" />
+  </ItemGroup>
+
+  <!-- NuGet Package References -->
   <ItemGroup>
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
+  <!-- Embedded Resources -->
   <ItemGroup>
-    <ProjectReference Include="..\GestureSign.Common\GestureSign.Common.csproj" />
-    <ProjectReference Include="..\WindowsInput\WindowsInput.csproj" />
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
 
+  <!-- Content Files -->
   <ItemGroup>
-    <Content Include="Languages\**\*">
+    <Content Include="Languages\*.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

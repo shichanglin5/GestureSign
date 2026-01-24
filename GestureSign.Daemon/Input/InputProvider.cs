@@ -44,23 +44,40 @@ namespace GestureSign.Daemon.Input
 
         private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
+            GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] PowerModeChanged event received: {e.Mode}");
+
             if (e.Mode == PowerModes.Resume)
             {
+                GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] System resumed from sleep/hibernate, triggering UpdateDeviceState");
                 UpdateDeviceState();
+            }
+            else if (e.Mode == PowerModes.Suspend)
+            {
+                GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] System suspending (sleep/hibernate)");
             }
         }
 
         private void OnSessionSwitch(object sender, SessionSwitchEventArgs e)
         {
+            GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] SessionSwitch event received: {e.Reason}");
+
             // We need to handle sleeping(and other related events)
             // This is so we never lose the lock on the touchpad hardware.
             switch (e.Reason)
             {
                 case SessionSwitchReason.SessionLogon:
-                case SessionSwitchReason.SessionUnlock:
+                    GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] User logged on, triggering UpdateDeviceState");
                     UpdateDeviceState();
                     break;
+                case SessionSwitchReason.SessionUnlock:
+                    GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] Session unlocked, triggering UpdateDeviceState");
+                    UpdateDeviceState();
+                    break;
+                case SessionSwitchReason.SessionLock:
+                    GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] Session locked");
+                    break;
                 default:
+                    GestureSign.Common.Log.Logging.LogDebug($"[InputProvider] SessionSwitch {e.Reason} - no action taken");
                     break;
             }
         }
@@ -69,11 +86,25 @@ namespace GestureSign.Daemon.Input
         {
             if (0 == System.Threading.Interlocked.Exchange(ref _stateUpdating, 1))
             {
+                GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] UpdateDeviceState initiated, waiting 600ms for hardware stabilization");
                 Task.Delay(600).ContinueWith((t) =>
                 {
-                    System.Threading.Interlocked.Exchange(ref _stateUpdating, 0);
-                    _messageWindow.UpdateRegistration();
+                    try
+                    {
+                        System.Threading.Interlocked.Exchange(ref _stateUpdating, 0);
+                        GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] 600ms delay complete, calling MessageWindow.UpdateRegistration()");
+                        _messageWindow.UpdateRegistration();
+                        GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] UpdateDeviceState completed successfully");
+                    }
+                    catch (Exception ex)
+                    {
+                        GestureSign.Common.Log.Logging.LogError($"[InputProvider] UpdateDeviceState failed: {ex.Message} - StackTrace: {ex.StackTrace}");
+                    }
                 }, TaskScheduler.FromCurrentSynchronizationContext());
+            }
+            else
+            {
+                GestureSign.Common.Log.Logging.LogDebug($"[InputProvider] UpdateDeviceState already in progress, skipping duplicate call");
             }
         }
 
