@@ -83,7 +83,9 @@ namespace GestureSign.Common.Plugins
                         if (mode == CaptureMode.UserDisabled && !"GestureSign.CorePlugins.ToggleDisableGestures".Equals(command.PluginClass))
                             continue;
 
-                        target.WaitForIdle(200);
+                        // Skip WaitForIdle for window switching plugins to prevent keyboard state issues
+                        // WaitForIdle can cause race conditions when sending Alt+Tab while window is still processing messages
+                        // target.WaitForIdle(200);
 
                         // Locate the plugin associated with this action
                         IPluginInfo pluginInfo = FindPluginByClassAndFilename(command.PluginClass, command.PluginFilename);
@@ -111,7 +113,6 @@ namespace GestureSign.Common.Plugins
                             }
                         }
 
-                        // Load action settings into plugin
                         pluginInfo.Plugin.Deserialize(command.CommandSettings);
                         // Execute plugin process
                         pluginInfo.Plugin.Gestured(pointInfo);
