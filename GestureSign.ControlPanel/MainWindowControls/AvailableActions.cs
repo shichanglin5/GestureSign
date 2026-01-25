@@ -70,13 +70,34 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var selectedCommand = selectedItem.Command;
             if (selectedCommand == null) return;
 
+            var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+
+            // Get CommandInfoProvider correctly (it's wrapped in ObjectDataProvider)
+            var objectDataProvider = Resources["CommandInfoProvider"] as System.Windows.Data.ObjectDataProvider;
+            var commandInfoProvider = objectDataProvider?.ObjectInstance as CommandInfoProvider;
+
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] ========== BEGIN EDIT COMMAND ==========");
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] Selected Command: {selectedCommand.Name}");
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] Selected Action: {selectedAction.GestureName}");
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] Before Edit - Action order: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] Before Edit - CommandInfos count: {commandInfoProvider?.CommandInfos.Count ?? 0}");
+
+            // Get ListCollectionView for monitoring
+            var lcv = System.Windows.Data.CollectionViewSource.GetDefaultView(lstAvailableActions.ItemsSource) as System.Windows.Data.ListCollectionView;
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] ListCollectionView Groups count: {lcv?.Groups?.Count ?? 0}");
+
             CommandDialog commandDialog = new CommandDialog(selectedCommand, selectedAction);
             var result = commandDialog.ShowDialog();
             if (result != null && result.Value)
             {
-                int index = selectedAction.Commands.ToList().IndexOf(selectedCommand);
-                selectedAction.RemoveCommand(selectedCommand);
-                selectedAction.InsertCommand(index, selectedCommand);
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] User confirmed changes");
+                // No need to Remove+Insert anymore - Command.PropertyChanged will update UI automatically
+                ApplicationManager.Instance.SaveApplications();
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] ========== END EDIT COMMAND ==========");
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] User cancelled changes");
             }
         }
 
@@ -807,24 +828,12 @@ namespace GestureSign.ControlPanel.MainWindowControls
                                 // Mark as processed to prevent duplicate Drop events during UI refresh
                                 _dropProcessed = true;
 
-                                // Drag semantics: Insert source BEFORE target
-                                // List.Insert(index, item) inserts BEFORE the element at index
-                                // After Remove(source):
-                                //   - If dragging forward (source < target): target shifts left, use targetIndex
-                                //   - If dragging backward (source > target): target stays, use targetIndex
-                                // Result: Always use targetIndex!
-
-                                app.RemoveAction(sourceAction);
-                                var actionsAfterRemove = app.Actions.ToList();
-
-                                // Always insert at target's position (source goes before target)
-                                app.Insert(targetIndex, sourceAction);
-
-                                var actionsAfterInsert = app.Actions.ToList();
+                                System.Diagnostics.Debug.WriteLine($"[AvailableActions] Moving action from {sourceIndex} to {targetIndex}");
+                                app.MoveAction(sourceIndex, targetIndex);
 
                                 ApplicationManager.Instance.SaveApplications();
 
-                                // Note: RefreshCommandInfos removed - rely on ActionCollectionChanged events
+                                // Note: RefreshCommandInfos removed - rely on ActionCollectionChanged Move event
                                 // and Live Sorting to update the UI incrementally without full rebuild
                             }
                         }
@@ -936,136 +945,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         #endregion
 
-        #region Insert Above Menu Items
-
-        private void InsertActionAboveMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            System.Diagnostics.Debug.WriteLine($"[AvailableActions] InsertActionAboveMenuItem_Click called");
-            var menuItem = sender as MenuItem;
-            var contextMenu = menuItem?.Parent as ContextMenu;
-            var button = contextMenu?.PlacementTarget as Button;
-            System.Diagnostics.Debug.WriteLine($"[AvailableActions] menuItem={menuItem != null}, contextMenu={contextMenu != null}, button={button != null}");
-
-            var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(button);
-            var group = groupItem?.Content as CollectionViewGroup;
-            System.Diagnostics.Debug.WriteLine($"[AvailableActions] groupItem={groupItem != null}, group={group != null}");
-
-            if (group != null && group.Items.Count > 0)
-            {
-                var firstCommand = group.Items[0] as CommandInfo;
-                var targetAction = firstCommand?.Action;
-                var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
-                System.Diagnostics.Debug.WriteLine($"[AvailableActions] firstCommand={firstCommand != null}, targetAction={targetAction != null}, selectedApp={selectedApp != null}");
-
-                if (targetAction != null && selectedApp != null)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions before copy: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
-
-                    // 深拷贝目标 Action（包括手势、命令和所有设置）
-                    var targetActionImpl = targetAction as GestureSign.Common.Applications.Action;
-                    if (targetActionImpl != null)
-                    {
-                        var copiedAction = targetActionImpl.DeepCopy();
-
-                        // 修改名称以表明这是副本
-                        if (!string.IsNullOrEmpty(copiedAction.Name))
-                        {
-                            copiedAction.Name = $"{copiedAction.Name} - Copy";
-                        }
-
-                        int targetIndex = selectedApp.Actions.ToList().IndexOf(targetAction);
-                        System.Diagnostics.Debug.WriteLine($"[AvailableActions] Copying action: {targetAction.GestureName}, targetIndex={targetIndex}");
-                        if (targetIndex >= 0)
-                        {
-                            selectedApp.Insert(targetIndex, copiedAction);
-                            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions after copy: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
-                            ApplicationManager.Instance.SaveApplications();
-                            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions after save: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
-                        }
-                        else
-                        {
-                            System.Diagnostics.Debug.WriteLine($"[AvailableActions] targetIndex < 0, action not found!");
-                        }
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[AvailableActions] targetAction is not Action type!");
-                    }
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine($"[AvailableActions] targetAction or selectedApp is null!");
-                }
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine($"[AvailableActions] group is null or empty!");
-            }
-        }
-
-        private void InsertActionBelowMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            System.Diagnostics.Debug.WriteLine($"[AvailableActions] InsertActionBelowMenuItem_Click called");
-            var menuItem = sender as MenuItem;
-            var contextMenu = menuItem?.Parent as ContextMenu;
-            var button = contextMenu?.PlacementTarget as Button;
-            var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(button);
-            var group = groupItem?.Content as CollectionViewGroup;
-            System.Diagnostics.Debug.WriteLine($"[AvailableActions] menuItem={menuItem != null}, contextMenu={contextMenu != null}, button={button != null}");
-
-            if (group != null && group.Items.Count > 0)
-            {
-                var firstCommand = group.Items[0] as CommandInfo;
-                var targetAction = firstCommand?.Action;
-                var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
-                System.Diagnostics.Debug.WriteLine($"[AvailableActions] firstCommand={firstCommand != null}, targetAction={targetAction != null}, selectedApp={selectedApp != null}");
-
-                if (targetAction != null && selectedApp != null)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions before copy: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
-
-                    // 深拷贝目标 Action（包括手势、命令和所有设置）
-                    var targetActionImpl = targetAction as GestureSign.Common.Applications.Action;
-                    if (targetActionImpl != null)
-                    {
-                        var copiedAction = targetActionImpl.DeepCopy();
-
-                        // 修改名称以表明这是副本
-                        if (!string.IsNullOrEmpty(copiedAction.Name))
-                        {
-                            copiedAction.Name = $"{copiedAction.Name} - Copy";
-                        }
-
-                        int targetIndex = selectedApp.Actions.ToList().IndexOf(targetAction);
-                        System.Diagnostics.Debug.WriteLine($"[AvailableActions] Copying action: {targetAction.GestureName}, targetIndex={targetIndex}");
-                        if (targetIndex >= 0)
-                        {
-                            selectedApp.Insert(targetIndex + 1, copiedAction);
-                            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions after copy: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
-                            ApplicationManager.Instance.SaveApplications();
-                            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions after save: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
-                        }
-                        else
-                        {
-                            System.Diagnostics.Debug.WriteLine($"[AvailableActions] targetIndex < 0, action not found!");
-                        }
-                    }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[AvailableActions] targetAction is not Action type!");
-                    }
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine($"[AvailableActions] targetAction or selectedApp is null!");
-                }
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine($"[AvailableActions] group is null or empty!");
-            }
-        }
-
         private void DeleteActionMenuItem_Click(object sender, RoutedEventArgs e)
         {
             var menuItem = sender as MenuItem;
@@ -1134,7 +1013,5 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 ApplicationManager.Instance.SaveApplications();
             }
         }
-
-        #endregion
     }
 }

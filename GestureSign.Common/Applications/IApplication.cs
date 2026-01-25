@@ -19,6 +19,7 @@ namespace GestureSign.Common.Applications
         void AddAction(IAction Action);
         void Insert(int index, IAction action);
         void RemoveAction(IAction Action);
+        void MoveAction(int oldIndex, int newIndex);
         bool IsSystemWindowMatch(SystemWindow Window);
     }
 }

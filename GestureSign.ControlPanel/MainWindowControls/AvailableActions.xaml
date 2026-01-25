@@ -381,15 +381,6 @@
                                                                   FontSize="16"
                                                                   Click="ActionButton_Click" />
                                                         <Separator />
-                                                        <MenuItem x:Name="InsertActionAboveMenuItem"
-                                                                  Header="复制到上方"
-                                                                  FontSize="16"
-                                                                  Click="InsertActionAboveMenuItem_Click" />
-                                                        <MenuItem x:Name="InsertActionBelowMenuItem"
-                                                                  Header="复制到下方"
-                                                                  FontSize="16"
-                                                                  Click="InsertActionBelowMenuItem_Click" />
-                                                        <Separator />
                                                         <MenuItem x:Name="DeleteActionMenuItem"
                                                                   Header="{localization:LocalisedText Action.Delete}"
                                                                   FontSize="16"
@@ -442,7 +433,7 @@
                                                         </Image.Source>
                                                     </Image>
                                                     <TextBlock Grid.Row="1"
-                                                               Text="{Binding Path=Items[0].FingerCountText}"
+                                                               Text="{Binding Path=Items[0].FingerCountText, FallbackValue=''}"
                                                                FontSize="12"
                                                                Foreground="White"
                                                                HorizontalAlignment="Center"

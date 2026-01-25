@@ -71,6 +71,27 @@ namespace GestureSign.Common.Applications
             OnCollectionChanged(NotifyCollectionChangedAction.Remove, Action);
         }
 
+        public virtual void MoveAction(int oldIndex, int newIndex)
+        {
+            if (oldIndex < 0 || oldIndex >= _Actions.Count)
+                throw new ArgumentOutOfRangeException(nameof(oldIndex));
+            if (newIndex < 0 || newIndex >= _Actions.Count)
+                throw new ArgumentOutOfRangeException(nameof(newIndex));
+
+            if (oldIndex == newIndex)
+                return;
+
+            var action = _Actions[oldIndex];
+            _Actions.RemoveAt(oldIndex);
+            _Actions.Insert(newIndex, action);
+
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Move,
+                action,
+                newIndex,
+                oldIndex));
+        }
+
         public bool IsSystemWindowMatch(SystemWindow Window)
         {
             string compareMatchString = MatchString ?? String.Empty;
