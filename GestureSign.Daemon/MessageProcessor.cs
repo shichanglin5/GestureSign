@@ -20,25 +20,19 @@ namespace GestureSign.Daemon
 
         public bool ProcessMessages(IpcCommands command, object data)
         {
-            GestureSign.Common.Log.Logging.LogDebug($"[MessageProcessor] Received IPC command: {command}");
             _synchronizationContext.Post(state =>
             {
                 switch (command)
                 {
                     case IpcCommands.StartTeaching:
-                        GestureSign.Common.Log.Logging.LogDebug($"[MessageProcessor] Setting Mode to Training");
                         PointCapture.Instance.Mode = CaptureMode.Training;
-                        GestureSign.Common.Log.Logging.LogDebug($"[MessageProcessor] Mode set to: {PointCapture.Instance.Mode}");
                         break;
                     case IpcCommands.StopTraining:
-                        GestureSign.Common.Log.Logging.LogDebug($"[MessageProcessor] Setting Mode to Normal");
                         if (PointCapture.Instance.Mode != CaptureMode.UserDisabled)
                             PointCapture.Instance.Mode = CaptureMode.Normal;
                         break;
                     case IpcCommands.LoadApplications:
-                        GestureSign.Common.Log.Logging.LogDebug($"[MessageProcessor] Loading applications...");
                         ApplicationManager.Instance.LoadApplications().Wait();
-                        GestureSign.Common.Log.Logging.LogDebug($"[MessageProcessor] Applications loaded, count: {ApplicationManager.Instance.Applications.Count()}");
                         break;
                     case IpcCommands.LoadGestures:
                         GestureManager.Instance.LoadGestures().Wait();

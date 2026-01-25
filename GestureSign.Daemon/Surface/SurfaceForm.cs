@@ -226,10 +226,8 @@ namespace GestureSign.Daemon.Surface
 
                 // Draw distance text if in training mode (after EndDraw to avoid clipping)
                 Rectangle textRect = Rectangle.Empty;
-                GestureSign.Common.Log.Logging.LogTrace($"[SurfaceForm] DrawSegments - About to check distance text: _isTrainingMode={_isTrainingMode}, _totalDistance={_totalDistance}");
                 if (_isTrainingMode && _totalDistance > 0)
                 {
-                    GestureSign.Common.Log.Logging.LogDebug($"[SurfaceForm] DrawSegments - Drawing distance text: {_totalDistance:F0} px");
                     var textGraphics = _bitmap.BeginDraw();
                     textGraphics.ResetClip(); // Remove clip region for text
 

@@ -244,7 +244,6 @@ namespace GestureSign.Daemon.Input
                     {
                         // wParam indicates GIDC_ARRIVAL (1) or GIDC_REMOVAL (2)
                         string changeType = message.WParam.ToInt32() == 1 ? "ARRIVAL" : "REMOVAL";
-                        GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] WM_INPUT_DEVICE_CHANGE received: {changeType}, clearing device cache ({_validDevices.Count} devices)");
                         _validDevices.Clear();
                         break;
                     }
