@@ -56,6 +56,17 @@ namespace GestureSign.ControlPanel.ViewModel
 
         public ICommand Command { get; set; }
 
+        private int _order;
+        /// <summary>
+        /// Order index for sorting within the same action
+        /// This ensures stable sorting when ListCollectionView applies SortDescriptions
+        /// </summary>
+        public int Order
+        {
+            get { return _order; }
+            set { SetProperty(ref _order, value); }
+        }
+
         public int FingerCount
         {
             get

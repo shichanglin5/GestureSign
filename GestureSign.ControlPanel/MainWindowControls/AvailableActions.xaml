@@ -311,7 +311,6 @@
                                    OffContent=""
                                    OnContent="" />
         </Grid>
-        <!--VirtualizingPanel.IsVirtualizingWhenGrouping="True"-->
         <ListBox x:Name="lstAvailableActions"
                  ItemsSource="{Binding Source={StaticResource ActionsViewSource}}"
                  SelectedValuePath="CommandName"
@@ -383,11 +382,11 @@
                                                                   Click="ActionButton_Click" />
                                                         <Separator />
                                                         <MenuItem x:Name="InsertActionAboveMenuItem"
-                                                                  Header="{localization:LocalisedText Action.InsertAbove}"
+                                                                  Header="复制到上方"
                                                                   FontSize="16"
                                                                   Click="InsertActionAboveMenuItem_Click" />
                                                         <MenuItem x:Name="InsertActionBelowMenuItem"
-                                                                  Header="{localization:LocalisedText Action.InsertBelow}"
+                                                                  Header="复制到下方"
                                                                   FontSize="16"
                                                                   Click="InsertActionBelowMenuItem_Click" />
                                                         <Separator />
