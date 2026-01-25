@@ -304,6 +304,10 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 if (selectedApplication == null)
                     return;
             }
+
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Before ActionDialog: sourceAction={sourceAction.GetHashCode()}, gesture={sourceAction.GestureName}");
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions order before: {string.Join(", ", selectedApplication.Actions.Select(a => $"{a.GestureName}({a.GetHashCode()})"))}");
+
             ActionDialog actionDialog = new ActionDialog(sourceAction, selectedApplication);
             var result = actionDialog.ShowDialog();
 
@@ -311,9 +315,14 @@ namespace GestureSign.ControlPanel.MainWindowControls
             {
                 var newAction = actionDialog.NewAction;
 
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions] After ActionDialog: newAction={newAction.GetHashCode()}, gesture={newAction.GestureName}, sourceAction={sourceAction.GetHashCode()}");
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions] newAction != sourceAction: {newAction != sourceAction}");
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions order after dialog: {string.Join(", ", selectedApplication.Actions.Select(a => $"{a.GestureName}({a.GetHashCode()})"))}");
+
                 if (newAction != sourceAction)
                 {
                     // Switching to different gesture: replace sourceAction position with newAction
+                    System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions are different, replacing sourceAction with newAction");
                     lstAvailableActions.SelectedItem = null;
 
                     // Move commands from source to new action
@@ -325,15 +334,72 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
                     // Replace sourceAction with newAction at the same position
                     int sourceIndex = selectedApplication.Actions.ToList().IndexOf(sourceAction);
+                    System.Diagnostics.Debug.WriteLine($"[AvailableActions] sourceIndex={sourceIndex}");
                     selectedApplication.RemoveAction(newAction); // Remove the one added by ActionDialog (at end)
                     selectedApplication.Insert(sourceIndex, newAction); // Insert at source position
                     selectedApplication.RemoveAction(sourceAction); // Remove old action
+                    System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions order after replace: {string.Join(", ", selectedApplication.Actions.Select(a => $"{a.GestureName}({a.GetHashCode()})"))}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions are same, no reordering needed");
                 }
                 // else: Editing existing gesture, ActionDialog has already updated properties
                 // No need to Remove/Insert, which would trigger unnecessary CollectionChanged events
 
                 ApplicationManager.Instance.SaveApplications();
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions order after save: {string.Join(", ", selectedApplication.Actions.Select(a => $"{a.GestureName}({a.GetHashCode()})"))}");
+
+                // Scroll to the edited action to ensure thumbnail update
+                ScrollToAction(newAction);
             }
+        }
+
+        /// <summary>
+        /// Scrolls to the specified Action to ensure its thumbnail is rendered and updated
+        /// </summary>
+        private void ScrollToAction(IAction action)
+        {
+            if (action == null)
+                return;
+
+            Dispatcher.InvokeAsync(async () =>
+            {
+                try
+                {
+                    // CommandInfoProvider is wrapped in ObjectDataProvider
+                    var objectDataProvider = Resources["CommandInfoProvider"] as System.Windows.Data.ObjectDataProvider;
+                    if (objectDataProvider == null)
+                        return;
+
+                    var commandInfoProvider = objectDataProvider.ObjectInstance as CommandInfoProvider;
+                    if (commandInfoProvider == null)
+                        return;
+
+                    var commandInfo = commandInfoProvider.CommandInfos.FirstOrDefault(ci => ci.Action == action);
+
+                    if (commandInfo != null)
+                    {
+                        lstAvailableActions.ScrollIntoView(commandInfo);
+                        lstAvailableActions.UpdateLayout(); // Force layout update
+
+                        // Force refresh the ListCollectionView to ensure GroupItems are rendered
+                        var lcv = System.Windows.Data.CollectionViewSource.GetDefaultView(lstAvailableActions.ItemsSource);
+                        if (lcv != null)
+                        {
+                            lcv.Refresh();
+
+                            // Wait for one frame to allow rendering to complete
+                            await System.Threading.Tasks.Task.Delay(100);
+                            lstAvailableActions.UpdateLayout();
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    GestureSign.Common.Log.Logging.LogException(ex);
+                }
+            }, DispatcherPriority.ContextIdle);  // Use ContextIdle to wait for rendering to complete
         }
 
         private void ExportActionMenuItem_Click(object sender, RoutedEventArgs e)
@@ -457,14 +523,24 @@ namespace GestureSign.ControlPanel.MainWindowControls
             commandInfoProvider.RefreshCommandInfos(selectedApp, lstAvailableActions);
 
             // Keep two-level grouping (FingerCount -> Action)
-            // Sort groups by FingerCount ascending, but don't sort actions within groups
+            // Sort groups by FingerCount ascending, then by Order to preserve command sequence
             var lcv = lstAvailableActions.ItemsSource as ListCollectionView;
             if (lcv != null)
             {
                 lcv.SortDescriptions.Clear();
                 lcv.GroupDescriptions.Clear();
                 lcv.SortDescriptions.Add(new SortDescription(nameof(CommandInfo.FingerCount), ListSortDirection.Ascending));
+                lcv.SortDescriptions.Add(new SortDescription(nameof(CommandInfo.Order), ListSortDirection.Ascending)); // Secondary sort by Order
                 lcv.GroupDescriptions.Add(new PropertyGroupDescription(nameof(CommandInfo.FingerCount)));
+
+                // Enable live sorting so UI updates when Order property changes
+                var liveShaping = lcv as ICollectionViewLiveShaping;
+                if (liveShaping != null && liveShaping.CanChangeLiveSorting)
+                {
+                    liveShaping.IsLiveSorting = true;
+                    liveShaping.LiveSortingProperties.Clear();
+                    liveShaping.LiveSortingProperties.Add(nameof(CommandInfo.Order));
+                }
                 lcv.GroupDescriptions.Add(new PropertyGroupDescription(nameof(CommandInfo.Action)));
                 lcv.Refresh();
             }
@@ -748,13 +824,8 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
                                 ApplicationManager.Instance.SaveApplications();
 
-                                // Refresh UI to ensure correct display order
-                                // CollectionView sorting may be unstable after drag-drop
-                                var commandInfoProvider = ((ObjectDataProvider)Resources["CommandInfoProvider"]).ObjectInstance as CommandInfoProvider;
-                                if (commandInfoProvider != null)
-                                {
-                                    commandInfoProvider.RefreshCommandInfos(app, lstAvailableActions);
-                                }
+                                // Note: RefreshCommandInfos removed - rely on ActionCollectionChanged events
+                                // and Live Sorting to update the UI incrementally without full rebuild
                             }
                         }
                     }
@@ -828,17 +899,8 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
                     if (sourceIndex >= 0 && targetIndex >= 0)
                     {
-                        action.RemoveCommand(sourceCommand.Command);
-
-                        // Log: After remove
-                        var commandsAfterRemove = action.Commands.ToList();
-
-                        // Insert source at target position
-                        // No adjustment needed: targetIndex represents the desired final position
-                        action.InsertCommand(targetIndex, sourceCommand.Command);
-
-                        // Log: After insert
-                        var commandsAfterInsert = action.Commands.ToList();
+                        // Use MoveCommand to trigger single Move event instead of Remove + Add
+                        action.MoveCommand(sourceIndex, targetIndex);
                         ApplicationManager.Instance.SaveApplications();
                     }
                 }
@@ -878,67 +940,129 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void InsertActionAboveMenuItem_Click(object sender, RoutedEventArgs e)
         {
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] InsertActionAboveMenuItem_Click called");
             var menuItem = sender as MenuItem;
             var contextMenu = menuItem?.Parent as ContextMenu;
             var button = contextMenu?.PlacementTarget as Button;
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] menuItem={menuItem != null}, contextMenu={contextMenu != null}, button={button != null}");
+
             var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(button);
             var group = groupItem?.Content as CollectionViewGroup;
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] groupItem={groupItem != null}, group={group != null}");
 
             if (group != null && group.Items.Count > 0)
             {
                 var firstCommand = group.Items[0] as CommandInfo;
                 var targetAction = firstCommand?.Action;
                 var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions] firstCommand={firstCommand != null}, targetAction={targetAction != null}, selectedApp={selectedApp != null}");
 
                 if (targetAction != null && selectedApp != null)
                 {
-                    var newCommand = new Command
-                    {
-                        Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
-                    };
-                    var newAction = new GestureSign.Common.Applications.Action();
-                    newAction.AddCommand(newCommand);
+                    System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions before copy: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
 
-                    int targetIndex = selectedApp.Actions.ToList().IndexOf(targetAction);
-                    if (targetIndex >= 0)
+                    // 深拷贝目标 Action（包括手势、命令和所有设置）
+                    var targetActionImpl = targetAction as GestureSign.Common.Applications.Action;
+                    if (targetActionImpl != null)
                     {
-                        selectedApp.Insert(targetIndex, newAction);
-                        ApplicationManager.Instance.SaveApplications();
+                        var copiedAction = targetActionImpl.DeepCopy();
+
+                        // 修改名称以表明这是副本
+                        if (!string.IsNullOrEmpty(copiedAction.Name))
+                        {
+                            copiedAction.Name = $"{copiedAction.Name} - Copy";
+                        }
+
+                        int targetIndex = selectedApp.Actions.ToList().IndexOf(targetAction);
+                        System.Diagnostics.Debug.WriteLine($"[AvailableActions] Copying action: {targetAction.GestureName}, targetIndex={targetIndex}");
+                        if (targetIndex >= 0)
+                        {
+                            selectedApp.Insert(targetIndex, copiedAction);
+                            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions after copy: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
+                            ApplicationManager.Instance.SaveApplications();
+                            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions after save: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[AvailableActions] targetIndex < 0, action not found!");
+                        }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[AvailableActions] targetAction is not Action type!");
                     }
                 }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[AvailableActions] targetAction or selectedApp is null!");
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions] group is null or empty!");
             }
         }
 
         private void InsertActionBelowMenuItem_Click(object sender, RoutedEventArgs e)
         {
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] InsertActionBelowMenuItem_Click called");
             var menuItem = sender as MenuItem;
             var contextMenu = menuItem?.Parent as ContextMenu;
             var button = contextMenu?.PlacementTarget as Button;
             var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(button);
             var group = groupItem?.Content as CollectionViewGroup;
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] menuItem={menuItem != null}, contextMenu={contextMenu != null}, button={button != null}");
 
             if (group != null && group.Items.Count > 0)
             {
                 var firstCommand = group.Items[0] as CommandInfo;
                 var targetAction = firstCommand?.Action;
                 var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions] firstCommand={firstCommand != null}, targetAction={targetAction != null}, selectedApp={selectedApp != null}");
 
                 if (targetAction != null && selectedApp != null)
                 {
-                    var newCommand = new Command
-                    {
-                        Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
-                    };
-                    var newAction = new GestureSign.Common.Applications.Action();
-                    newAction.AddCommand(newCommand);
+                    System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions before copy: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
 
-                    int targetIndex = selectedApp.Actions.ToList().IndexOf(targetAction);
-                    if (targetIndex >= 0)
+                    // 深拷贝目标 Action（包括手势、命令和所有设置）
+                    var targetActionImpl = targetAction as GestureSign.Common.Applications.Action;
+                    if (targetActionImpl != null)
                     {
-                        selectedApp.Insert(targetIndex + 1, newAction);
-                        ApplicationManager.Instance.SaveApplications();
+                        var copiedAction = targetActionImpl.DeepCopy();
+
+                        // 修改名称以表明这是副本
+                        if (!string.IsNullOrEmpty(copiedAction.Name))
+                        {
+                            copiedAction.Name = $"{copiedAction.Name} - Copy";
+                        }
+
+                        int targetIndex = selectedApp.Actions.ToList().IndexOf(targetAction);
+                        System.Diagnostics.Debug.WriteLine($"[AvailableActions] Copying action: {targetAction.GestureName}, targetIndex={targetIndex}");
+                        if (targetIndex >= 0)
+                        {
+                            selectedApp.Insert(targetIndex + 1, copiedAction);
+                            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions after copy: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
+                            ApplicationManager.Instance.SaveApplications();
+                            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Actions after save: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[AvailableActions] targetIndex < 0, action not found!");
+                        }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[AvailableActions] targetAction is not Action type!");
                     }
                 }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[AvailableActions] targetAction or selectedApp is null!");
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions] group is null or empty!");
             }
         }
 
@@ -966,7 +1090,10 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void InsertCommandAboveMenuItem_Click(object sender, RoutedEventArgs e)
         {
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] InsertCommandAboveMenuItem_Click called");
             var selectedCommand = lstAvailableActions.SelectedItem as CommandInfo;
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] selectedCommand={(selectedCommand != null ? selectedCommand.Command.Name : "null")}");
+
             if (selectedCommand == null) return;
 
             var newCommand = new Command
@@ -975,10 +1102,18 @@ namespace GestureSign.ControlPanel.MainWindowControls
             };
 
             int commandIndex = selectedCommand.Action.Commands.ToList().IndexOf(selectedCommand.Command);
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Inserting command at index {commandIndex}");
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Commands before insert: {string.Join(", ", selectedCommand.Action.Commands.Select(c => c.Name))}");
+
             if (commandIndex >= 0)
             {
                 selectedCommand.Action.InsertCommand(commandIndex, newCommand);
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions] Commands after insert: {string.Join(", ", selectedCommand.Action.Commands.Select(c => c.Name))}");
                 ApplicationManager.Instance.SaveApplications();
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions] commandIndex < 0, command not found!");
             }
         }
 
