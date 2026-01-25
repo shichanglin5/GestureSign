@@ -12,12 +12,14 @@ namespace GestureSign.ControlPanel.Converters
         {
             var gestureMap = values[0] as Dictionary<string, GestureItem>;
             string gestureName = values[1] as string;
+
             if (gestureName == null || gestureMap == null)
                 return null;
 
             GestureItem gi = null;
             if (gestureMap.TryGetValue(gestureName, out gi))
                 return gi?.GestureImage;
+
             return null;
         }
 

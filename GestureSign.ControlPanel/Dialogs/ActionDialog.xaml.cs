@@ -7,6 +7,7 @@ using GestureSign.Common.Applications;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Gestures;
 using GestureSign.Common.Localization;
+using GestureSign.Common.Log;
 using GestureSign.ControlPanel.ViewModel;
 using MahApps.Metro.Controls;
 using ManagedWinapi;
@@ -86,8 +87,8 @@ namespace GestureSign.ControlPanel.Dialogs
 
         private void OkButton_Click(object sender, RoutedEventArgs e)
         {
-            // Save new gesture
-            if (CurrentGesture != null && string.IsNullOrEmpty(CurrentGesture.Name))
+            // Save gesture if present (always save to ensure thumbnail update)
+            if (CurrentGesture != null && CurrentGesture.PointPatterns != null)
             {
                 SaveGesture(CurrentGesture);
             }
@@ -141,11 +142,15 @@ namespace GestureSign.ControlPanel.Dialogs
                 return ShowErrorMessage(LocalizationProvider.Instance.GetTextValue("ActionDialog.Messages.ConditionError"), exception.Message);
             }
 
-            var sameAction = _sourceApplication.Actions.FirstOrDefault(a => a == _sourceAction);
-            if (sameAction != null)
-                NewAction = sameAction;
+            // 直接使用 Contains 检查 _sourceAction 是否在列表中
+            if (_sourceApplication.Actions.Contains(_sourceAction))
+            {
+                NewAction = _sourceAction;
+            }
             else
+            {
                 _sourceApplication.AddAction(NewAction);
+            }
 
             // Store new values
             NewAction.Condition = string.IsNullOrWhiteSpace(ConditionTextBox.Text) ? null : ConditionTextBox.Text;
@@ -167,7 +172,6 @@ namespace GestureSign.ControlPanel.Dialogs
                 ignoredDevices |= Devices.TouchPad;
             NewAction.IgnoredDevices = ignoredDevices;
 
-            // Save entire list of applications
             ApplicationManager.Instance.SaveApplications();
 
             return true;
@@ -184,8 +188,8 @@ namespace GestureSign.ControlPanel.Dialogs
             {
                 GestureManager.Instance.DeleteGesture(gesture.Name);
             }
-            GestureManager.Instance.AddGesture(gesture);
 
+            GestureManager.Instance.AddGesture(gesture);
             GestureManager.Instance.SaveGestures();
 
             return true;

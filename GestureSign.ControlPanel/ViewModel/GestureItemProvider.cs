@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Media;
 using GestureSign.Common.Applications;
 using GestureSign.Common.Gestures;
+using GestureSign.Common.Log;
 using GestureSign.ControlPanel.Common;
 
 namespace GestureSign.ControlPanel.ViewModel
@@ -14,6 +15,11 @@ namespace GestureSign.ControlPanel.ViewModel
     public class GestureItemProvider : INotifyPropertyChanged
     {
         private static ObservableCollection<GestureItem> _gestureItems;
+        private static Dictionary<string, GestureItem> _gestureMap = new Dictionary<string, GestureItem>();
+
+        // 静态属性变化事件
+        public static event PropertyChangedEventHandler StaticPropertyChanged;
+
         private static event EventHandler<string> GlobalPropertyChanged;
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -52,13 +58,24 @@ namespace GestureSign.ControlPanel.ViewModel
             set { _gestureItems = value; }
         }
 
-        public static Dictionary<string, GestureItem> GestureMap { get; private set; } = new Dictionary<string, GestureItem>();
+        public static Dictionary<string, GestureItem> GestureMap
+        {
+            get { return _gestureMap; }
+            private set
+            {
+                if (_gestureMap != value)
+                {
+                    _gestureMap = value;
+                    StaticPropertyChanged?.Invoke(null, new PropertyChangedEventArgs(nameof(GestureMap)));
+                }
+            }
+        }
 
         public Dictionary<string, GestureItem> InstanceGestureMap
         {
             get
             {
-                return GestureMap;
+                return new Dictionary<string, GestureItem>(GestureMap);
             }
         }
 
@@ -74,9 +91,7 @@ namespace GestureSign.ControlPanel.ViewModel
             else
                 _gestureItems.Clear();
 
-            // Get all available gestures from gesture manager
             var apps = ApplicationManager.Instance.Applications.Where(app => !(app is IgnoredApp)).ToList();
-
             var brush = (SolidColorBrush)Application.Current.Resources["MahApps.Brushes.Highlight"];
             var color = brush.Color;
 
@@ -101,6 +116,7 @@ namespace GestureSign.ControlPanel.ViewModel
                 };
                 GestureItems.Add(newItem);
             }
+
             GestureMap = GestureItems.ToDictionary(gi => gi.Gesture.Name);
             GlobalPropertyChanged?.Invoke(typeof(GestureItemProvider), nameof(InstanceGestureMap));
         }

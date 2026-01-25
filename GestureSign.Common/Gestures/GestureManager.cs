@@ -239,8 +239,8 @@ namespace GestureSign.Common.Gestures
         {
             try
             {
-                // Save gestures to file
                 bool flag = Configuration.FileManager.SaveObject(Gestures, Path.Combine(AppConfig.ApplicationDataPath, Constants.GesturesFileName));
+
                 if (flag)
                 {
                     GestureSaved?.Invoke(this, EventArgs.Empty);
