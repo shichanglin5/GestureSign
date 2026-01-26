@@ -100,14 +100,32 @@
     <Message Text="Package completed: $(PackageOutputDir)" Importance="high" />
   </Target>
 
-  <!-- Optional: Add a clean target to clean the package directory -->
+  <!-- Optional: Add a clean target to clean the package directory contents -->
   <!-- Only run for main projects to avoid cleaning wrong directory when using uiAccessRelease -->
+  <!-- Clean directory contents but keep the directory itself to avoid lock issues -->
   <Target Name="CleanPackage" BeforeTargets="Clean"
-          Condition="'$(AssemblyName)' == 'GestureSign' OR '$(AssemblyName)' == 'GestureSignControlPanel'">
-    <Message Text="Cleaning package directory: $(PackageOutputDir)" Importance="high" />
-    <RemoveDir Directories="$(PackageOutputDir)"
-               Condition="Exists('$(PackageOutputDir)')"
+          Condition="('$(AssemblyName)' == 'GestureSign' OR '$(AssemblyName)' == 'GestureSignControlPanel') AND Exists('$(PackageOutputDir)')">
+    <Message Text="Cleaning package directory contents: $(PackageOutputDir)" Importance="high" />
+
+    <!-- Collect all files in package directory -->
+    <ItemGroup>
+      <PackageFilesToDelete Include="$(PackageOutputDir)\*.*" />
+      <PackageFilesToDelete Include="$(PackageOutputDir)\**\*.*" />
+    </ItemGroup>
+
+    <!-- Delete all files -->
+    <Delete Files="@(PackageFilesToDelete)"
+            ContinueOnError="WarnAndContinue" />
+
+    <!-- Collect and remove all subdirectories (top-level only, RemoveDir is recursive) -->
+    <ItemGroup>
+      <PackageSubDirs Include="$(PackageOutputDir)\*\" />
+    </ItemGroup>
+
+    <RemoveDir Directories="@(PackageSubDirs)"
                ContinueOnError="WarnAndContinue" />
+
+    <Message Text="Package directory cleaned (directory preserved)" Importance="high" />
   </Target>
 
 </Project>
