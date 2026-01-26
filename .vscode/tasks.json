@@ -1,0 +1,422 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    // ==================== 进程管理 ====================
+    {
+      "label": "stop-gesturesign-processes",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "Get-Process -Name 'GestureSign*' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Write-Host 'GestureSign processes stopped' -ForegroundColor Green"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    // ==================== 构建任务 (Debug) ====================
+    {
+      "label": "build-debug",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "Debug",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": "$msCompile"
+    },
+
+    {
+      "label": "build-debug-daemon",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/GestureSign.Daemon/GestureSign.Daemon.csproj",
+        "-c",
+        "Debug",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": "$msCompile"
+    },
+
+    {
+      "label": "build-debug-controlpanel",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/GestureSign.ControlPanel/GestureSign.ControlPanel.csproj",
+        "-c",
+        "Debug",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": "$msCompile"
+    },
+
+    // ==================== 构建任务 (Release) ====================
+    {
+      "label": "build-release",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "Release",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": "$msCompile"
+    },
+
+    // ==================== 构建任务 (uiAccessRelease) ====================
+    {
+      "label": "build-uiAccessRelease",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "uiAccessRelease",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": "$msCompile"
+    },
+
+    // ==================== 强制重新构建 ====================
+    {
+      "label": "rebuild-debug",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "Debug",
+        "--no-incremental",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": "$msCompile"
+    },
+
+    {
+      "label": "rebuild-uiAccessRelease",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "uiAccessRelease",
+        "--no-incremental",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": "$msCompile"
+    },
+
+    // ==================== 清理任务 ====================
+    {
+      "label": "clean-debug",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "clean",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "Debug",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "clean-uiAccessRelease",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "clean",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "uiAccessRelease",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "clean-all-configs",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "Write-Host 'Cleaning all build outputs...' -ForegroundColor Yellow; Remove-Item -Recurse -Force bin,obj -ErrorAction SilentlyContinue; Write-Host 'All bin and obj directories deleted' -ForegroundColor Green"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    // ==================== UIAccess 专用任务 ====================
+    {
+      "label": "build-and-run-uiAccessRelease",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/Build-And-Run.ps1",
+        "-Configuration",
+        "uiAccessRelease"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "quick-build-uiAccessRelease",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/Quick-Build-UIAccess.ps1"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": [],
+      "runOptions": {
+        "runOn": "default"
+      }
+    },
+
+    {
+      "label": "sign-code-uiAccessRelease",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/Sign-Code.ps1",
+        "-BuildConfiguration",
+        "uiAccessRelease"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    // ==================== 运行任务 (不调试) ====================
+    {
+      "label": "run-daemon-debug",
+      "type": "shell",
+      "command": "${workspaceFolder}/bin/Debug/GestureSign.exe",
+      "args": [
+        "--log.redirectToStd"
+      ],
+      "dependsOn": ["stop-gesturesign-processes", "build-debug-daemon"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "run-controlpanel-debug",
+      "type": "shell",
+      "command": "${workspaceFolder}/bin/Debug/GestureSignControlPanel.exe",
+      "dependsOn": ["build-debug-controlpanel"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    // ==================== 复合任务 ====================
+    {
+      "label": "stop-clean-rebuild-debug",
+      "dependsOn": [
+        "stop-gesturesign-processes",
+        "clean-debug",
+        "rebuild-debug"
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "stop-clean-rebuild-uiAccessRelease",
+      "dependsOn": [
+        "stop-gesturesign-processes",
+        "clean-uiAccessRelease",
+        "rebuild-uiAccessRelease"
+      ],
+      "dependsOrder": "sequence",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    }
+  ]
+}

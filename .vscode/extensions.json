@@ -1,0 +1,29 @@
+{
+  "recommendations": [
+    // C# 开发必备
+    "ms-dotnettools.csharp",
+    "ms-dotnettools.csdevkit",
+    "ms-dotnettools.vscode-dotnet-runtime",
+
+    // 调试增强
+    "ms-vscode.powershell",
+
+    // 代码质量
+    "editorconfig.editorconfig",
+    "streetsidesoftware.code-spell-checker",
+
+    // Git 增强
+    "eamodio.gitlens",
+    "mhutchie.git-graph",
+
+    // XML/XAML 支持
+    "dotjoshjohnson.xml",
+
+    // Markdown 支持
+    "yzhang.markdown-all-in-one",
+
+    // 主题 (可选)
+    "pkief.material-icon-theme"
+  ],
+  "unwantedRecommendations": []
+}

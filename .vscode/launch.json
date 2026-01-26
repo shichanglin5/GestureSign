@@ -1,0 +1,105 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    // ==================== Debug GestureSign.Daemon ====================
+    {
+      "name": "Debug Daemon (Debug)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "stop-gesturesign-processes",
+      "program": "${workspaceFolder}/bin/Debug/GestureSign.exe",
+      "args": ["--log.redirectToStd"],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "requireExactSource": false,
+      "justMyCode": false,
+      "enableStepFiltering": false,
+      "suppressJITOptimizations": true,
+      "symbolOptions": {
+        "searchPaths": [],
+        "searchMicrosoftSymbolServer": false,
+        "searchNuGetOrgSymbolServer": false
+      },
+      "logging": {
+        "moduleLoad": false,
+        "exceptions": true,
+        "engineLogging": false
+      }
+    },
+
+    // ==================== Debug GestureSign.ControlPanel ====================
+    {
+      "name": "Debug ControlPanel (Debug)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-debug-controlpanel",
+      "program": "${workspaceFolder}/bin/Debug/GestureSignControlPanel.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "requireExactSource": false,
+      "justMyCode": false,
+      "enableStepFiltering": false,
+      "suppressJITOptimizations": true,
+      "symbolOptions": {
+        "searchPaths": [],
+        "searchMicrosoftSymbolServer": false,
+        "searchNuGetOrgSymbolServer": false
+      },
+      "logging": {
+        "moduleLoad": false,
+        "exceptions": true,
+        "engineLogging": false
+      }
+    },
+
+    // ==================== Debug Both (Compound) ====================
+    {
+      "name": "Debug Both (Daemon + ControlPanel)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "stop-gesturesign-processes",
+      "program": "${workspaceFolder}/bin/Debug/GestureSign.exe",
+      "args": ["--log.redirectToStd"],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "requireExactSource": false,
+      "justMyCode": false,
+      "enableStepFiltering": false,
+      "suppressJITOptimizations": true,
+      "symbolOptions": {
+        "searchPaths": [],
+        "searchMicrosoftSymbolServer": false,
+        "searchNuGetOrgSymbolServer": false
+      },
+      "logging": {
+        "moduleLoad": false,
+        "exceptions": true,
+        "engineLogging": false
+      },
+      "postDebugTask": "run-controlpanel-debug"
+    },
+
+    // ==================== Attach to Running Process ====================
+    {
+      "name": "Attach to GestureSign Process",
+      "type": "coreclr",
+      "request": "attach",
+      "processName": "GestureSign.exe"
+    },
+
+    {
+      "name": "Attach to ControlPanel Process",
+      "type": "coreclr",
+      "request": "attach",
+      "processName": "GestureSignControlPanel.exe"
+    }
+  ],
+  "compounds": []
+}

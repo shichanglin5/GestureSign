@@ -29,27 +29,27 @@
 
   <!-- Build Configurations -->
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <OutputPath>..\bin\Debug\net8.0-windows10.0.19041.0\</OutputPath>
+    <OutputPath>..\bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <OutputPath>..\bin\Release\net8.0-windows10.0.19041.0\</OutputPath>
+    <OutputPath>..\bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Portable'">
-    <OutputPath>..\bin\Portable\net8.0-windows10.0.19041.0\</OutputPath>
+    <OutputPath>..\bin\Portable\</OutputPath>
     <DefineConstants>TRACE;Portable</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Centennial'">
-    <OutputPath>..\bin\Centennial\net8.0-windows10.0.19041.0\</OutputPath>
+    <OutputPath>..\bin\Centennial\</OutputPath>
     <DefineConstants>TRACE;ConvertedDesktopApp</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'uiAccessRelease'">
-    <OutputPath>..\bin\uiAccessRelease\net8.0-windows10.0.19041.0\</OutputPath>
+    <OutputPath>..\bin\uiAccessRelease\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
 
