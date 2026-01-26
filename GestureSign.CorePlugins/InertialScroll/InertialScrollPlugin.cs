@@ -20,6 +20,18 @@ namespace GestureSign.CorePlugins.InertialScroll
         [DllImport("user32.dll", SetLastError = true)]
         private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
         [StructLayout(LayoutKind.Sequential)]
         private struct INPUT
         {
@@ -244,6 +256,31 @@ namespace GestureSign.CorePlugins.InertialScroll
         {
             try
             {
+                // 获取前台窗口信息用于诊断
+                IntPtr foregroundWindow = GetForegroundWindow();
+                string windowInfo = "Unknown";
+                string className = "Unknown";
+
+                if (foregroundWindow != IntPtr.Zero)
+                {
+                    try
+                    {
+                        var titleBuilder = new System.Text.StringBuilder(256);
+                        var classBuilder = new System.Text.StringBuilder(256);
+                        GetWindowText(foregroundWindow, titleBuilder, 256);
+                        GetClassName(foregroundWindow, classBuilder, 256);
+
+                        GetWindowThreadProcessId(foregroundWindow, out int pid);
+                        var process = System.Diagnostics.Process.GetProcessById(pid);
+                        windowInfo = $"{process.ProcessName} - {titleBuilder}";
+                        className = classBuilder.ToString();
+                    }
+                    catch
+                    {
+                        // Ignore errors getting window info
+                    }
+                }
+
                 // 创建 INPUT 结构
                 var input = new INPUT
                 {
@@ -265,7 +302,9 @@ namespace GestureSign.CorePlugins.InertialScroll
                 if (result == 0)
                 {
                     int errorCode = Marshal.GetLastWin32Error();
-                    Logging.LogWarning($"[InertialScrollPlugin] SendInput failed with error code: {errorCode}");
+                    Logging.LogWarning($"[InertialScrollPlugin] SendInput failed with error code: {errorCode}, " +
+                                      $"ForegroundWindow: {windowInfo}, ClassName: {className}, " +
+                                      $"Direction: {(isHorizontal ? "Horizontal" : "Vertical")}, Delta: {delta}");
                 }
             }
             catch (Exception ex)

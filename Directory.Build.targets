@@ -4,11 +4,17 @@
 
   <PropertyGroup>
     <!-- Define the package output directory -->
-    <PackageOutputDir>D:\wd\soft\GestureSign</PackageOutputDir>
+    <!-- uiAccessRelease 配置使用受保护目录 (C:\Program Files\)，以便 UIAccess 权限生效 -->
+    <!-- 其他配置使用开发目录 -->
+    <PackageOutputDir Condition="'$(Configuration)' == 'uiAccessRelease'">C:\Program Files\GestureSign</PackageOutputDir>
+    <PackageOutputDir Condition="'$(Configuration)' != 'uiAccessRelease'">D:\wd\soft\GestureSign</PackageOutputDir>
   </PropertyGroup>
 
   <!-- Package target - run for both Debug and Release, only for main projects -->
-  <Target Name="Package" AfterTargets="Build" Condition="'$(AssemblyName)' == 'GestureSign' OR '$(AssemblyName)' == 'GestureSignControlPanel'">
+  <!-- Always run after CoreCompile to ensure deployment even for incremental builds -->
+  <Target Name="Package"
+          AfterTargets="CoreCompile;_CopyFilesMarkedCopyLocal"
+          Condition="'$(AssemblyName)' == 'GestureSign' OR '$(AssemblyName)' == 'GestureSignControlPanel'">
 
     <Message Text="========================================" Importance="high" />
     <Message Text="Packaging $(AssemblyName) [$(Configuration)] to $(PackageOutputDir)" Importance="high" />
@@ -95,9 +101,13 @@
   </Target>
 
   <!-- Optional: Add a clean target to clean the package directory -->
-  <Target Name="CleanPackage" BeforeTargets="Clean">
+  <!-- Only run for main projects to avoid cleaning wrong directory when using uiAccessRelease -->
+  <Target Name="CleanPackage" BeforeTargets="Clean"
+          Condition="'$(AssemblyName)' == 'GestureSign' OR '$(AssemblyName)' == 'GestureSignControlPanel'">
     <Message Text="Cleaning package directory: $(PackageOutputDir)" Importance="high" />
-    <RemoveDir Directories="$(PackageOutputDir)" Condition="Exists('$(PackageOutputDir)')" />
+    <RemoveDir Directories="$(PackageOutputDir)"
+               Condition="Exists('$(PackageOutputDir)')"
+               ContinueOnError="WarnAndContinue" />
   </Target>
 
 </Project>

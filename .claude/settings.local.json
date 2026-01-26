@@ -3,7 +3,21 @@
     "allow": [
       "Bash(dotnet build:*)",
       "Bash(git commit:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(Select-String -Pattern \"error|warning CS|-> \")",
+      "Bash(Select-Object -Last 20)",
+      "Bash(echo \"cd \"\"d:\\\\wd\\\\repos\\\\c#\\\\GestureSign\"\"\")",
+      "Bash(dotnet clean:*)",
+      "Bash(exit 0)",
+      "Bash(Select-String -Pattern \"error|warning.*CS\")",
+      "Bash(Select-Object -First 30)",
+      "Bash(dotnet:*)",
+      "Bash(ildasm /TEXT \"d:\\\\wd\\\\repos\\\\c#\\\\GestureSign\\\\bin\\\\Debug\\\\net8.0-windows10.0.19041.0\\\\GestureSign.CorePlugins.dll\")",
+      "Bash(ls:*)",
+      "Bash(dir:*)",
+      "Bash(wmic:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File Test-UIAccess.ps1 -Mode CheckTestMode)",
+      "Bash(powershell -ExecutionPolicy Bypass -File Setup-CodeSigning.ps1)"
     ]
   }
 }

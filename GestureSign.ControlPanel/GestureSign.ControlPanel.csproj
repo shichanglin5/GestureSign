@@ -14,6 +14,7 @@
     <NoWarn>$(NoWarn);SYSLIB0011;CA1416</NoWarn>
     <!-- Enable XAML build-time validation -->
     <EnableXamlGeneratedMarkupExtensionReferences>true</EnableXamlGeneratedMarkupExtensionReferences>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
   <!-- Debug: Show console window for easy control -->
