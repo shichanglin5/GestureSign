@@ -53,7 +53,10 @@ namespace GestureSign.Common.Plugins
             var pointCapture = (IPointCapture)sender;
             // Get action to be executed
             var executableActions = ApplicationManager.Instance.GetRecognizedDefinedAction(e.GestureName)?.ToList();
-            if (executableActions == null) return;
+
+            if (executableActions == null || executableActions.Count == 0)
+                return;
+
             ExecuteAction(executableActions, pointCapture.Mode, pointCapture.SourceDevice, e.ContactIdentifiers, e.FirstCapturedPoints, e.Points);
         }
 
@@ -61,13 +64,13 @@ namespace GestureSign.Common.Plugins
 
         #region Public Methods
 
-        public void ExecuteAction(List<IAction> executableActions, CaptureMode mode, Devices devices, List<int> contactIdentifiers, List<Point> firstCapturedPoints, List<List<Point>> points)
+        public void ExecuteAction(List<IAction> executableActions, CaptureMode mode, Devices devices, List<int> contactIdentifiers, List<Point> firstCapturedPoints, List<List<Point>> points, VelocityVector? velocity = null)
         {
             // Exit if we're teaching
             if (mode == CaptureMode.Training)
                 return;
             var target = ApplicationManager.Instance.CaptureWindow;
-            var pointInfo = new PointInfo(firstCapturedPoints, points, target, _mainContext);
+            var pointInfo = new PointInfo(firstCapturedPoints, points, target, _mainContext, velocity);
             var action = new Action<object>(o =>
             {
                 foreach (IAction executableAction in executableActions)

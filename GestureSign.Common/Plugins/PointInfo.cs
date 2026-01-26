@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Threading;
 using ManagedWinapi.Windows;
+using GestureSign.Common.Applications;
 
 namespace GestureSign.Common.Plugins
 {
@@ -18,12 +19,13 @@ namespace GestureSign.Common.Plugins
 
         #region Constructors
 
-        public PointInfo(List<Point> pointLocation, List<List<Point>> points, SystemWindow target, SynchronizationContext syncContext)
+        public PointInfo(List<Point> pointLocation, List<List<Point>> points, SystemWindow target, SynchronizationContext syncContext, VelocityVector? velocity = null)
         {
             _pointLocation = pointLocation;
             Points = points;
             _targetWindow = target;
             _syncContext = syncContext;
+            Velocity = velocity;
         }
 
         #endregion
@@ -56,11 +58,16 @@ namespace GestureSign.Common.Plugins
 
         public List<List<Point>> Points { get; set; }
 
+        /// <summary>
+        /// 手势滑动速度向量 (可选,仅连续手势触发时提供)
+        /// </summary>
+        public VelocityVector? Velocity { get; set; }
+
         #endregion
 
         #region Public Methods
 
-        public void Invoke(Action action)
+        public void Invoke(System.Action action)
         {
             _syncContext.Send((o) => action.Invoke(), null);
         }

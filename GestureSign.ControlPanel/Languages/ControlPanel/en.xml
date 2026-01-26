@@ -109,6 +109,12 @@ Email:ccfyzh@gmail.com
     <MouseGestureNotEnabled>(Need to enable mouse gesture)</MouseGestureNotEnabled>
     <Default>Default</Default>
     <Continuous>Continuous Gesture</Continuous>
+    <TriggerType>Trigger Type</TriggerType>
+    <DrawnGesture>Drawn Gesture</DrawnGesture>
+    <ContinuousGestureTitle>Continuous Gesture</ContinuousGestureTitle>
+    <FingerCount>Finger Count</FingerCount>
+    <ContinuousGestureHint>Supports all directions (Up/Down/Left/Right) based on swipe velocity</ContinuousGestureHint>
+    <GestureDirection>Gesture Direction</GestureDirection>
     <DeviceLimit>Device Limit</DeviceLimit>
     <Mouse>Mouse</Mouse>
     <TouchScreen>TouchScreen</TouchScreen>

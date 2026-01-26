@@ -4,6 +4,7 @@ using GestureSign.Common.Configuration;
 using GestureSign.Common.Gestures;
 using GestureSign.Common.Input;
 using GestureSign.Common.InterProcessCommunication;
+using GestureSign.Common.Log;
 using GestureSign.Daemon.Filtration;
 using GestureSign.Daemon.Surface;
 using GestureSign.PointPatterns;
@@ -736,6 +737,7 @@ namespace GestureSign.Daemon.Input
                 return false;
             }
 
+            Logging.LogDebug($"[PointCapture] State changed: Ready → CapturingInvalid (fingers={featureFingers.Count})");
             State = CaptureState.CapturingInvalid;
 
             // Clear old gesture from point list so we can start adding the new captures points to the list
@@ -813,9 +815,6 @@ namespace GestureSign.Daemon.Input
                 List<Point> capturedPoints = SourceDevice == Devices.TouchPad ? new List<Point>() { _touchPadStartPoint } : pointsInformation.FirstCapturedPoints;
                 OnGestureRecognized(new RecognitionEventArgs(GestureManager.Instance.GestureName, pointsInformation.Points, capturedPoints, _pointsCaptured.Keys.ToList()));
             }
-            else
-            {
-            }
             //else
             //    OnGestureNotRecognized(new RecognitionEventArgs(pointsInformation.Points, pointsInformation.FirstCapturedPoints, _pointsCaptured.Keys.ToList()));
 
@@ -853,6 +852,7 @@ namespace GestureSign.Daemon.Input
 
                         if (State == CaptureState.CapturingInvalid)
                         {
+                            Logging.LogDebug($"[PointCapture] State changed: CapturingInvalid → Capturing (distance={distance:F1}, threshold={threshold:F1})");
                             State = CaptureState.Capturing;
                         }
                     }
@@ -868,7 +868,11 @@ namespace GestureSign.Daemon.Input
             if (getNewPoint)
             {
                 // Notify subscribers that point has been captured
-                OnPointCaptured(new PointsCapturedEventArgs(new List<List<Point>>(_pointsCaptured.Values), point.Select(p => p.Point).ToList()));
+                var args = new PointsCapturedEventArgs(new List<List<Point>>(_pointsCaptured.Values), point.Select(p => p.Point).ToList())
+                {
+                    FingerCount = _totalFingerCount
+                };
+                OnPointCaptured(args);
             }
         }
 

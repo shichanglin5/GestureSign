@@ -236,5 +236,24 @@
       <UseRegex>使用正则表达式</UseRegex>
       <DisplayName>显示名称:</DisplayName>
     </ActivateApp>
+    <InertialScroll>
+      <Name>模拟惯性滑动</Name>
+      <Category>触摸</Category>
+      <Description>基于滑动速度的惯性滚动效果</Description>
+      <ScrollDirection>滚动方向</ScrollDirection>
+      <EnableInertialScrolling>启用惯性滚动</EnableInertialScrolling>
+      <InertiaStrength>惯性强度</InertiaStrength>
+      <InertiaDuration>惯性持续时间（秒）</InertiaDuration>
+      <AdvancedSettings>高级设置</AdvancedSettings>
+      <DecayRate>衰减率</DecayRate>
+      <MinimumVelocity>最小速度（像素/秒）</MinimumVelocity>
+      <PixelsPerScrollUnit>像素转滚动单位比例</PixelsPerScrollUnit>
+      <DistanceMultiplier>距离倍数</DistanceMultiplier>
+      <ReverseScrollDirection>反向滚动</ReverseScrollDirection>
+      <Tip>提示：配合双指连续手势使用（上/下/左/右）</Tip>
+      <DirectionVertical>垂直</DirectionVertical>
+      <DirectionHorizontal>水平</DirectionHorizontal>
+      <DirectionBoth>双向（自动）</DirectionBoth>
+    </InertialScroll>
   </CorePlugins>
 </Language>

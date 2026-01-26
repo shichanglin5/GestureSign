@@ -235,5 +235,24 @@
       <UseRegex>Use Regular Expression</UseRegex>
       <DisplayName>Display Name:</DisplayName>
     </ActivateApp>
+    <InertialScroll>
+      <Name>Simulate Inertial Swipe</Name>
+      <Category>Touch</Category>
+      <Description>Scroll with inertia effect based on swipe velocity</Description>
+      <ScrollDirection>Scroll Direction</ScrollDirection>
+      <EnableInertialScrolling>Enable Inertial Scrolling</EnableInertialScrolling>
+      <InertiaStrength>Inertia Strength</InertiaStrength>
+      <InertiaDuration>Inertia Duration (seconds)</InertiaDuration>
+      <AdvancedSettings>Advanced Settings</AdvancedSettings>
+      <DecayRate>Decay Rate</DecayRate>
+      <MinimumVelocity>Minimum Velocity (px/s)</MinimumVelocity>
+      <PixelsPerScrollUnit>Pixels Per Scroll Unit</PixelsPerScrollUnit>
+      <DistanceMultiplier>Distance Multiplier</DistanceMultiplier>
+      <ReverseScrollDirection>Reverse Scroll Direction</ReverseScrollDirection>
+      <Tip>Tip: Use with 2-finger continuous gesture (Up/Down/Left/Right)</Tip>
+      <DirectionVertical>Vertical</DirectionVertical>
+      <DirectionHorizontal>Horizontal</DirectionHorizontal>
+      <DirectionBoth>Both (Auto)</DirectionBoth>
+    </InertialScroll>
   </CorePlugins>
 </Language>

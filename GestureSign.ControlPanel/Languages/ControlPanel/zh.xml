@@ -113,6 +113,12 @@ QQ交流群：576981420
     <MouseGestureNotEnabled>(请先在“选项”中打开鼠标手势)</MouseGestureNotEnabled>
     <Default>默认</Default>
     <Continuous>连续手势</Continuous>
+    <TriggerType>触发器类型</TriggerType>
+    <DrawnGesture>绘制手势</DrawnGesture>
+    <ContinuousGestureTitle>连续手势</ContinuousGestureTitle>
+    <FingerCount>手指数量</FingerCount>
+    <ContinuousGestureHint>支持所有方向（上/下/左/右），根据滑动速度自动判断</ContinuousGestureHint>
+    <GestureDirection>手势方向</GestureDirection>
     <DeviceLimit>设备限定</DeviceLimit>
     <Mouse>鼠标</Mouse>
     <TouchScreen>触摸屏</TouchScreen>

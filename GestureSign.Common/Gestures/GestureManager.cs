@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using GestureSign.Common.Configuration;
 using GestureSign.PointPatterns;
 using GestureSign.Common.Input;
+using GestureSign.Common.Log;
 using Newtonsoft.Json;
 
 namespace GestureSign.Common.Gestures
@@ -104,6 +105,7 @@ namespace GestureSign.Common.Gestures
             var capturedPoints = e.Points.Select(l => l.ToArray()).ToArray();
 
             GestureName = GetGestureSetNameMatch(capturedPoints, e.FingerCount, sourceGesture, _gestureLevel, out _gestureMatchResult);
+
             if (pointCapture.Mode != CaptureMode.Training)
             {
                 if (_gestureMatchResult != null && _gestureMatchResult.Count != 0)
