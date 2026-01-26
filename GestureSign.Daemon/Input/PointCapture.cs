@@ -785,6 +785,14 @@ namespace GestureSign.Daemon.Input
 
         private void EndCapture()
         {
+            // Check if _pointsCaptured is null (safety check)
+            if (_pointsCaptured == null)
+            {
+                Logging.LogWarning("[PointCapture] EndCapture called but _pointsCaptured is null");
+                State = CaptureState.Ready;
+                return;
+            }
+
             // Log captured trajectory details
             int trajectoryIndex = 0;
             foreach (var trajectory in _pointsCaptured.Values)
