@@ -2,8 +2,10 @@
   "version": "2.0.0",
   "tasks": [
     // ==================== 进程管理 ====================
+    // stop gesturesign - 停止所有 GestureSign 进程
+
     {
-      "label": "stop: gesturesign",
+      "label": "stop gesturesign",
       "type": "shell",
       "command": "powershell",
       "args": [
@@ -23,6 +25,10 @@
     },
 
     // ==================== 构建任务 (Debug) ====================
+    // debug: build - 仅编译，不运行
+    // debug: rebuild - 强制完全重新构建
+    // debug: clean - 清理构建输出
+    // debug: build-and-run - 构建并复制到 D:\wd\soft\GestureSign，然后启动 Daemon
     {
       "label": "debug: build",
       "type": "shell",
@@ -98,7 +104,35 @@
       "problemMatcher": []
     },
 
+    {
+      "label": "debug: build-and-run",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/Build-And-Run.ps1",
+        "-Configuration",
+        "Debug"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
     // ==================== 构建任务 (Release) ====================
+    // release: build - 仅编译，不运行
+    // release: rebuild - 强制完全重新构建
+    // release: clean - 清理构建输出
+    // release: build-and-run - 构建并复制到 D:\wd\soft\GestureSign，然后启动 Daemon
     {
       "label": "release: build",
       "type": "shell",
@@ -167,6 +201,30 @@
         "focus": false,
         "panel": "shared",
         "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "release: build-and-run",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/Build-And-Run.ps1",
+        "-Configuration",
+        "Release"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
         "clear": false
       },
       "problemMatcher": []
@@ -405,7 +463,7 @@
         {
       "label": "build-and-stop-debug-daemon",
       "dependsOn": [
-        "stop-gesturesign",
+        "stop gesturesign",
         "debug: build daemon"
       ],
       "dependsOrder": "sequence",

@@ -19,7 +19,10 @@
       "Bash(powershell -ExecutionPolicy Bypass -File Test-UIAccess.ps1 -Mode CheckTestMode)",
       "Bash(powershell -ExecutionPolicy Bypass -File Setup-CodeSigning.ps1)",
       "Bash(Get-Process -Name \"GestureSign*\" -ErrorAction SilentlyContinue)",
-      "Bash(Select-Object ProcessName, Id, Path)"
+      "Bash(Select-Object ProcessName, Id, Path)",
+      "Bash(Select-String -Pattern \"error\" -Context 2,0)",
+      "Bash(powershell -NoProfile -Command \"Get-Content \\(Join-Path $env:APPDATA ''GestureSign\\\\GestureSign.config''\\) | Select-String ''TouchPad''\")",
+      "Bash(Select-String -Pattern \"error|succeeded|failed\")"
     ]
   }
 }
