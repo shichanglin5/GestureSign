@@ -69,7 +69,36 @@ namespace GestureSign.Common.Plugins
             // Exit if we're teaching
             if (mode == CaptureMode.Training)
                 return;
-            var target = ApplicationManager.Instance.CaptureWindow;
+
+            // Determine target window based on device type and configuration
+            var targetMode = devices == Input.Devices.TouchPad
+                ? Configuration.AppConfig.TouchPadWindowTargetMode
+                : Configuration.AppConfig.TouchScreenWindowTargetMode;
+
+            SystemWindow? target = null;
+
+            switch (targetMode)
+            {
+                case Input.WindowTargetMode.MousePosition:
+                    var mousePosition = System.Windows.Forms.Cursor.Position;
+                    target = ApplicationManager.Instance.GetWindowFromPoint(mousePosition);
+                    break;
+
+                case Input.WindowTargetMode.ActiveWindow:
+                    target = SystemWindow.ForegroundWindow;
+                    break;
+
+                case Input.WindowTargetMode.GestureStartPosition:
+                    target = ApplicationManager.Instance.CaptureWindow;
+                    break;
+            }
+
+            // Fallback to captured window if target is null
+            if (target == null)
+                target = ApplicationManager.Instance.CaptureWindow;
+
+            Console.WriteLine($"[PluginManager] ExecuteAction: Device={devices}, TargetMode={targetMode}, Target={target?.Title}");
+
             var pointInfo = new PointInfo(firstCapturedPoints, points, target, _mainContext, velocity);
             var action = new Action<object>(o =>
             {
@@ -107,6 +136,8 @@ namespace GestureSign.Common.Plugins
                                     ? Configuration.AppConfig.TouchPadWindowTargetMode
                                     : Configuration.AppConfig.TouchScreenWindowTargetMode;
 
+                                Console.WriteLine($"[PluginManager] Device={devices}, TargetMode={targetMode}");
+
                                 SystemWindow? windowToActivate = null;
 
                                 switch (targetMode)
@@ -124,6 +155,8 @@ namespace GestureSign.Common.Plugins
                                         windowToActivate = target;  // Use captured window
                                         break;
                                 }
+
+                                Console.WriteLine($"[PluginManager] WindowToActivate={windowToActivate?.Title ?? "null"}, ForegroundWindow={SystemWindow.ForegroundWindow?.Title ?? "null"}");
 
                                 if (windowToActivate != null && windowToActivate.HWnd.ToInt64() != SystemWindow.ForegroundWindow?.HWnd.ToInt64())
                                     SystemWindow.ForegroundWindow = windowToActivate;
