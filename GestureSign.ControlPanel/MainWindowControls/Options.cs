@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Media;
 using Color = System.Drawing.Color;
@@ -47,6 +48,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 GestureTrailSwitch.IsOn = AppConfig.VisualFeedbackWidth > 0;
                 _VisualFeedbackColor = AppConfig.VisualFeedbackColor;
                 VisualFeedbackWidthSlider.Value = AppConfig.VisualFeedbackWidth;
+                MinimumFingerCountForVisualFeedbackSlider.Value = AppConfig.MinimumFingerCountForVisualFeedback;
                 MinimumPointDistanceSlider.Value = AppConfig.MinimumPointDistance;
                 TapDistanceThresholdSlider.Value = AppConfig.TapDistanceThreshold;
                 FeatureFingerIndexSlider.Value = AppConfig.FeatureFingerIndex;
@@ -67,6 +69,8 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 TouchScreenSwitch.IsOn = AppConfig.RegisterTouchScreen;
                 IgnoreFullScreenSwitch.IsOn = AppConfig.IgnoreFullScreen;
                 BlockWindowsGesturesSwitch.IsOn = AppConfig.BlockWindowsGestures;
+                TouchPadWindowTargetComboBox.SelectedIndex = (int)AppConfig.TouchPadWindowTargetMode;
+                TouchScreenWindowTargetComboBox.SelectedIndex = (int)AppConfig.TouchScreenWindowTargetMode;
 
                 LanguageComboBox.ItemsSource = LocalizationProvider.Instance.GetLanguageList("ControlPanel");
                 LanguageComboBox.SelectedValue = AppConfig.CultureName;
@@ -128,6 +132,13 @@ namespace GestureSign.ControlPanel.MainWindowControls
             if (newValue == AppConfig.VisualFeedbackWidth) return;
 
             AppConfig.VisualFeedbackWidth = newValue;
+        }
+
+        private void MinimumFingerCountForVisualFeedbackSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var newValue = (int)Math.Round(e.NewValue);
+            if (newValue == AppConfig.MinimumFingerCountForVisualFeedback || (int)e.OldValue == 0) return;
+            AppConfig.MinimumFingerCountForVisualFeedback = newValue;
         }
 
         private void OpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -411,6 +422,30 @@ namespace GestureSign.ControlPanel.MainWindowControls
         private void BlockWindowsGesturesSwitch_Click(object sender, RoutedEventArgs e)
         {
             AppConfig.BlockWindowsGestures = BlockWindowsGesturesSwitch.IsOn;
+        }
+
+        private void TouchPadWindowTargetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (TouchPadWindowTargetComboBox?.SelectedItem is ComboBoxItem selectedItem)
+            {
+                var mode = (GestureSign.Common.Input.WindowTargetMode)int.Parse(selectedItem.Tag.ToString());
+                if (mode != AppConfig.TouchPadWindowTargetMode)
+                {
+                    AppConfig.TouchPadWindowTargetMode = mode;
+                }
+            }
+        }
+
+        private void TouchScreenWindowTargetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (TouchScreenWindowTargetComboBox?.SelectedItem is ComboBoxItem selectedItem)
+            {
+                var mode = (GestureSign.Common.Input.WindowTargetMode)int.Parse(selectedItem.Tag.ToString());
+                if (mode != AppConfig.TouchScreenWindowTargetMode)
+                {
+                    AppConfig.TouchScreenWindowTargetMode = mode;
+                }
+            }
         }
 
         private void InitialTimeoutSwitch_Click(object sender, RoutedEventArgs e)

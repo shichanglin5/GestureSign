@@ -102,13 +102,27 @@ namespace GestureSign.Common.Plugins
                             if (executableAction.ActivateWindow == null && pluginInfo.Plugin.ActivateWindowDefault ||
                             executableAction.ActivateWindow.GetValueOrDefault())
                             {
-                                // For touchpad, activate window at current mouse position
-                                // For touchscreen, activate window at gesture location (captured window)
-                                var windowToActivate = target;
-                                if (devices == Input.Devices.TouchPad)
+                                // Determine window to activate based on device type and configuration
+                                var targetMode = devices == Input.Devices.TouchPad
+                                    ? Configuration.AppConfig.TouchPadWindowTargetMode
+                                    : Configuration.AppConfig.TouchScreenWindowTargetMode;
+
+                                SystemWindow? windowToActivate = null;
+
+                                switch (targetMode)
                                 {
-                                    var mousePosition = System.Windows.Forms.Cursor.Position;
-                                    windowToActivate = ApplicationManager.Instance.GetWindowFromPoint(mousePosition);
+                                    case Input.WindowTargetMode.MousePosition:
+                                        var mousePosition = System.Windows.Forms.Cursor.Position;
+                                        windowToActivate = ApplicationManager.Instance.GetWindowFromPoint(mousePosition);
+                                        break;
+
+                                    case Input.WindowTargetMode.ActiveWindow:
+                                        windowToActivate = SystemWindow.ForegroundWindow;
+                                        break;
+
+                                    case Input.WindowTargetMode.GestureStartPosition:
+                                        windowToActivate = target;  // Use captured window
+                                        break;
                                 }
 
                                 if (windowToActivate != null && windowToActivate.HWnd.ToInt64() != SystemWindow.ForegroundWindow?.HWnd.ToInt64())

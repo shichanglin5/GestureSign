@@ -118,6 +118,19 @@ namespace GestureSign.Common.Configuration
                 SetValue("VisualFeedbackWidth", value);
             }
         }
+
+        public static int MinimumFingerCountForVisualFeedback
+        {
+            get
+            {
+                return (int)GetValue("MinimumFingerCountForVisualFeedback", 1);
+            }
+            set
+            {
+                SetValue("MinimumFingerCountForVisualFeedback", value);
+            }
+        }
+
         public static int MinimumPointDistance
         {
             get
@@ -346,6 +359,30 @@ namespace GestureSign.Common.Configuration
             set
             {
                 SetValue(nameof(MultiFingerDelay), value);
+            }
+        }
+
+        public static Input.WindowTargetMode TouchPadWindowTargetMode
+        {
+            get
+            {
+                return (Input.WindowTargetMode)GetValue(nameof(TouchPadWindowTargetMode), (int)Input.WindowTargetMode.MousePosition);
+            }
+            set
+            {
+                SetValue(nameof(TouchPadWindowTargetMode), (int)value);
+            }
+        }
+
+        public static Input.WindowTargetMode TouchScreenWindowTargetMode
+        {
+            get
+            {
+                return (Input.WindowTargetMode)GetValue(nameof(TouchScreenWindowTargetMode), (int)Input.WindowTargetMode.GestureStartPosition);
+            }
+            set
+            {
+                SetValue(nameof(TouchScreenWindowTargetMode), (int)value);
             }
         }
 

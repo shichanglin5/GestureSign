@@ -247,6 +247,7 @@ QQ交流群：576981420
     <PickColor>选择颜色..</PickColor>
     <SystemColor>使用系统主题色</SystemColor>
     <MinimumPointDistance>最小点距 {0:F0} px</MinimumPointDistance>
+    <MinimumFingerCountForVisualFeedback>显示手势轨迹的最小手指数 {0:F0}</MinimumFingerCountForVisualFeedback>
     <TapDistanceThreshold>点击距离阈值 {0:F0} px (区分点击和滑动的总移动距离)</TapDistanceThreshold>
     <FeatureFingerIndex>特征手指：第 {0} 根手指</FeatureFingerIndex>
     <GestureMatchProbability>手势匹配阈值 {0:F0}% (越低越容易匹配)</GestureMatchProbability>
@@ -296,6 +297,12 @@ QQ交流群：576981420
       <OnLabel>显示</OnLabel>
       <OffLabel>隐藏</OffLabel>
     </ShowTrayIconSwitch>
+    <WindowTargetRuleTitle>焦点窗口规则</WindowTargetRuleTitle>
+    <TouchPadWindowTarget>触摸板窗口目标</TouchPadWindowTarget>
+    <TouchScreenWindowTarget>触摸屏窗口目标</TouchScreenWindowTarget>
+    <WindowTargetMousePosition>鼠标位置所在窗口</WindowTargetMousePosition>
+    <WindowTargetActiveWindow>当前激活的窗口</WindowTargetActiveWindow>
+    <WindowTargetGestureStart>手势起始位置所在窗口</WindowTargetGestureStart>
     <GestureTrail>显示手势轨迹</GestureTrail>
     <Messages>
       <LoadSettingErrorTitle>错误</LoadSettingErrorTitle>

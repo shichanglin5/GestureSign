@@ -243,6 +243,7 @@ Email:ccfyzh@gmail.com
     <PickColor>Pick Color...</PickColor>
     <SystemColor>Follow System Color</SystemColor>
     <MinimumPointDistance>Minimum Point Distance {0:F0} px</MinimumPointDistance>
+    <MinimumFingerCountForVisualFeedback>Minimum Finger Count for Visual Feedback {0:F0}</MinimumFingerCountForVisualFeedback>
     <TapDistanceThreshold>Tap Distance Threshold {0:F0} px (Total movement to distinguish tap from swipe)</TapDistanceThreshold>
     <FeatureFingerIndex>Feature Finger: {0}</FeatureFingerIndex>
     <GestureMatchProbability>Gesture Match Threshold {0:F0}% (Lower = easier to match)</GestureMatchProbability>
@@ -292,6 +293,12 @@ Email:ccfyzh@gmail.com
       <OnLabel>Show</OnLabel>
       <OffLabel>Hide</OffLabel>
     </ShowTrayIconSwitch>
+    <WindowTargetRuleTitle>Window Target Rules</WindowTargetRuleTitle>
+    <TouchPadWindowTarget>TouchPad Window Target</TouchPadWindowTarget>
+    <TouchScreenWindowTarget>TouchScreen Window Target</TouchScreenWindowTarget>
+    <WindowTargetMousePosition>Window at Mouse Position</WindowTargetMousePosition>
+    <WindowTargetActiveWindow>Currently Active Window</WindowTargetActiveWindow>
+    <WindowTargetGestureStart>Window at Gesture Start Position</WindowTargetGestureStart>
     <GestureTrail>Show Gesture Trail</GestureTrail>
     <Messages>
       <LoadSettingErrorTitle>Error</LoadSettingErrorTitle>
