@@ -4,6 +4,15 @@
     <NoWarn>$(NoWarn);CA1416</NoWarn>
 
     <!-- Disable nullable reference type warnings for backward compatibility -->
-    <NoWarn>$(NoWarn);CS8600;CS8601;CS8602;CS8603;CS8604;CS8618;CS8620;CS8622;CS8625;CS8629</NoWarn>
+    <NoWarn>$(NoWarn);CS8600;CS8601;CS8602;CS8603;CS8604;CS8605;CS8612;CS8618;CS8620;CS8622;CS8625;CS8629;CS8765;CS8767</NoWarn>
+
+    <!-- Disable obsolete API warnings for legacy compatibility -->
+    <NoWarn>$(NoWarn);CS0618;SYSLIB0003;SYSLIB0012;SYSLIB0014;SYSLIB0050</NoWarn>
+
+    <!-- Disable logic warnings that don't affect functionality -->
+    <NoWarn>$(NoWarn);CS0472</NoWarn>
+
+    <!-- Disable Windows Forms analyzer warnings -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
   </PropertyGroup>
 </Project>

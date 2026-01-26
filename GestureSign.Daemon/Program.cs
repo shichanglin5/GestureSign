@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using GestureSign.Common;
@@ -15,6 +16,21 @@ namespace GestureSign.Daemon
 {
     static class Program
     {
+        #region Console Allocation for WinExe
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool AllocConsole();
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool FreeConsole();
+
+        [DllImport("kernel32.dll")]
+        static extern IntPtr GetConsoleWindow();
+
+        #endregion
+
         /// <summary>
         /// 应用程序的主入口点。
         /// </summary>
@@ -35,18 +51,40 @@ namespace GestureSign.Daemon
 
                         // Parse command line arguments
                         bool redirectToStd = ParseRedirectToStdArgument(args);
+
+                        // Allocate console if redirectToStd is enabled (for WinExe applications)
+                        if (redirectToStd)
+                        {
+                            // Check if we already have a console (e.g., OutputType=Exe in Debug mode)
+                            IntPtr consoleWindow = GetConsoleWindow();
+                            if (consoleWindow == IntPtr.Zero)
+                            {
+                                // No console exists, allocate one
+                                AllocConsole();
+                            }
+                        }
+
                         Logging.OpenLogFile(redirectToStd);
+
+                        Logging.LogInfo("=== GestureSign Daemon Starting ===");
+                        Logging.LogInfo($"Process ID: {System.Diagnostics.Process.GetCurrentProcess().Id}");
+                        Logging.LogInfo($"Redirect to console: {redirectToStd}");
 
                         if (!LocalizationProvider.Instance.LoadFromFile("Daemon"))
                         {
                             LocalizationProvider.Instance.LoadFromResource(Properties.Resources.en);
                         }
+                        Logging.LogInfo("Localization loaded");
 
+                        Logging.LogInfo("Loading PointCapture...");
                         PointCapture.Instance.Load();
                         SynchronizationContext uiContext = SynchronizationContext.Current;
+                        Logging.LogInfo("Loading TriggerManager...");
                         TriggerManager.Instance.Load();
 
+                        Logging.LogInfo("Loading GestureManager...");
                         GestureManager.Instance.Load(PointCapture.Instance);
+                        Logging.LogInfo("Loading ApplicationManager...");
                         ApplicationManager.Instance.Load(PointCapture.Instance);
                         // Create host control class and pass to plugins
                         HostControl hostControl = new HostControl()
@@ -57,13 +95,18 @@ namespace GestureSign.Daemon
                             _PluginManager = PluginManager.Instance,
                             _TrayManager = TrayManager.Instance
                         };
+                        Logging.LogInfo("Loading PluginManager...");
                         PluginManager.Instance.Load(hostControl, uiContext);
+                        Logging.LogInfo("Loading TrayManager...");
                         TrayManager.Instance.Load();
 
+                        Logging.LogInfo("Starting Named Pipe server...");
                         NamedPipe.Instance.RunNamedPipeServer(Constants.Daemon, new MessageProcessor(uiContext));
 
                         Application.ApplicationExit += Application_ApplicationExit;
 
+                        Logging.LogInfo("=== GestureSign Daemon Started Successfully ===");
+                        Logging.LogInfo("Entering message loop (press Ctrl+C to stop)...");
                         Application.Run();
                     }
                     catch (Exception e)

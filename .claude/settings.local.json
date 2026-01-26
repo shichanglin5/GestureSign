@@ -17,7 +17,9 @@
       "Bash(dir:*)",
       "Bash(wmic:*)",
       "Bash(powershell -ExecutionPolicy Bypass -File Test-UIAccess.ps1 -Mode CheckTestMode)",
-      "Bash(powershell -ExecutionPolicy Bypass -File Setup-CodeSigning.ps1)"
+      "Bash(powershell -ExecutionPolicy Bypass -File Setup-CodeSigning.ps1)",
+      "Bash(Get-Process -Name \"GestureSign*\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object ProcessName, Id, Path)"
     ]
   }
 }

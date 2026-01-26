@@ -158,7 +158,6 @@ namespace GestureSign.Daemon.Filtration
             // 3. Not temporarily disabled
             bool shouldInject = pointerInfos.Length < _blockTouchInputThreshold || _tempDisable;
 
-
             // If capturing but finger count is enough to block, don't inject
             if (shouldInject)
             {
@@ -169,6 +168,8 @@ namespace GestureSign.Daemon.Filtration
             }
             else
             {
+                // Input is blocked - not forwarded to Windows
+                // This prevents the underlying application from receiving touch events
             }
         }
 

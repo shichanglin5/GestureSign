@@ -8,12 +8,35 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Check if running as administrator
+$currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+$principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+$isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $isAdmin) {
+    Write-Host "=== Administrator privileges required ===" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Code signing and UIAccess configuration requires administrator privileges." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Please:" -ForegroundColor White
+    Write-Host "  1. Right-click PowerShell or Terminal" -ForegroundColor Gray
+    Write-Host "  2. Select 'Run as Administrator'" -ForegroundColor Gray
+    Write-Host "  3. Navigate to: $PSScriptRoot" -ForegroundColor Gray
+    Write-Host "  4. Run: .\Sign-Code.ps1 -BuildConfiguration $BuildConfiguration" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Or to skip signing (for development only):" -ForegroundColor Yellow
+    Write-Host "  1. Comment out the SignExecutable PostBuild task in GestureSign.Daemon.csproj" -ForegroundColor Gray
+    Write-Host ""
+    exit 1
+}
+
 # Configuration
 $CertSubject = "CN=GestureSign Development"
 $CertFriendlyName = "GestureSign Code Signing Certificate"
 $CertThumbprint = $null
 
 Write-Host "=== GestureSign Code Signing Setup ===" -ForegroundColor Cyan
+Write-Host "(Running as Administrator)" -ForegroundColor Green
 Write-Host ""
 
 # Step 1: Check for existing certificate
@@ -59,25 +82,44 @@ if (-not $CertThumbprint) {
     Write-Host "[2/5] Skipping certificate creation (already exists)" -ForegroundColor Green
 }
 
-# Step 3: Install to Trusted Root
+# Step 3: Install to Trusted Root stores (both CurrentUser and LocalMachine)
 Write-Host ""
-Write-Host "[3/5] Installing certificate to Trusted Root store..." -ForegroundColor Yellow
+Write-Host "[3/5] Installing certificate to Trusted Root stores..." -ForegroundColor Yellow
 
-$RootCert = Get-ChildItem -Path Cert:\CurrentUser\Root | Where-Object {
+# Install to CurrentUser\Root
+$RootCert = Get-ChildItem -Path Cert:\CurrentUser\Root -ErrorAction SilentlyContinue | Where-Object {
     $_.Thumbprint -eq $CertThumbprint
 }
 
 if ($RootCert) {
-    Write-Host "  Certificate already in Trusted Root store" -ForegroundColor Green
+    Write-Host "  Certificate already in CurrentUser\Root store" -ForegroundColor Green
 } else {
     $SourceCert = Get-Item -Path "Cert:\CurrentUser\My\$CertThumbprint"
-    $DestStore = Get-Item -Path "Cert:\CurrentUser\Root"
+    $DestStore = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "CurrentUser")
     $DestStore.Open("ReadWrite")
     $DestStore.Add($SourceCert)
     $DestStore.Close()
 
-    Write-Host "  Certificate installed to Trusted Root store" -ForegroundColor Green
-    Write-Host "    Note: Self-signed certificate only trusted on this machine" -ForegroundColor Yellow
+    Write-Host "  Certificate installed to CurrentUser\Root" -ForegroundColor Green
+}
+
+# Install to LocalMachine\Root (required for UIAccess)
+$LocalMachineRootCert = Get-ChildItem -Path Cert:\LocalMachine\Root -ErrorAction SilentlyContinue | Where-Object {
+    $_.Thumbprint -eq $CertThumbprint
+}
+
+if ($LocalMachineRootCert) {
+    Write-Host "  Certificate already in LocalMachine\Root store" -ForegroundColor Green
+} else {
+    Write-Host "  Installing certificate to LocalMachine\Root (required for UIAccess)..." -ForegroundColor Cyan
+    $SourceCert = Get-Item -Path "Cert:\CurrentUser\My\$CertThumbprint"
+    $DestStore = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "LocalMachine")
+    $DestStore.Open("ReadWrite")
+    $DestStore.Add($SourceCert)
+    $DestStore.Close()
+
+    Write-Host "  Certificate installed to LocalMachine\Root" -ForegroundColor Green
+    Write-Host "    Note: UIAccess programs require certificates in LocalMachine\Root" -ForegroundColor Yellow
 }
 
 # Step 4: Find signtool.exe
@@ -121,8 +163,9 @@ if ($SkipSigning) {
 
     # Find files to sign - check both nested and non-nested paths
     $BinPaths = @(
+        (Join-Path $PSScriptRoot "..\bin\$BuildConfiguration"),
         (Join-Path $PSScriptRoot "..\bin\$BuildConfiguration\net8.0-windows10.0.19041.0"),
-        (Join-Path $PSScriptRoot "..\bin\$BuildConfiguration\net8.0-windows10.0.19041.0\net8.0-windows10.0.19041.0")
+        (Join-Path $PSScriptRoot "..\bin\$BuildConfiguration\net8.0-windows")
     )
 
     $BinPath = $null
@@ -143,7 +186,7 @@ if ($SkipSigning) {
 
     $ExeFiles = @(
         "GestureSign.exe",
-        "GestureSign.ControlPanel.exe"
+        "GestureSignControlPanel.exe"
     )
 
     $SignedCount = 0

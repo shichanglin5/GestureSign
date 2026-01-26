@@ -1,105 +1,120 @@
 {
   "version": "0.2.0",
   "configurations": [
-    // ==================== Debug GestureSign.Daemon ====================
+    // ==================== Standalone Debugging (with build tasks) ====================
     {
-      "name": "Debug Daemon (Debug)",
+      "name": "Debug Daemon",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "stop-gesturesign-processes",
+      "preLaunchTask": "build-and-stop-debug-daemon",
       "program": "${workspaceFolder}/bin/Debug/GestureSign.exe",
       "args": ["--log.redirectToStd"],
       "cwd": "${workspaceFolder}",
-      "stopAtEntry": false,
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      "requireExactSource": false,
-      "justMyCode": false,
-      "enableStepFiltering": false,
-      "suppressJITOptimizations": true,
-      "symbolOptions": {
-        "searchPaths": [],
-        "searchMicrosoftSymbolServer": false,
-        "searchNuGetOrgSymbolServer": false
-      },
-      "logging": {
-        "moduleLoad": false,
-        "exceptions": true,
-        "engineLogging": false
+      "presentation": {
+        "order": 1
       }
     },
 
-    // ==================== Debug GestureSign.ControlPanel ====================
     {
-      "name": "Debug ControlPanel (Debug)",
+      "name": "Debug ControlPanel",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "build-debug-controlpanel",
       "program": "${workspaceFolder}/bin/Debug/GestureSignControlPanel.exe",
-      "args": [],
       "cwd": "${workspaceFolder}",
-      "stopAtEntry": false,
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      "requireExactSource": false,
-      "justMyCode": false,
-      "enableStepFiltering": false,
-      "suppressJITOptimizations": true,
-      "symbolOptions": {
-        "searchPaths": [],
-        "searchMicrosoftSymbolServer": false,
-        "searchNuGetOrgSymbolServer": false
-      },
-      "logging": {
-        "moduleLoad": false,
-        "exceptions": true,
-        "engineLogging": false
+      "presentation": {
+        "order": 2
       }
-    },
-
-    // ==================== Debug Both (Compound) ====================
-    {
-      "name": "Debug Both (Daemon + ControlPanel)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "stop-gesturesign-processes",
-      "program": "${workspaceFolder}/bin/Debug/GestureSign.exe",
-      "args": ["--log.redirectToStd"],
-      "cwd": "${workspaceFolder}",
-      "stopAtEntry": false,
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
-      "requireExactSource": false,
-      "justMyCode": false,
-      "enableStepFiltering": false,
-      "suppressJITOptimizations": true,
-      "symbolOptions": {
-        "searchPaths": [],
-        "searchMicrosoftSymbolServer": false,
-        "searchNuGetOrgSymbolServer": false
-      },
-      "logging": {
-        "moduleLoad": false,
-        "exceptions": true,
-        "engineLogging": false
-      },
-      "postDebugTask": "run-controlpanel-debug"
     },
 
     // ==================== Attach to Running Process ====================
     {
-      "name": "Attach to GestureSign Process",
+      "name": "Attach to Daemon",
       "type": "coreclr",
       "request": "attach",
-      "processName": "GestureSign.exe"
+      "processName": "GestureSign.exe",
+      "presentation": {
+        "group": "attach",
+        "order": 1
+      }
     },
 
     {
-      "name": "Attach to ControlPanel Process",
+      "name": "Attach to ControlPanel",
       "type": "coreclr",
       "request": "attach",
-      "processName": "GestureSignControlPanel.exe"
+      "processName": "GestureSignControlPanel.exe",
+      "presentation": {
+        "group": "attach",
+        "order": 2
+      }
+    },
+
+    {
+      "name": "Attach to UIAccess Daemon",
+      "type": "coreclr",
+      "request": "attach",
+      "processName": "GestureSign.exe",
+      "presentation": {
+        "group": "attach",
+        "order": 3
+      },
+      // Note: To debug UIAccess daemon:
+      // 1. Run task 'build-uiAccessRelease-admin' to build and start daemon
+      // 2. Use this configuration to attach VS Code debugger
+      // 3. Set breakpoints in your code
+      // 4. UIAccess features will work normally while debugging
+    },
+
+    // ==================== Internal: For Compound Use (no preLaunchTask) ====================
+    // These configurations are used internally by the compound below.
+    // They have NO preLaunchTask because the compound handles building.
+    //
+    // They are grouped separately to minimize visual clutter in the debug dropdown.
+    {
+      "name": "_Daemon",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/Debug/GestureSign.exe",
+      "args": ["--log.redirectToStd"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "presentation": {
+        "group": "__internal__",
+        "order": 1,
+        "hidden": true
+      }
+    },
+
+    {
+      "name": "_ControlPanel",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/Debug/GestureSignControlPanel.exe",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "presentation": {
+        "group": "__internal__",
+        "order": 2,
+        "hidden": true
+      }
     }
   ],
-  "compounds": []
+  "compounds": [
+    {
+      "name": "Debug Daemon + ControlPanel",
+      "configurations": ["_Daemon", "_ControlPanel"],
+      "stopAll": true,
+      "preLaunchTask": "build-and-stop-debug",
+      "presentation": {
+        "order": 0
+      }
+    }
+  ]
 }

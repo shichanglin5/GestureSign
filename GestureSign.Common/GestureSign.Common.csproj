@@ -11,6 +11,7 @@
     <!-- Temporarily allow BinaryFormatter until we migrate to modern serialization -->
     <EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
     <NoWarn>$(NoWarn);SYSLIB0011;CA1416</NoWarn>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
   <!-- Build Configurations -->
