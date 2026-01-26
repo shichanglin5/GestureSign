@@ -337,3 +337,6 @@ public interface IPlugin
 - 查找所有事件: 搜索 `event EventHandler`
 - 查找插件实现: 搜索 `IPlugin`
 - 查找 IPC 通信: 搜索 `NamedPipe`
+
+### git 规范
+- commit msg 使用中文

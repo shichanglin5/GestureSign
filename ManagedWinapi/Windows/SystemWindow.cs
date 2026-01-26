@@ -310,7 +310,68 @@ namespace ManagedWinapi.Windows
             }
             set
             {
-                SetForegroundWindow(value.HWnd);
+                ForceSetForegroundWindow(value.HWnd);
+            }
+        }
+
+        /// <summary>
+        /// 强制激活窗口到前台（使用多种技术绕过 Windows 安全限制）
+        /// </summary>
+        /// <param name="hWnd">要激活的窗口句柄</param>
+        /// <returns>激活是否成功</returns>
+        private static bool ForceSetForegroundWindow(IntPtr hWnd)
+        {
+            // 方法 1: 标准 SetForegroundWindow (快速路径)
+            if (SetForegroundWindow(hWnd))
+            {
+                return true;
+            }
+
+            // 方法 2: AttachThreadInput + SetForegroundWindow (推荐方法)
+            try
+            {
+                IntPtr currentForegroundWindow = GetForegroundWindow();
+                uint currentThreadId = GetCurrentThreadId();
+                uint targetThreadId = GetWindowThreadProcessId(hWnd, IntPtr.Zero);
+                uint foregroundThreadId = GetWindowThreadProcessId(currentForegroundWindow, IntPtr.Zero);
+
+                // 附加输入线程到目标窗口线程
+                if (currentThreadId != targetThreadId)
+                {
+                    AttachThreadInput(currentThreadId, targetThreadId, true);
+                    AttachThreadInput(foregroundThreadId, targetThreadId, true);
+
+                    // 尝试激活
+                    BringWindowToTop(hWnd);
+                    ShowWindow(hWnd, SW_RESTORE);
+                    SetForegroundWindow(hWnd);
+
+                    // 分离线程输入
+                    AttachThreadInput(currentThreadId, targetThreadId, false);
+                    AttachThreadInput(foregroundThreadId, targetThreadId, false);
+
+                    // 验证是否成功
+                    if (GetForegroundWindow() == hWnd)
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                // 忽略错误，继续尝试其他方法
+            }
+
+            // 方法 3: SwitchToThisWindow (最激进的方法)
+            try
+            {
+                SwitchToThisWindow(hWnd, true);
+                return true;
+            }
+            catch
+            {
+                // 最后的尝试也失败了
+                return false;
             }
         }
 
@@ -1319,6 +1380,23 @@ namespace ManagedWinapi.Windows
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr ProcessId);
+
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentThreadId();
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool BringWindowToTop(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
 
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern int GetWindowText(IntPtr hWnd, [Out] StringBuilder lpString, int nMaxCount);
