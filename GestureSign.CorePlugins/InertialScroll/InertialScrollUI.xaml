@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:GestureSign.CorePlugins.InertialScroll"
              xmlns:localization="clr-namespace:GestureSign.Common.Localization;assembly=GestureSign.Common"
              mc:Ignorable="d"
-             d:DesignHeight="400"
+             d:DesignHeight="300"
              d:DesignWidth="320">
     <StackPanel Margin="10">
 
@@ -19,103 +19,35 @@
             <ComboBoxItem Content="{localization:LocalisedText CorePlugins.InertialScroll.DirectionBoth}" Tag="Both"/>
         </ComboBox>
 
-        <!-- 启用惯性 -->
-        <CheckBox x:Name="EnableInertiaCheckBox"
-                  Content="{localization:LocalisedText CorePlugins.InertialScroll.EnableInertialScrolling}"
-                  IsChecked="True"
-                  FontSize="14"
-                  Margin="0,0,0,10"
-                  Checked="EnableInertiaCheckBox_Changed"
-                  Unchecked="EnableInertiaCheckBox_Changed"/>
-
-        <StackPanel x:Name="InertiaPanel" IsEnabled="{Binding ElementName=EnableInertiaCheckBox, Path=IsChecked}">
-
-            <!-- 惯性强度 -->
-            <TextBlock Text="{localization:LocalisedText CorePlugins.InertialScroll.InertiaStrength}" FontSize="14" Margin="0,0,0,5"/>
-            <Grid Margin="0,0,0,10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="60"/>
-                </Grid.ColumnDefinitions>
-                <Slider x:Name="InertiaStrengthSlider"
-                        Minimum="0.5" Maximum="2.0" Value="1.0"
-                        TickFrequency="0.1" IsSnapToTickEnabled="True"
-                        ValueChanged="Slider_ValueChanged"/>
-                <TextBox Grid.Column="1"
-                         Text="{Binding ElementName=InertiaStrengthSlider, Path=Value, StringFormat=F1}"
-                         IsReadOnly="True" TextAlignment="Center" Margin="5,0,0,0"/>
-            </Grid>
-
-            <!-- 持续时间 -->
-            <TextBlock Text="{localization:LocalisedText CorePlugins.InertialScroll.InertiaDuration}" FontSize="14" Margin="0,0,0,5"/>
-            <Grid Margin="0,0,0,10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="60"/>
-                </Grid.ColumnDefinitions>
-                <Slider x:Name="DurationSlider"
-                        Minimum="0.5" Maximum="3.0" Value="1.5"
-                        TickFrequency="0.1" IsSnapToTickEnabled="True"
-                        ValueChanged="Slider_ValueChanged"/>
-                <TextBox Grid.Column="1"
-                         Text="{Binding ElementName=DurationSlider, Path=Value, StringFormat=F1}"
-                         IsReadOnly="True" TextAlignment="Center" Margin="5,0,0,0"/>
-            </Grid>
-
-            <!-- 高级设置 -->
-            <Expander Header="{localization:LocalisedText CorePlugins.InertialScroll.AdvancedSettings}" IsExpanded="False" Margin="0,10,0,0">
-                <StackPanel Margin="0,10,0,0">
-                    <TextBlock Text="{localization:LocalisedText CorePlugins.InertialScroll.DecayRate}" FontSize="14" Margin="0,0,0,5"/>
-                    <Grid Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="60"/>
-                        </Grid.ColumnDefinitions>
-                        <Slider x:Name="DecayRateSlider"
-                                Minimum="0.85" Maximum="0.98" Value="0.95"
-                                TickFrequency="0.01" IsSnapToTickEnabled="True"
-                                ValueChanged="Slider_ValueChanged"/>
-                        <TextBox Grid.Column="1"
-                                 Text="{Binding ElementName=DecayRateSlider, Path=Value, StringFormat=F2}"
-                                 IsReadOnly="True" TextAlignment="Center" Margin="5,0,0,0"/>
-                    </Grid>
-
-                    <TextBlock Text="{localization:LocalisedText CorePlugins.InertialScroll.MinimumVelocity}" FontSize="14" Margin="0,0,0,5"/>
-                    <TextBox x:Name="MinVelocityTextBox" Text="50" FontSize="14" Margin="0,0,0,10"
-                             TextChanged="MinVelocityTextBox_TextChanged"/>
-
-                    <TextBlock Text="{localization:LocalisedText CorePlugins.InertialScroll.PixelsPerScrollUnit}" FontSize="14" Margin="0,0,0,5"/>
-                    <Grid Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="60"/>
-                        </Grid.ColumnDefinitions>
-                        <Slider x:Name="PixelsPerScrollUnitSlider"
-                                Minimum="3.0" Maximum="30.0" Value="5.0"
-                                TickFrequency="1.0" IsSnapToTickEnabled="True"
-                                ValueChanged="Slider_ValueChanged"/>
-                        <TextBox Grid.Column="1"
-                                 Text="{Binding ElementName=PixelsPerScrollUnitSlider, Path=Value, StringFormat=F1}"
-                                 IsReadOnly="True" TextAlignment="Center" Margin="5,0,0,0"/>
-                    </Grid>
-                </StackPanel>
-            </Expander>
-
-        </StackPanel>
-
-        <!-- 距离倍数 -->
-        <TextBlock Text="{localization:LocalisedText CorePlugins.InertialScroll.DistanceMultiplier}" FontSize="14" Margin="0,10,0,5"/>
+        <!-- 滚动精度 (像素/滚动单位) -->
+        <TextBlock Text="{localization:LocalisedText CorePlugins.InertialScroll.PixelsPerScrollUnit}" FontSize="14" Margin="0,0,0,5"/>
         <Grid Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="60"/>
             </Grid.ColumnDefinitions>
-            <Slider x:Name="MultiplierSlider"
-                    Minimum="0.5" Maximum="3.0" Value="1.0"
+            <Slider x:Name="PixelsPerScrollUnitSlider"
+                    Minimum="0.5" Maximum="100.0" Value="30.0"
+                    TickFrequency="0.5" IsSnapToTickEnabled="True"
+                    ValueChanged="Slider_ValueChanged"/>
+            <TextBox Grid.Column="1"
+                     Text="{Binding ElementName=PixelsPerScrollUnitSlider, Path=Value, StringFormat=F0}"
+                     IsReadOnly="True" TextAlignment="Center" Margin="5,0,0,0"/>
+        </Grid>
+
+        <!-- 加速因子 -->
+        <TextBlock Text="{localization:LocalisedText CorePlugins.InertialScroll.AccelerationFactor}" FontSize="14" Margin="0,0,0,5"/>
+        <Grid Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="60"/>
+            </Grid.ColumnDefinitions>
+            <Slider x:Name="AccelerationSlider"
+                    Minimum="0.1" Maximum="5.0" Value="1.0"
                     TickFrequency="0.1" IsSnapToTickEnabled="True"
                     ValueChanged="Slider_ValueChanged"/>
             <TextBox Grid.Column="1"
-                     Text="{Binding ElementName=MultiplierSlider, Path=Value, StringFormat=F1}"
+                     Text="{Binding ElementName=AccelerationSlider, Path=Value, StringFormat=F1}"
                      IsReadOnly="True" TextAlignment="Center" Margin="5,0,0,0"/>
         </Grid>
 
@@ -125,6 +57,27 @@
                   FontSize="14" Margin="0,5,0,0"
                   Checked="ReverseCheckBox_Changed"
                   Unchecked="ReverseCheckBox_Changed"/>
+
+        <!-- 反向水平滚动 -->
+        <CheckBox x:Name="ReverseHorizontalCheckBox"
+                  Content="{localization:LocalisedText CorePlugins.InertialScroll.ReverseHorizontalScrollDirection}"
+                  FontSize="14" Margin="0,5,0,0"
+                  Checked="ReverseHorizontalCheckBox_Changed"
+                  Unchecked="ReverseHorizontalCheckBox_Changed"/>
+
+        <!-- 滚动抖动过滤 -->
+        <TextBlock FontSize="14" Margin="0,15,0,5">
+            <Run Text="{localization:LocalisedText CorePlugins.InertialScroll.MinorAxisThreshold}"/>
+            <Run Text="{Binding ElementName=MinorAxisThresholdSlider, Path=Value, StringFormat=P0, Mode=OneWay}"/>
+        </TextBlock>
+        <Slider x:Name="MinorAxisThresholdSlider"
+                Minimum="0.0" Maximum="0.8" TickFrequency="0.1"
+                IsSnapToTickEnabled="True"
+                ValueChanged="MinorAxisThresholdSlider_ValueChanged"
+                Margin="0,0,0,5"/>
+        <TextBlock FontSize="12" Foreground="Gray" Margin="0,0,0,10"
+                   TextWrapping="Wrap"
+                   Text="{localization:LocalisedText CorePlugins.InertialScroll.MinorAxisThresholdDescription}"/>
 
         <!-- 提示 -->
         <TextBlock Text="{localization:LocalisedText CorePlugins.InertialScroll.Tip}"

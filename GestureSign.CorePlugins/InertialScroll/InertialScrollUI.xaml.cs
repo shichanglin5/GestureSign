@@ -44,21 +44,16 @@ namespace GestureSign.CorePlugins.InertialScroll
                 }
             }
 
-            // 惯性设置
-            EnableInertiaCheckBox.IsChecked = _settings.EnableInertia;
-            InertiaStrengthSlider.Value = _settings.InertiaStrength;
-            DurationSlider.Value = _settings.InertiaDuration;
-            DecayRateSlider.Value = _settings.DecayRate;
-
-            // 距离倍数
-            MultiplierSlider.Value = _settings.DistanceMultiplier;
-
-            // 最小速度和像素转换比例
-            MinVelocityTextBox.Text = _settings.MinimumVelocity.ToString();
+            // 滚动精度和加速因子
             PixelsPerScrollUnitSlider.Value = _settings.PixelsPerScrollUnit;
+            AccelerationSlider.Value = _settings.AccelerationFactor;
 
             // 反向
             ReverseCheckBox.IsChecked = _settings.ReverseDirection;
+            ReverseHorizontalCheckBox.IsChecked = _settings.ReverseHorizontalDirection;
+
+            // 抖动过滤阈值
+            MinorAxisThresholdSlider.Value = _settings.MinorAxisThreshold;
         }
 
         /// <summary>
@@ -74,31 +69,21 @@ namespace GestureSign.CorePlugins.InertialScroll
                 _settings.Direction = Enum.Parse<ScrollDirection>(selectedItem.Tag.ToString());
             }
 
-            // 惯性设置
-            if (EnableInertiaCheckBox != null)
-                _settings.EnableInertia = EnableInertiaCheckBox.IsChecked ?? true;
-            if (InertiaStrengthSlider != null)
-                _settings.InertiaStrength = InertiaStrengthSlider.Value;
-            if (DurationSlider != null)
-                _settings.InertiaDuration = DurationSlider.Value;
-            if (DecayRateSlider != null)
-                _settings.DecayRate = DecayRateSlider.Value;
-
-            // 距离倍数
-            if (MultiplierSlider != null)
-                _settings.DistanceMultiplier = MultiplierSlider.Value;
-
-            // 最小速度和像素转换比例
-            if (MinVelocityTextBox != null && double.TryParse(MinVelocityTextBox.Text, out double minVel))
-            {
-                _settings.MinimumVelocity = minVel;
-            }
+            // 滚动精度和加速因子
             if (PixelsPerScrollUnitSlider != null)
                 _settings.PixelsPerScrollUnit = PixelsPerScrollUnitSlider.Value;
+            if (AccelerationSlider != null)
+                _settings.AccelerationFactor = AccelerationSlider.Value;
 
             // 反向
             if (ReverseCheckBox != null)
                 _settings.ReverseDirection = ReverseCheckBox.IsChecked ?? false;
+            if (ReverseHorizontalCheckBox != null)
+                _settings.ReverseHorizontalDirection = ReverseHorizontalCheckBox.IsChecked ?? false;
+
+            // 抖动过滤阈值
+            if (MinorAxisThresholdSlider != null)
+                _settings.MinorAxisThreshold = MinorAxisThresholdSlider.Value;
         }
 
         #region Event Handlers
@@ -108,22 +93,22 @@ namespace GestureSign.CorePlugins.InertialScroll
             SaveSettings();
         }
 
-        private void EnableInertiaCheckBox_Changed(object sender, RoutedEventArgs e)
-        {
-            SaveSettings();
-        }
-
         private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             SaveSettings();
         }
 
-        private void MinVelocityTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        private void ReverseCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             SaveSettings();
         }
 
-        private void ReverseCheckBox_Changed(object sender, RoutedEventArgs e)
+        private void ReverseHorizontalCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            SaveSettings();
+        }
+
+        private void MinorAxisThresholdSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             SaveSettings();
         }

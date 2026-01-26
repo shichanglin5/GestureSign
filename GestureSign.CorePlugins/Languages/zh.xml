@@ -241,15 +241,12 @@
       <Category>触摸</Category>
       <Description>基于滑动速度的惯性滚动效果</Description>
       <ScrollDirection>滚动方向</ScrollDirection>
-      <EnableInertialScrolling>启用惯性滚动</EnableInertialScrolling>
-      <InertiaStrength>惯性强度</InertiaStrength>
-      <InertiaDuration>惯性持续时间（秒）</InertiaDuration>
-      <AdvancedSettings>高级设置</AdvancedSettings>
-      <DecayRate>衰减率</DecayRate>
-      <MinimumVelocity>最小速度（像素/秒）</MinimumVelocity>
-      <PixelsPerScrollUnit>像素转滚动单位比例</PixelsPerScrollUnit>
-      <DistanceMultiplier>距离倍数</DistanceMultiplier>
-      <ReverseScrollDirection>反向滚动</ReverseScrollDirection>
+      <PixelsPerScrollUnit>滚动细腻度</PixelsPerScrollUnit>
+      <AccelerationFactor>加速因子</AccelerationFactor>
+      <ReverseScrollDirection>反向垂直滚动</ReverseScrollDirection>
+      <ReverseHorizontalScrollDirection>反向水平滚动</ReverseHorizontalScrollDirection>
+      <MinorAxisThreshold>滚动抖动过滤</MinorAxisThreshold>
+      <MinorAxisThresholdDescription>过滤轻微的次方向抖动。值越大过滤越严格，0%=不过滤。推荐：30%</MinorAxisThresholdDescription>
       <Tip>提示：配合双指连续手势使用（上/下/左/右）</Tip>
       <DirectionVertical>垂直</DirectionVertical>
       <DirectionHorizontal>水平</DirectionHorizontal>

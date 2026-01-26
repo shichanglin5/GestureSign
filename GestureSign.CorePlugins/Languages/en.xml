@@ -240,15 +240,12 @@
       <Category>Touch</Category>
       <Description>Scroll with inertia effect based on swipe velocity</Description>
       <ScrollDirection>Scroll Direction</ScrollDirection>
-      <EnableInertialScrolling>Enable Inertial Scrolling</EnableInertialScrolling>
-      <InertiaStrength>Inertia Strength</InertiaStrength>
-      <InertiaDuration>Inertia Duration (seconds)</InertiaDuration>
-      <AdvancedSettings>Advanced Settings</AdvancedSettings>
-      <DecayRate>Decay Rate</DecayRate>
-      <MinimumVelocity>Minimum Velocity (px/s)</MinimumVelocity>
-      <PixelsPerScrollUnit>Pixels Per Scroll Unit</PixelsPerScrollUnit>
-      <DistanceMultiplier>Distance Multiplier</DistanceMultiplier>
-      <ReverseScrollDirection>Reverse Scroll Direction</ReverseScrollDirection>
+      <PixelsPerScrollUnit>Scroll Granularity</PixelsPerScrollUnit>
+      <AccelerationFactor>Acceleration Factor</AccelerationFactor>
+      <ReverseScrollDirection>Reverse Vertical Scroll</ReverseScrollDirection>
+      <ReverseHorizontalScrollDirection>Reverse Horizontal Scroll</ReverseHorizontalScrollDirection>
+      <MinorAxisThreshold>Jitter Filter</MinorAxisThreshold>
+      <MinorAxisThresholdDescription>Filter minor axis jitter. Higher values = stricter filtering, 0%=no filter. Recommended: 30%</MinorAxisThresholdDescription>
       <Tip>Tip: Use with 2-finger continuous gesture (Up/Down/Left/Right)</Tip>
       <DirectionVertical>Vertical</DirectionVertical>
       <DirectionHorizontal>Horizontal</DirectionHorizontal>

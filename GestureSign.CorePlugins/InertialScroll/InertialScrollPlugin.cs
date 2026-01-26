@@ -1,7 +1,4 @@
 using System;
-using System.Diagnostics;
-using System.Threading.Tasks;
-using System.Runtime.InteropServices;
 using WindowsInput;
 using GestureSign.Common.Localization;
 using GestureSign.Common.Plugins;
@@ -11,57 +8,23 @@ using GestureSign.Common.Log;
 namespace GestureSign.CorePlugins.InertialScroll
 {
     /// <summary>
-    /// 惯性滚动插件 - 基于双指滑动速度实现自然的惯性滚动效果
+    /// 惯性滚动插件 - 基于双指滑动速度实现跟手的滚动效果
     /// </summary>
     public class InertialScrollPlugin : IPlugin
     {
-        #region Win32 API
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
-
-        [DllImport("user32.dll")]
-        private static extern int GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
-
-        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct INPUT
-        {
-            public uint type;
-            public MOUSEINPUT mi;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MOUSEINPUT
-        {
-            public int dx;
-            public int dy;
-            public uint mouseData;
-            public uint dwFlags;
-            public uint time;
-            public IntPtr dwExtraInfo;
-        }
-
-        private const uint INPUT_MOUSE = 0;
-        private const uint MOUSEEVENTF_WHEEL = 0x0800;
-        private const uint MOUSEEVENTF_HWHEEL = 0x01000;
-        private const int WHEEL_DELTA = 120;
-
-        #endregion
-
         #region Private Variables
 
         private InertialScrollSettings _settings = null;
         private InertialScrollUI _gui = null;
-        private System.Threading.CancellationTokenSource _cancellationTokenSource = null;
+        private static readonly InputSimulator _inputSimulator = new InputSimulator();
+
+        // 位移累积器 - 用于累积小的位移直到达到滚动阈值
+        private double _accumulatedX = 0;
+        private double _accumulatedY = 0;
+
+        // 上次手势时间戳 - 用于检测新手势会话
+        private DateTime _lastGestureTime = DateTime.MinValue;
+        private const int NewGestureThresholdMs = 200;
 
         #endregion
 
@@ -93,18 +56,15 @@ namespace GestureSign.CorePlugins.InertialScroll
 
         public bool Gestured(PointInfo actionPoint)
         {
-            Logging.LogDebug($"[InertialScrollPlugin] Gestured called: Velocity={(actionPoint.Velocity?.Magnitude ?? 0):F1} px/s");
+            // 实时从 GUI 获取最新设置（如果 GUI 存在）
+            if (_gui != null)
+                _settings = _gui.Settings;
 
             if (_settings == null)
             {
                 Logging.LogWarning("[InertialScrollPlugin] Settings is null");
                 return false;
             }
-
-            // 取消之前的惯性滚动（如果有）
-            _cancellationTokenSource?.Cancel();
-            _cancellationTokenSource?.Dispose();
-            _cancellationTokenSource = new System.Threading.CancellationTokenSource();
 
             // 检查是否有速度信息
             if (actionPoint.Velocity == null)
@@ -115,41 +75,48 @@ namespace GestureSign.CorePlugins.InertialScroll
 
             var velocity = actionPoint.Velocity.Value;
 
-            // 检查速度是否显著
-            if (!velocity.IsSignificant(_settings.MinimumVelocity))
+            // 检测新手势会话 - 如果时间间隔超过阈值，重置累积器
+            var timeSinceLastGesture = (velocity.Timestamp - _lastGestureTime).TotalMilliseconds;
+            if (timeSinceLastGesture > NewGestureThresholdMs)
             {
-                Logging.LogDebug($"[InertialScrollPlugin] Velocity too low: {velocity.Magnitude:F1} < {_settings.MinimumVelocity}");
-                // 速度太低,执行简单滚动
-                ExecuteSimpleScroll(velocity);
+                _accumulatedX = 0;
+                _accumulatedY = 0;
+            }
+            _lastGestureTime = velocity.Timestamp;
+
+            // 基于位移判断 - 只要有位移就滚动，不再检查速度阈值
+            // 这样即使慢速滑动也能响应，实现真正的跟手滚动
+            if (velocity.DeltaX == 0 && velocity.DeltaY == 0)
+            {
                 return false;
             }
 
-            Logging.LogInfo($"[InertialScrollPlugin] Executing inertial scroll: Velocity={velocity.Magnitude:F1} px/s, Direction={_settings.Direction}, Inertia={_settings.EnableInertia}");
+            // 计算非线性速度倍数 - 慢速放大，快速根据加速因子调整
+            double speedMultiplier = CalculateSpeedMultiplier(velocity.Magnitude);
 
-            // 应用方向过滤
+            // 应用方向过滤和速度曲线
+            // 垂直：默认反向（向上滑动页面向下滚，符合触控板习惯）
+            // 水平：默认同向（向右滑动页面向右滚，符合触屏习惯）
+            double verticalMultiplier = speedMultiplier * (_settings.ReverseDirection ? -1 : 1);
+            double horizontalMultiplier = speedMultiplier * (_settings.ReverseHorizontalDirection ? 1 : -1);
+
+            double deltaX = velocity.DeltaX * horizontalMultiplier;
+            double deltaY = velocity.DeltaY * verticalMultiplier;
+
             if (_settings.Direction == ScrollDirection.Vertical)
-                velocity = new VelocityVector(0, velocity.VelocityY);
+                deltaX = 0;
             else if (_settings.Direction == ScrollDirection.Horizontal)
-                velocity = new VelocityVector(velocity.VelocityX, 0);
+                deltaY = 0;
 
-            // 应用倍数和反向
-            double multiplier = _settings.DistanceMultiplier * (_settings.ReverseDirection ? -1 : 1);
-            velocity = new VelocityVector(
-                velocity.VelocityX * multiplier,
-                velocity.VelocityY * multiplier
-            );
+            // 应用抖动过滤（仅在双向模式下）
+            if (_settings.Direction == ScrollDirection.Both && _settings.MinorAxisThreshold > 0)
+            {
+                ApplyJitterFilter(ref deltaX, ref deltaY);
+            }
 
-            if (_settings.EnableInertia)
-            {
-                // 异步执行惯性滚动,不阻塞主线程
-                var token = _cancellationTokenSource.Token;
-                _ = Task.Run(() => SimulateInertialScroll(velocity, _settings, token), token);
-            }
-            else
-            {
-                // 简单一次性滚动
-                ExecuteSimpleScroll(velocity);
-            }
+            // 连续手势会频繁触发（每帧一次），所以直接执行即时滚动
+            // 使用实际位移实现跟手效果
+            ExecuteSimpleScroll(deltaX, deltaY, velocity.Magnitude, speedMultiplier);
 
             return true;
         }
@@ -175,52 +142,40 @@ namespace GestureSign.CorePlugins.InertialScroll
         #region Private Methods
 
         /// <summary>
-        /// 模拟惯性滚动效果
+        /// 执行即时滚动 - 使用累积器实现平滑跟手效果（高精度滚动）
         /// </summary>
-        private async Task SimulateInertialScroll(VelocityVector initialVelocity, InertialScrollSettings settings, System.Threading.CancellationToken cancellationToken)
+        /// <param name="deltaX">水平位移（像素）</param>
+        /// <param name="deltaY">垂直位移（像素）</param>
+        /// <param name="velocityMagnitude">速度大小（用于日志）</param>
+        /// <param name="speedMultiplier">速度倍数（用于日志）</param>
+        private void ExecuteSimpleScroll(double deltaX, double deltaY, double velocityMagnitude = 0, double speedMultiplier = 1)
         {
-            const int frameInterval = 16;  // 60 FPS (16ms/帧)
-
-            // 应用初始强度
-            double velocityX = initialVelocity.VelocityX * settings.InertiaStrength;
-            double velocityY = initialVelocity.VelocityY * settings.InertiaStrength;
-
-            var stopwatch = Stopwatch.StartNew();
-
             try
             {
-                while (stopwatch.Elapsed.TotalSeconds < settings.InertiaDuration && !cancellationToken.IsCancellationRequested)
-                {
-                    // 计算当前速度大小
-                    double magnitude = Math.Sqrt(velocityX * velocityX + velocityY * velocityY);
-                    if (magnitude < settings.MinimumVelocity)
-                        break;  // 低于阈值,提前终止
+                // 累积位移
+                _accumulatedX += deltaX;
+                _accumulatedY += deltaY;
 
-                    // 计算本帧的滚动距离
-                    double frameVelocityX = velocityX * frameInterval / 1000.0;  // 像素
-                    double frameVelocityY = velocityY * frameInterval / 1000.0;
+                // 高精度滚动：将像素转换为原始滚轮delta值
+                // WHEEL_DELTA = 120 是标准鼠标滚轮一格的值
+                // PixelsPerScrollUnit 表示多少像素等于一个标准滚轮单位(120)
+                const int WHEEL_DELTA = 120;
 
-                    // 转换为滚动单位 (默认 5 像素 = 1 滚动单位，可在 UI 配置)
-                    int scrollX = (int)Math.Round(frameVelocityX / settings.PixelsPerScrollUnit);
-                    int scrollY = (int)Math.Round(frameVelocityY / settings.PixelsPerScrollUnit);
+                // 计算原始wheel delta值（不再是整数"格"）
+                int scrollDeltaX = (int)(_accumulatedX / _settings.PixelsPerScrollUnit * WHEEL_DELTA);
+                int scrollDeltaY = (int)(_accumulatedY / _settings.PixelsPerScrollUnit * WHEEL_DELTA);
 
-                    // 执行滚动 - 使用 SendInput API 注入硬件级输入
-                    if (scrollY != 0)
-                        SendScrollMessage(scrollY, isHorizontal: false);
-                    if (scrollX != 0)
-                        SendScrollMessage(scrollX, isHorizontal: true);
+                // 从累积器中扣除已转换的部分（保留小数部分以提高精度）
+                if (scrollDeltaX != 0)
+                    _accumulatedX -= scrollDeltaX * _settings.PixelsPerScrollUnit / WHEEL_DELTA;
+                if (scrollDeltaY != 0)
+                    _accumulatedY -= scrollDeltaY * _settings.PixelsPerScrollUnit / WHEEL_DELTA;
 
-                    // 应用指数衰减
-                    velocityX *= settings.DecayRate;
-                    velocityY *= settings.DecayRate;
-
-                    await Task.Delay(frameInterval, cancellationToken);
-                }
-            }
-            catch (System.Threading.Tasks.TaskCanceledException)
-            {
-                // 被取消,正常退出
-                Logging.LogDebug("[InertialScrollPlugin] Inertial scroll cancelled");
+                // 使用高精度滚动API发送原始delta值
+                if (scrollDeltaY != 0)
+                    SendScrollDelta(scrollDeltaY, isHorizontal: false);
+                if (scrollDeltaX != 0)
+                    SendScrollDelta(scrollDeltaX, isHorizontal: true);
             }
             catch (Exception ex)
             {
@@ -229,82 +184,19 @@ namespace GestureSign.CorePlugins.InertialScroll
         }
 
         /// <summary>
-        /// 执行简单的一次性滚动
+        /// 发送高精度滚动消息 - 使用原始wheel delta值
         /// </summary>
-        private void ExecuteSimpleScroll(VelocityVector velocity)
+        private static void SendScrollDelta(int delta, bool isHorizontal)
         {
             try
             {
-                int scrollX = (int)Math.Round(velocity.VelocityX / _settings.PixelsPerScrollUnit);
-                int scrollY = (int)Math.Round(velocity.VelocityY / _settings.PixelsPerScrollUnit);
-
-                if (scrollY != 0)
-                    SendScrollMessage(scrollY, isHorizontal: false);
-                if (scrollX != 0)
-                    SendScrollMessage(scrollX, isHorizontal: true);
-            }
-            catch (Exception ex)
-            {
-                Logging.LogException(ex);
-            }
-        }
-
-        /// <summary>
-        /// 发送滚动消息 - 使用 SendInput API 注入硬件级输入 (与 Windows 原生滚动完全一致)
-        /// </summary>
-        private static void SendScrollMessage(int delta, bool isHorizontal)
-        {
-            try
-            {
-                // 获取前台窗口信息用于诊断
-                IntPtr foregroundWindow = GetForegroundWindow();
-                string windowInfo = "Unknown";
-                string className = "Unknown";
-
-                if (foregroundWindow != IntPtr.Zero)
+                if (isHorizontal)
                 {
-                    try
-                    {
-                        var titleBuilder = new System.Text.StringBuilder(256);
-                        var classBuilder = new System.Text.StringBuilder(256);
-                        GetWindowText(foregroundWindow, titleBuilder, 256);
-                        GetClassName(foregroundWindow, classBuilder, 256);
-
-                        GetWindowThreadProcessId(foregroundWindow, out int pid);
-                        var process = System.Diagnostics.Process.GetProcessById(pid);
-                        windowInfo = $"{process.ProcessName} - {titleBuilder}";
-                        className = classBuilder.ToString();
-                    }
-                    catch
-                    {
-                        // Ignore errors getting window info
-                    }
+                    _inputSimulator.Mouse.HorizontalScrollDelta(delta);
                 }
-
-                // 创建 INPUT 结构
-                var input = new INPUT
+                else
                 {
-                    type = INPUT_MOUSE,
-                    mi = new MOUSEINPUT
-                    {
-                        dx = 0,
-                        dy = 0,
-                        mouseData = (uint)(delta * WHEEL_DELTA),
-                        dwFlags = isHorizontal ? MOUSEEVENTF_HWHEEL : MOUSEEVENTF_WHEEL,
-                        time = 0,
-                        dwExtraInfo = IntPtr.Zero
-                    }
-                };
-
-                // 使用 SendInput 注入鼠标滚轮事件 (硬件级输入，所有应用都会响应)
-                uint result = SendInput(1, new INPUT[] { input }, Marshal.SizeOf(typeof(INPUT)));
-
-                if (result == 0)
-                {
-                    int errorCode = Marshal.GetLastWin32Error();
-                    Logging.LogWarning($"[InertialScrollPlugin] SendInput failed with error code: {errorCode}, " +
-                                      $"ForegroundWindow: {windowInfo}, ClassName: {className}, " +
-                                      $"Direction: {(isHorizontal ? "Horizontal" : "Vertical")}, Delta: {delta}");
+                    _inputSimulator.Mouse.VerticalScrollDelta(delta);
                 }
             }
             catch (Exception ex)
@@ -327,7 +219,7 @@ namespace GestureSign.CorePlugins.InertialScroll
         private string GetDescription()
         {
             if (_settings == null)
-                return "Inertial Scroll";
+                return "Scroll";
 
             string direction = _settings.Direction switch
             {
@@ -336,9 +228,81 @@ namespace GestureSign.CorePlugins.InertialScroll
                 _ => "Auto"
             };
 
-            string inertia = _settings.EnableInertia ? $"Inertia:{_settings.InertiaStrength:F1}" : "No Inertia";
+            return $"Scroll ({direction}, Accel={_settings.AccelerationFactor:F1}x)";
+        }
 
-            return $"Inertial Scroll ({direction}, {inertia})";
+        /// <summary>
+        /// 应用抖动过滤 - 主方向优先算法
+        /// 当次方向位移占比小于阈值时，忽略次方向滚动
+        /// </summary>
+        /// <param name="deltaX">水平位移（会被修改）</param>
+        /// <param name="deltaY">垂直位移（会被修改）</param>
+        private void ApplyJitterFilter(ref double deltaX, ref double deltaY)
+        {
+            double absDeltaX = Math.Abs(deltaX);
+            double absDeltaY = Math.Abs(deltaY);
+
+            // 如果某个方向为零，无需过滤
+            if (absDeltaX == 0 || absDeltaY == 0)
+                return;
+
+            // 确定主方向和次方向
+            bool isMainlyVertical = absDeltaY >= absDeltaX;
+            double mainDelta = isMainlyVertical ? absDeltaY : absDeltaX;
+            double minorDelta = isMainlyVertical ? absDeltaX : absDeltaY;
+
+            // 计算次方向占比
+            double minorRatio = minorDelta / mainDelta;
+
+            // 如果次方向占比太小，归零次方向
+            if (minorRatio < _settings.MinorAxisThreshold)
+            {
+                if (isMainlyVertical)
+                    deltaX = 0;  // 主要是垂直滚动，忽略水平抖动
+                else
+                    deltaY = 0;  // 主要是水平滚动，忽略垂直抖动
+            }
+        }
+
+        /// <summary>
+        /// 非线性速度映射 - 慢速放大，快速根据加速因子加速
+        /// 模仿 macOS 触控板的跟手体验，支持可配置的加速度
+        /// </summary>
+        /// <param name="velocity">速度大小（像素/秒）</param>
+        /// <returns>速度倍数</returns>
+        private double CalculateSpeedMultiplier(double velocity)
+        {
+            double absVelocity = Math.Abs(velocity);
+
+            if (absVelocity < 100)
+            {
+                // 极慢速：大幅放大，确保能滚动
+                return 5.0;
+            }
+            else if (absVelocity < 500)
+            {
+                // 慢速：从 5.0 平滑过渡到 2.0
+                double t = (absVelocity - 100) / 400.0;
+                return 5.0 - 3.0 * t;
+            }
+            else if (absVelocity < 2000)
+            {
+                // 中速：从 2.0 平滑过渡到 1.0
+                double t = (absVelocity - 500) / 1500.0;
+                return 2.0 - 1.0 * t;
+            }
+            else
+            {
+                // 快速：根据加速因子调整
+                // AccelerationFactor = 1.0 时，保持 1.0 倍数（跟手，不加速）
+                // AccelerationFactor > 1.0 时，适度加速
+                // AccelerationFactor < 1.0 时，抑制速度
+                // 使用温和的加速曲线：倍数 = 1.0 * AccelerationFactor^(log(velocity/2000))
+                // 这样在 2000 px/s 时倍数恰好为 1.0，更快时根据 AccelerationFactor 缓慢增长
+                double velocityRatio = absVelocity / 2000.0;  // >= 1.0
+                double exponent = Math.Log(velocityRatio, 2.0) * 0.3;  // 温和的对数增长
+                return Math.Pow(_settings.AccelerationFactor, exponent);
+            }
         }
 
         #endregion

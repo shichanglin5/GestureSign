@@ -3,7 +3,7 @@ using System;
 namespace GestureSign.CorePlugins.InertialScroll
 {
     /// <summary>
-    /// 惯性滚动插件配置
+    /// 跟手滚动插件配置
     /// </summary>
     public class InertialScrollSettings
     {
@@ -13,45 +13,37 @@ namespace GestureSign.CorePlugins.InertialScroll
         public ScrollDirection Direction { get; set; } = ScrollDirection.Vertical;
 
         /// <summary>
-        /// 是否启用惯性效果
+        /// 滚动细腻度 (0.5-100.0)
+        /// 表示多少像素位移等于一个标准滚轮单位(WHEEL_DELTA=120)
+        /// 值越大滚动越细腻/越慢，值越小滚动越粗糙/越快
+        /// 默认 30.0: 30像素 = 120 wheel delta, 即 1像素 = 4 wheel delta
         /// </summary>
-        public bool EnableInertia { get; set; } = true;
+        public double PixelsPerScrollUnit { get; set; } = 30.0;
 
         /// <summary>
-        /// 惯性强度 (0.5-2.0),影响初始滚动速度
+        /// 加速因子 (0.1-5.0), 控制快速滑动时的加速程度
+        /// 值越大，快速滑动时滚动速度提升越明显
+        /// 默认 1.0: 中速时达到 1:1 映射，快速时适度加速
         /// </summary>
-        public double InertiaStrength { get; set; } = 1.0;
+        public double AccelerationFactor { get; set; } = 1.0;
 
         /// <summary>
-        /// 惯性持续时间(秒,0.5-3.0),防止无限滚动
-        /// </summary>
-        public double InertiaDuration { get; set; } = 1.5;
-
-        /// <summary>
-        /// 速度衰减率 (0.85-0.98),每帧速度保留比例
-        /// </summary>
-        public double DecayRate { get; set; } = 0.95;
-
-        /// <summary>
-        /// 距离倍数 (0.5-3.0),调整滚动灵敏度
-        /// </summary>
-        public double DistanceMultiplier { get; set; } = 0.3;
-
-        /// <summary>
-        /// 最小速度阈值(像素/秒),低于此值停止惯性
-        /// </summary>
-        public double MinimumVelocity { get; set; } = 50;
-
-        /// <summary>
-        /// 像素到滚动单位的转换比例 (默认 5 像素 = 1 滚动单位)
-        /// 范围: 3.0 - 30.0, 值越小滚动越细腻
-        /// </summary>
-        public double PixelsPerScrollUnit { get; set; } = 5.0;
-
-        /// <summary>
-        /// 是否反向滚动
+        /// 是否反向垂直滚动
         /// </summary>
         public bool ReverseDirection { get; set; } = false;
+
+        /// <summary>
+        /// 是否反向水平滚动
+        /// </summary>
+        public bool ReverseHorizontalDirection { get; set; } = false;
+
+        /// <summary>
+        /// 次轴阈值 - 防止滚动抖动 (0.0-0.8)
+        /// 当次方向位移占比小于此值时，忽略次方向滚动
+        /// 例如: 0.3 表示次方向位移小于主方向的30%时忽略
+        /// 默认 0.3 (30%)
+        /// </summary>
+        public double MinorAxisThreshold { get; set; } = 0.3;
     }
 
     /// <summary>
