@@ -22,7 +22,9 @@
     <Message Text="========================================" Importance="high" />
 
     <!-- Create output directory if it doesn't exist -->
-    <MakeDir Directories="$(PackageOutputDir)" Condition="!Exists('$(PackageOutputDir)')" />
+    <MakeDir Directories="$(PackageOutputDir)"
+             Condition="!Exists('$(PackageOutputDir)')"
+             ContinueOnError="WarnAndContinue" />
 
     <!-- Copy main output files -->
     <ItemGroup>
@@ -36,7 +38,8 @@
     <Copy SourceFiles="@(MainFiles)"
           DestinationFolder="$(PackageOutputDir)"
           SkipUnchangedFiles="true"
-          Condition="Exists('%(FullPath)')" />
+          Condition="Exists('%(FullPath)') AND Exists('$(PackageOutputDir)')"
+          ContinueOnError="WarnAndContinue" />
 
     <!-- Copy all dependency DLLs (excluding main assemblies but including internal projects) -->
     <ItemGroup>
@@ -49,17 +52,22 @@
 
     <Copy SourceFiles="@(DependencyDlls)"
           DestinationFolder="$(PackageOutputDir)"
-          SkipUnchangedFiles="true" />
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(PackageOutputDir)')"
+          ContinueOnError="WarnAndContinue" />
 
     <Copy SourceFiles="@(DependencyConfigs)"
           DestinationFolder="$(PackageOutputDir)"
-          SkipUnchangedFiles="true" />
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(PackageOutputDir)')"
+          ContinueOnError="WarnAndContinue" />
 
     <!-- Copy runtime-specific DLLs maintaining folder structure -->
     <Copy SourceFiles="@(RuntimeDlls)"
           DestinationFolder="$(PackageOutputDir)\runtimes\%(RecursiveDir)"
           SkipUnchangedFiles="true"
-          Condition="'@(RuntimeDlls)' != ''" />
+          Condition="'@(RuntimeDlls)' != '' AND Exists('$(PackageOutputDir)')"
+          ContinueOnError="WarnAndContinue" />
 
     <!-- Copy Languages directory -->
     <ItemGroup>
@@ -69,7 +77,8 @@
     <Copy SourceFiles="@(LanguageFiles)"
           DestinationFolder="$(PackageOutputDir)\Languages\%(RecursiveDir)"
           SkipUnchangedFiles="true"
-          Condition="Exists('$(OutDir)Languages')" />
+          Condition="Exists('$(OutDir)Languages') AND Exists('$(PackageOutputDir)')"
+          ContinueOnError="WarnAndContinue" />
 
     <!-- Copy Defaults directory if exists -->
     <ItemGroup>
@@ -79,7 +88,8 @@
     <Copy SourceFiles="@(DefaultFiles)"
           DestinationFolder="$(PackageOutputDir)\Defaults\%(RecursiveDir)"
           SkipUnchangedFiles="true"
-          Condition="Exists('$(OutDir)Defaults')" />
+          Condition="Exists('$(OutDir)Defaults') AND Exists('$(PackageOutputDir)')"
+          ContinueOnError="WarnAndContinue" />
 
     <!-- Copy Plugins directory if exists -->
     <ItemGroup>
@@ -89,15 +99,18 @@
     <Copy SourceFiles="@(PluginFiles)"
           DestinationFolder="$(PackageOutputDir)\Plugins\%(RecursiveDir)"
           SkipUnchangedFiles="true"
-          Condition="Exists('$(OutDir)Plugins')" />
+          Condition="Exists('$(OutDir)Plugins') AND Exists('$(PackageOutputDir)')"
+          ContinueOnError="WarnAndContinue" />
 
     <!-- Copy startup script if exists -->
     <Copy SourceFiles="$(OutDir)StartGestureSign.bat"
           DestinationFolder="$(PackageOutputDir)"
           SkipUnchangedFiles="true"
-          Condition="Exists('$(OutDir)StartGestureSign.bat')" />
+          Condition="Exists('$(OutDir)StartGestureSign.bat') AND Exists('$(PackageOutputDir)')"
+          ContinueOnError="WarnAndContinue" />
 
-    <Message Text="Package completed: $(PackageOutputDir)" Importance="high" />
+    <Message Text="Package completed: $(PackageOutputDir)" Importance="high" Condition="Exists('$(PackageOutputDir)')" />
+    <Warning Text="Package directory $(PackageOutputDir) not accessible - files not copied (requires admin for uiAccessRelease)" Condition="!Exists('$(PackageOutputDir)')" />
   </Target>
 
   <!-- Optional: Add a clean target to clean the package directory contents -->
