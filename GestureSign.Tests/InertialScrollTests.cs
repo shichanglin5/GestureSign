@@ -1,0 +1,56 @@
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using GestureSign.Common.Applications;
+using GestureSign.CorePlugins.InertialScroll;
+using System;
+
+namespace GestureSign.Tests
+{
+    [TestClass]
+    public class InertialScrollTests
+    {
+        [TestMethod]
+        public void VelocityVector_Constructor_CalculatesCorrectMagnitude()
+        {
+            var velocity = new VelocityVector(300, 400);
+            Assert.AreEqual(300, velocity.VelocityX, 0.1);
+            Assert.AreEqual(400, velocity.VelocityY, 0.1);
+            Assert.AreEqual(500, velocity.Magnitude, 0.1);
+        }
+
+        [TestMethod]
+        public void VelocityVector_IsSignificant_ReturnsTrueForHighVelocity()
+        {
+            var velocity = new VelocityVector(100, 0);
+            Assert.IsTrue(velocity.IsSignificant(50));
+            Assert.IsFalse(velocity.IsSignificant(150));
+        }
+
+        [TestMethod]
+        public void InertialScrollSettings_DefaultValues_AreCorrect()
+        {
+            var settings = new InertialScrollSettings();
+            Assert.AreEqual(ScrollDirection.Vertical, settings.Direction);
+            Assert.IsTrue(settings.EnableInertia);
+            Assert.AreEqual(1.0, settings.InertiaStrength, 0.01);
+            Assert.AreEqual(1.5, settings.InertiaDuration, 0.01);
+            Assert.AreEqual(0.95, settings.DecayRate, 0.01);
+        }
+
+        [TestMethod]
+        public void InertialScrollPlugin_Name_IsNotNull()
+        {
+            var plugin = new InertialScrollPlugin();
+            // Note: Localization may not be initialized in test environment
+            // Just verify the property doesn't throw an exception
+            var name = plugin.Name;
+            Assert.IsNotNull(name);
+        }
+
+        [TestMethod]
+        public void InertialScrollPlugin_IsAction_ReturnsTrue()
+        {
+            var plugin = new InertialScrollPlugin();
+            Assert.IsTrue(plugin.IsAction);
+        }
+    }
+}
