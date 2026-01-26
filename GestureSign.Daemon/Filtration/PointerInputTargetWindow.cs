@@ -31,11 +31,17 @@ namespace GestureSign.Daemon.Filtration
             get { return _blockTouchInputThreshold; }
             set
             {
-                if (IsDisposed || !IsHandleCreated) return;
+                if (IsDisposed || !IsHandleCreated)
+                {
+                    GestureSign.Common.Log.Logging.LogWarning($"[PointerInputTargetWindow] Cannot set threshold: IsDisposed={IsDisposed}, IsHandleCreated={IsHandleCreated}");
+                    return;
+                }
 
                 _blockTouchInputThreshold = value;
 
                 bool flag = _blockTouchInputThreshold >= 2;
+
+                GestureSign.Common.Log.Logging.LogDebug($"[PointerInputTargetWindow] Setting threshold={value}, needRegister={flag}, InvokeRequired={InvokeRequired}");
 
                 if (InvokeRequired)
                     Invoke(new Action(() => IsRegistered = flag));
@@ -158,6 +164,8 @@ namespace GestureSign.Daemon.Filtration
             // 3. Not temporarily disabled
             bool shouldInject = pointerInfos.Length < _blockTouchInputThreshold || _tempDisable;
 
+            GestureSign.Common.Log.Logging.LogTrace($"[PointerInputTargetWindow] ProcessPointerMessage: fingers={pointerInfos.Length}, threshold={_blockTouchInputThreshold}, tempDisable={_tempDisable}, shouldInject={shouldInject}");
+
             // If capturing but finger count is enough to block, don't inject
             if (shouldInject)
             {
@@ -170,6 +178,7 @@ namespace GestureSign.Daemon.Filtration
             {
                 // Input is blocked - not forwarded to Windows
                 // This prevents the underlying application from receiving touch events
+                GestureSign.Common.Log.Logging.LogDebug($"[PointerInputTargetWindow] BLOCKED: {pointerInfos.Length} fingers (threshold={_blockTouchInputThreshold})");
             }
         }
 

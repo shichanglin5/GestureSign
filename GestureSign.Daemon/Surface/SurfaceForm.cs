@@ -28,6 +28,7 @@ namespace GestureSign.Daemon.Surface
 
         private bool _settingsChanged;
         private bool _isTrainingMode;
+        private bool _shouldDraw = true; // 标记是否应该绘制轨迹
         private double _totalDistance;
         private Point _textPosition; // Fixed position for distance text
         private Rectangle _lastTextRect; // Last drawn text rectangle for clearing (bitmap coordinates)
@@ -94,18 +95,28 @@ namespace GestureSign.Daemon.Surface
 
         }
 
-        public void StartDrawing(List<Point> startPoints, bool isTrainingMode = false)
+        public void StartDrawing(List<Point> startPoints, bool isTrainingMode = false, int fingerCount = 0)
         {
-            GestureSign.Common.Log.Logging.LogTrace($"[SurfaceForm] StartDrawing called - isTrainingMode={isTrainingMode}, _isTrainingMode before={_isTrainingMode}");
-
             if (_settingsChanged)
             {
                 _settingsChanged = false;
                 InitializeForm();
             }
 
-            if (_penWidth <= 0) return;
+            if (_penWidth <= 0)
+            {
+                _shouldDraw = false;
+                return;
+            }
 
+            // 非训练模式下，检查手指数量是否达到配置的最小值
+            if (!isTrainingMode && fingerCount > 0 && fingerCount < AppConfig.MinimumFingerCountForVisualFeedback)
+            {
+                _shouldDraw = false;
+                return;
+            }
+
+            _shouldDraw = true;
             ClearSurfaces();
 
             //follow dynamic system color
@@ -114,8 +125,6 @@ namespace GestureSign.Daemon.Surface
 
             _isTrainingMode = isTrainingMode;
             _totalDistance = 0;
-
-            GestureSign.Common.Log.Logging.LogTrace($"[SurfaceForm] StartDrawing - _isTrainingMode set to {_isTrainingMode}");
 
             // Set fixed text position near start point (offset to avoid covering gesture)
             if (isTrainingMode && startPoints.Count > 0)
@@ -129,7 +138,10 @@ namespace GestureSign.Daemon.Surface
             GestureSign.Common.Log.Logging.LogTrace($"[SurfaceForm] EndDrawing called - _isTrainingMode before reset={_isTrainingMode}, _lastTextRect={_lastTextRect}");
 
             if (_penWidth <= 0 || _lastStroke == null)
+            {
+                _shouldDraw = true; // 重置标志
                 return;
+            }
             Hide();
             TopMost = false;
 
@@ -137,6 +149,7 @@ namespace GestureSign.Daemon.Surface
 
             // Reset training mode flag and distance
             _isTrainingMode = false;
+            _shouldDraw = true; // 重置标志，准备下次绘制
             _totalDistance = 0;
             _lastTextRect = Rectangle.Empty;
             _lastTextRectScreen = Rectangle.Empty;
@@ -146,6 +159,8 @@ namespace GestureSign.Daemon.Surface
 
         public void DrawPoints(List<List<Point>> points)
         {
+            if (!_shouldDraw) return; // 如果不应该绘制，直接返回
+
             if (_penWidth > 0 && !(points.Count == 1 && points[0].Count == 1))
             {
 

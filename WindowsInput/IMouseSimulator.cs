@@ -131,6 +131,22 @@ namespace WindowsInput
         IMouseSimulator HorizontalScroll(int scrollAmountInClicks);
 
         /// <summary>
+        /// Simulates high-precision mouse vertical wheel scroll gesture.
+        /// Unlike VerticalScroll which uses click units (multiples of 120), this method accepts raw delta values.
+        /// This enables smooth scrolling similar to touchscreens and precision touchpads.
+        /// </summary>
+        /// <param name="scrollDelta">The raw scroll delta value. Standard mouse wheel click is 120. Smaller values enable smoother scrolling.</param>
+        IMouseSimulator VerticalScrollDelta(int scrollDelta);
+
+        /// <summary>
+        /// Simulates high-precision mouse horizontal wheel scroll gesture.
+        /// Unlike HorizontalScroll which uses click units (multiples of 120), this method accepts raw delta values.
+        /// This enables smooth scrolling similar to touchscreens and precision touchpads.
+        /// </summary>
+        /// <param name="scrollDelta">The raw scroll delta value. Standard mouse wheel click is 120. Smaller values enable smoother scrolling.</param>
+        IMouseSimulator HorizontalScrollDelta(int scrollDelta);
+
+        /// <summary>
         /// Sleeps the executing thread to create a pause between simulated inputs.
         /// </summary>
         /// <param name="millsecondsTimeout">The number of milliseconds to wait.</param>

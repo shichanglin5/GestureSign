@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using GestureSign.Common.Configuration;
 
 namespace GestureSign.Common.Log
@@ -18,6 +21,11 @@ namespace GestureSign.Common.Log
         private static string _logFilePath;
         private static StreamWriterWithTimestamp _logWriter;
         private static LogLevel _currentLogLevel = LogLevel.Info;
+
+        // Async logging queue
+        private static BlockingCollection<string> _logQueue;
+        private static Task _logTask;
+        private static CancellationTokenSource _cancellationTokenSource;
 
         public static LogLevel CurrentLogLevel
         {
@@ -82,19 +90,25 @@ namespace GestureSign.Common.Log
             {
                 if (redirectToStd)
                 {
-                    // Console mode: log to console window
+                    // Console mode: log to console window (synchronous)
                     _logFilePath = null;
                     _logWriter = null;
                     Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Logging to Console");
                 }
                 else
                 {
-                    // File mode (default behavior)
+                    // File mode (default behavior) with async logging
                     _logFilePath = Path.Combine(AppConfig.LocalApplicationDataPath, "GestureSign.log");
                     CheckLogSize(_logFilePath);
                     _logWriter = new StreamWriterWithTimestamp(new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true };
-                    Console.SetOut(_logWriter);
-                    Console.SetError(_logWriter);
+
+                    // Start async logging task
+                    _logQueue = new BlockingCollection<string>(boundedCapacity: 1000);
+                    _cancellationTokenSource = new CancellationTokenSource();
+                    _logTask = Task.Run(() => ProcessLogQueue(_cancellationTokenSource.Token));
+
+                    Console.SetOut(new AsyncConsoleWriter(_logQueue));
+                    Console.SetError(new AsyncConsoleWriter(_logQueue));
                 }
 
                 // Initialize log level from config
@@ -108,6 +122,95 @@ namespace GestureSign.Common.Log
                 result = false;
             }
             return result;
+        }
+
+        /// <summary>
+        /// Process log messages from the queue asynchronously
+        /// </summary>
+        private static void ProcessLogQueue(CancellationToken cancellationToken)
+        {
+            try
+            {
+                foreach (var message in _logQueue.GetConsumingEnumerable(cancellationToken))
+                {
+                    if (_logWriter != null && !string.IsNullOrEmpty(message))
+                    {
+                        _logWriter.BaseStream.Write(System.Text.Encoding.UTF8.GetBytes(message));
+                        _logWriter.BaseStream.Flush();
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when shutting down
+            }
+            catch (Exception ex)
+            {
+                // Log to console as fallback
+                System.Diagnostics.Debug.WriteLine($"[Logging] Error in ProcessLogQueue: {ex}");
+            }
+        }
+
+        /// <summary>
+        /// Shutdown async logging gracefully
+        /// </summary>
+        public static void Shutdown()
+        {
+            if (_logQueue != null)
+            {
+                _logQueue.CompleteAdding();
+                _cancellationTokenSource?.Cancel();
+                _logTask?.Wait(TimeSpan.FromSeconds(2));
+                _logQueue?.Dispose();
+                _cancellationTokenSource?.Dispose();
+            }
+            _logWriter?.Dispose();
+        }
+
+        /// <summary>
+        /// Custom TextWriter that queues messages for async writing
+        /// </summary>
+        private class AsyncConsoleWriter : TextWriter
+        {
+            private readonly BlockingCollection<string> _queue;
+
+            public AsyncConsoleWriter(BlockingCollection<string> queue)
+            {
+                _queue = queue;
+            }
+
+            public override System.Text.Encoding Encoding => System.Text.Encoding.UTF8;
+
+            public override void WriteLine(string value)
+            {
+                try
+                {
+                    if (!_queue.IsAddingCompleted)
+                    {
+                        string timestamp = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ";
+                        _queue.TryAdd(timestamp + value + Environment.NewLine, millisecondsTimeout: 10);
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    // Queue is completed, ignore
+                }
+            }
+
+            public override void Write(string value)
+            {
+                try
+                {
+                    if (!_queue.IsAddingCompleted)
+                    {
+                        _queue.TryAdd(value, millisecondsTimeout: 10);
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    // Queue is completed, ignore
+                }
+            }
         }
 
         public static void LogException(Exception e)

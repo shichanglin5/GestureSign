@@ -128,6 +128,7 @@ namespace GestureSign.Daemon
         {
             NamedPipe.Instance.Dispose();
             PointCapture.Instance.Dispose();
+            Logging.Shutdown();
         }
 
         private static void Application_ThreadException(object sender, ThreadExceptionEventArgs e)

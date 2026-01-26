@@ -22,6 +22,10 @@ namespace GestureSign.Daemon.Triggers
         private List<Point> _lastPoints;
         private VelocityVector? _lastVelocity;  // 新增:存储最后计算的速度
 
+        // 速度计算专用变量（与手势触发分离）
+        private Stopwatch _velocityStopwatch = new Stopwatch();
+        private List<Point> _velocityLastPoints;
+
         public ContinuousGestureTrigger()
         {
             _motionThreshold = 20f * DpiHelper.GetSystemDpi() / 96f;
@@ -34,6 +38,8 @@ namespace GestureSign.Daemon.Triggers
         {
             _stopwatch.Stop();
             _lastPoints = null;
+            _velocityStopwatch.Stop();
+            _velocityLastPoints = null;
         }
 
         private void PointCapture_PointCaptured(object sender, PointsCapturedEventArgs e)
@@ -41,17 +47,25 @@ namespace GestureSign.Daemon.Triggers
             // 使用 FingerCount 而不是 Points.Count，因为可能只有部分手指有移动轨迹
             int fingerCount = e.FingerCount > 0 ? e.FingerCount : e.Points.Count;
 
-            if (PointCapture.Instance.State != CaptureState.Capturing || fingerCount < 2)
+            // 连续手势支持 Capturing 和 CapturingInvalid 两种状态
+            // CapturingInvalid 表示正在捕获但还没有足够的移动距离形成有效手势
+            // 对于连续手势，我们不需要等待绘制完成，只要在捕获中就可以响应
+            var state = PointCapture.Instance.State;
+            if ((state != CaptureState.Capturing && state != CaptureState.CapturingInvalid) || fingerCount < 2)
             {
-                Logging.LogDebug($"[ContinuousGestureTrigger] Skip: State={PointCapture.Instance.State}, FingerCount={fingerCount}, Points={e.Points.Count}");
+                Logging.LogDebug($"[ContinuousGestureTrigger] Skip: State={state}, FingerCount={fingerCount}, Points={e.Points.Count}");
                 return;
             }
 
             // 先获取匹配的连续手势动作（ApplicationManager 会优先返回当前应用的，如果没有再返回全局的）
-            var actionsWithContinuousGesture = ApplicationManager.Instance.GetRecognizedDefinedAction(a => a != null && a.ContinuousGesture != null);
+            // 早期退出：只查找与当前手指数匹配的连续手势
+            var actionsWithContinuousGesture = ApplicationManager.Instance.GetRecognizedDefinedAction(
+                a => a != null && a.ContinuousGesture != null &&
+                     a.ContinuousGesture.ContactCount == fingerCount);
             if (actionsWithContinuousGesture == null || actionsWithContinuousGesture.Count == 0)
             {
-                Logging.LogDebug($"[ContinuousGestureTrigger] No continuous gesture actions configured");
+                // Use LogTrace to avoid flooding logs - this is called on every PointCaptured event
+                Logging.LogTrace($"[ContinuousGestureTrigger] No {fingerCount}-finger continuous gesture configured, skip");
                 return;
             }
 
@@ -115,12 +129,17 @@ namespace GestureSign.Daemon.Triggers
                 _lastPoints = e.FirstCapturedPoints;
                 _stopwatch.Restart();
                 _lastVelocity = null;  // 重置速度
+                _velocityLastPoints = e.FirstCapturedPoints;
+                _velocityStopwatch.Restart();
                 return;
             }
 
-            // 计算当前速度
-            var velocity = CalculateVelocity(e.FirstCapturedPoints, _lastPoints, _stopwatch.ElapsedMilliseconds);
+            // 计算当前速度（使用独立的 stopwatch 和 lastPoints，避免与手势触发逻辑干扰）
+            var velocity = CalculateVelocity(e.FirstCapturedPoints, _velocityLastPoints, _velocityStopwatch.ElapsedMilliseconds);
             _lastVelocity = velocity;
+            // 每帧都更新速度相关变量
+            _velocityLastPoints = e.FirstCapturedPoints;
+            _velocityStopwatch.Restart();
 
             int deltaX = 0, deltaY = 0;
             for (int i = 0; i < _lastPoints.Count; i++)
@@ -167,9 +186,6 @@ namespace GestureSign.Daemon.Triggers
             var actions = ApplicationManager.Instance.GetRecognizedDefinedAction(a => a.ContinuousGesture != null &&
                 a.ContinuousGesture.ContactCount == contactCount &&
                 (a.ContinuousGesture.Gesture & gesture) != Gestures.None);
-
-            Logging.LogDebug($"[ContinuousGestureTrigger] Gesture recognized: {gesture}, ContactCount={contactCount}, Actions={actions.Count}, Velocity={_lastVelocity?.Magnitude:F1} px/s");
-
             if (actions.Count > 0)
                 OnTriggerFired(new TriggerFiredEventArgs(actions, _startPoint, _lastVelocity));  // 传递速度信息
         }
@@ -199,14 +215,14 @@ namespace GestureSign.Daemon.Triggers
         /// <param name="currentPoints">当前触点位置</param>
         /// <param name="previousPoints">上次触点位置</param>
         /// <param name="deltaTimeMs">时间间隔(毫秒)</param>
-        /// <returns>速度向量</returns>
+        /// <returns>速度向量（包含位移信息）</returns>
         private VelocityVector CalculateVelocity(List<Point> currentPoints, List<Point> previousPoints, long deltaTimeMs)
         {
             if (previousPoints == null || currentPoints.Count != previousPoints.Count || deltaTimeMs < 2)
                 return new VelocityVector();
 
-            // 计算所有手指的平均位移
-            int deltaX = 0, deltaY = 0;
+            // 计算所有手指的平均位移（使用浮点数避免整数除法截断）
+            double deltaX = 0, deltaY = 0;
             for (int i = 0; i < currentPoints.Count; i++)
             {
                 deltaX += currentPoints[i].X - previousPoints[i].X;
@@ -216,10 +232,11 @@ namespace GestureSign.Daemon.Triggers
             deltaY /= currentPoints.Count;
 
             // 转换为像素/秒
-            double velocityX = (deltaX / (double)deltaTimeMs) * 1000;
-            double velocityY = (deltaY / (double)deltaTimeMs) * 1000;
+            double velocityX = (deltaX / deltaTimeMs) * 1000;
+            double velocityY = (deltaY / deltaTimeMs) * 1000;
 
-            return new VelocityVector(velocityX, velocityY);
+            // 返回包含位移信息的速度向量
+            return new VelocityVector(velocityX, velocityY, deltaX, deltaY);
         }
     }
 }

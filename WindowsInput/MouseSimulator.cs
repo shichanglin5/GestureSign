@@ -288,6 +288,30 @@ namespace WindowsInput
         }
 
         /// <summary>
+        /// Simulates high-precision mouse vertical wheel scroll gesture using raw delta values.
+        /// Unlike VerticalScroll which uses click units (multiples of 120), this method accepts raw delta values.
+        /// </summary>
+        /// <param name="scrollDelta">The raw scroll delta value. Standard mouse wheel click is 120. Smaller values enable smoother scrolling.</param>
+        public IMouseSimulator VerticalScrollDelta(int scrollDelta)
+        {
+            var inputList = new InputBuilder().AddMouseVerticalWheelScroll(scrollDelta).ToArray();
+            SendSimulatedInput(inputList);
+            return this;
+        }
+
+        /// <summary>
+        /// Simulates high-precision mouse horizontal wheel scroll gesture using raw delta values.
+        /// Unlike HorizontalScroll which uses click units (multiples of 120), this method accepts raw delta values.
+        /// </summary>
+        /// <param name="scrollDelta">The raw scroll delta value. Standard mouse wheel click is 120. Smaller values enable smoother scrolling.</param>
+        public IMouseSimulator HorizontalScrollDelta(int scrollDelta)
+        {
+            var inputList = new InputBuilder().AddMouseHorizontalWheelScroll(scrollDelta).ToArray();
+            SendSimulatedInput(inputList);
+            return this;
+        }
+
+        /// <summary>
         /// Sleeps the executing thread to create a pause between simulated inputs.
         /// </summary>
         /// <param name="millsecondsTimeout">The number of milliseconds to wait.</param>

@@ -30,10 +30,10 @@ namespace GestureSign.Tests
         {
             var settings = new InertialScrollSettings();
             Assert.AreEqual(ScrollDirection.Vertical, settings.Direction);
-            Assert.IsTrue(settings.EnableInertia);
-            Assert.AreEqual(1.0, settings.InertiaStrength, 0.01);
-            Assert.AreEqual(1.5, settings.InertiaDuration, 0.01);
-            Assert.AreEqual(0.95, settings.DecayRate, 0.01);
+            Assert.AreEqual(30.0, settings.PixelsPerScrollUnit, 0.01);
+            Assert.AreEqual(1.0, settings.AccelerationFactor, 0.01);
+            Assert.IsFalse(settings.ReverseDirection);
+            Assert.IsFalse(settings.ReverseHorizontalDirection);
         }
 
         [TestMethod]

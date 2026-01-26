@@ -37,7 +37,6 @@ namespace GestureSign.Daemon.Input
         private readonly InputProvider _inputProvider;
         private readonly PointerInputTargetWindow _pointerInputTargetWindow;
         private readonly List<PointPattern> _pointPatternCache = new List<PointPattern>();
-        private readonly System.Threading.Timer _blockTouchDelayTimer;
         private SurfaceForm _surfaceForm;
 
         private System.Threading.Timer _initialTimeoutTimer;
@@ -70,7 +69,7 @@ namespace GestureSign.Daemon.Input
 
         #endregion
 
-        #region PInvoke 
+        #region PInvoke
 
         [DllImport("user32.dll")]
         static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
@@ -207,7 +206,7 @@ namespace GestureSign.Daemon.Input
         {
             _surfaceForm = new SurfaceForm();
 
-            CaptureStarted += (o, e) => { if (Mode != CaptureMode.UserDisabled) _surfaceForm.StartDrawing(e.FirstCapturedPoints, Mode == CaptureMode.Training); };
+            CaptureStarted += (o, e) => { if (Mode != CaptureMode.UserDisabled) _surfaceForm.StartDrawing(e.FirstCapturedPoints, Mode == CaptureMode.Training, e.FingerCount); };
             CaptureEnded += (o, e) => { _surfaceForm.EndDrawing(); };
             CaptureCanceled += (o, e) => { _surfaceForm.EndDrawing(); };
             PointCaptured += (o, e) =>
@@ -230,25 +229,31 @@ namespace GestureSign.Daemon.Input
             _winEventGch = GCHandle.Alloc(_winEventDele);
             _hWinEventHook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_MINIMIZEEND, IntPtr.Zero, _winEventDele, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
 
-            // Try to use Pointer Input API to block Windows default gestures
-            // This works best with UIAccess, but we'll try anyway
-            try
+            // Only create PointerInputTargetWindow in UIAccess mode
+            // RegisterPointerInputTarget requires UIAccess privilege to work
+            if (AppConfig.UiAccess)
             {
-                _pointerInputTargetWindow = new PointerInputTargetWindow();
-                ModeChanged += (o, e) =>
+                try
                 {
-                    if (e.Mode == CaptureMode.UserDisabled)
-                        _pointerInputTargetWindow.BlockTouchInputThreshold = 0;
-                };
-                _blockTouchDelayTimer = new System.Threading.Timer(UpdateBlockTouchInputThresholdCallback, null, Timeout.Infinite, Timeout.Infinite);
-                ForegroundApplicationsChanged += PointCapture_ForegroundApplicationsChanged;
+                    _pointerInputTargetWindow = new PointerInputTargetWindow();
+                    ModeChanged += (o, e) =>
+                    {
+                        if (e.Mode == CaptureMode.UserDisabled)
+                            _pointerInputTargetWindow.BlockTouchInputThreshold = 0;
+                    };
+                    ForegroundApplicationsChanged += PointCapture_ForegroundApplicationsChanged;
 
-                GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] PointerInputTargetWindow created (UIAccess={AppConfig.UiAccess})");
+                    GestureSign.Common.Log.Logging.LogInfo("[PointCapture] PointerInputTargetWindow created (UIAccess mode)");
+                }
+                catch (Exception ex)
+                {
+                    GestureSign.Common.Log.Logging.LogError($"[PointCapture] Failed to create PointerInputTargetWindow: {ex.Message}");
+                    _pointerInputTargetWindow = null;
+                }
             }
-            catch (Exception ex)
+            else
             {
-                GestureSign.Common.Log.Logging.LogError($"[PointCapture] Failed to create PointerInputTargetWindow: {ex.Message}");
-                _pointerInputTargetWindow = null;
+                GestureSign.Common.Log.Logging.LogInfo("[PointCapture] Skipping PointerInputTargetWindow (non-UIAccess mode)");
             }
 
             SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
@@ -267,7 +272,6 @@ namespace GestureSign.Daemon.Input
                     _initialTimeoutTimer?.Dispose();
                     _inactivityTimer?.Dispose();
                     _multiFingerDelayTimer?.Dispose();
-                    _blockTouchDelayTimer?.Dispose();
                     _pointerInputTargetWindow?.Dispose();
                     _inputProvider?.Dispose();
                     _surfaceForm?.Dispose();
@@ -346,8 +350,25 @@ namespace GestureSign.Daemon.Input
             if (appsChanged.Applications != null)
             {
                 var userAppList = appsChanged.Applications.Where(application => application is UserApp).ToList();
-                if (userAppList.Count == 0) return;
-                UpdateBlockTouchInputThreshold(userAppList.Cast<UserApp>().Max(app => app.BlockTouchInputThreshold));
+
+                // Calculate threshold: use app-specific or global setting
+                int threshold = 0;
+                if (userAppList.Count > 0)
+                {
+                    threshold = userAppList.Cast<UserApp>().Max(app => app.BlockTouchInputThreshold);
+                }
+
+                // If BlockWindowsGestures is enabled globally, always use threshold=2 for multi-finger blocking
+                if (AppConfig.BlockWindowsGestures && threshold < 2)
+                {
+                    threshold = 2;
+                }
+
+                if (threshold > 0)
+                {
+                    Logging.LogDebug($"[PointCapture] ForegroundApplicationsChanged: Pre-registering with threshold={threshold}");
+                    UpdateBlockTouchInputThreshold(threshold);
+                }
             }
         }
 
@@ -554,25 +575,22 @@ namespace GestureSign.Daemon.Input
 
         private void UpdateBlockTouchInputThreshold(int? threshold = null)
         {
-            if (_pointerInputTargetWindow == null || _blockTouchDelayTimer == null) return;
+            if (_pointerInputTargetWindow == null) return;
 
             if (threshold != null)
                 _blockTouchInputThreshold = threshold;
-            if (_blockTouchInputThreshold != null)
-                _blockTouchDelayTimer.Change(100, Timeout.Infinite);
-        }
 
-        private void UpdateBlockTouchInputThresholdCallback(object o)
-        {
-            if (!_blockTouchInputThreshold.HasValue) return;
-
-            var threshold = _blockTouchInputThreshold.GetValueOrDefault();
-
-            _currentContext.Post((state) =>
+            if (_blockTouchInputThreshold.HasValue)
             {
-                _pointerInputTargetWindow.BlockTouchInputThreshold = threshold;
+                var thresholdValue = _blockTouchInputThreshold.GetValueOrDefault();
                 _blockTouchInputThreshold = null;
-            }, null);
+
+                Logging.LogDebug($"[PointCapture] Applying BlockTouchInputThreshold={thresholdValue}");
+
+                // Apply threshold synchronously to ensure blocking takes effect immediately
+                // This is critical for preventing the first touch frame from being forwarded to Windows
+                _pointerInputTargetWindow.BlockTouchInputThreshold = thresholdValue;
+            }
         }
 
         private void InitialTimeoutCallback(object o)
@@ -730,6 +748,7 @@ namespace GestureSign.Daemon.Input
                 }
             }
 
+            // Logging.LogDebug($"[PointCapture] UpdateBlockTouchInputThreshold: totalFingers={_totalFingerCount}, blockThreshold={blockThreshold}, BlockWindowsGestures={AppConfig.BlockWindowsGestures}, appThreshold={captureStartedArgs.BlockTouchInputThreshold}");
             UpdateBlockTouchInputThreshold(blockThreshold);
 
             if (captureStartedArgs.Cancel)
@@ -737,7 +756,7 @@ namespace GestureSign.Daemon.Input
                 return false;
             }
 
-            Logging.LogDebug($"[PointCapture] State changed: Ready → CapturingInvalid (fingers={featureFingers.Count})");
+            // Logging.LogDebug($"[PointCapture] State changed: Ready → CapturingInvalid (fingers={featureFingers.Count})");
             State = CaptureState.CapturingInvalid;
 
             // Clear old gesture from point list so we can start adding the new captures points to the list
@@ -852,7 +871,7 @@ namespace GestureSign.Daemon.Input
 
                         if (State == CaptureState.CapturingInvalid)
                         {
-                            Logging.LogDebug($"[PointCapture] State changed: CapturingInvalid → Capturing (distance={distance:F1}, threshold={threshold:F1})");
+                            // Logging.LogDebug($"[PointCapture] State changed: CapturingInvalid → Capturing (distance={distance:F1}, threshold={threshold:F1})");
                             State = CaptureState.Capturing;
                         }
                     }
@@ -894,7 +913,7 @@ namespace GestureSign.Daemon.Input
             // due to the existing logic of Enabling/Disabling for UI/menu popup/etc.
             // The reason I had to set state to Ready if !UserDisabled was due to the sequence of the tray events.
             // I originally had to set to Disable since if you're in the popup it's disabled, however, the popup onclose
-            // fires before the menu item's code, so it was back to Ready before this block was executed.  Although, it probably 
+            // fires before the menu item's code, so it was back to Ready before this block was executed.  Although, it probably
             // makes more sense to set it to Ready in the event this is called from another location.
             Mode = Mode == CaptureMode.UserDisabled ? CaptureMode.Normal : CaptureMode.UserDisabled;
         }
