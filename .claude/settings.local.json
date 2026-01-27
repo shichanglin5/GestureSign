@@ -22,7 +22,9 @@
       "Bash(Select-Object ProcessName, Id, Path)",
       "Bash(Select-String -Pattern \"error\" -Context 2,0)",
       "Bash(powershell -NoProfile -Command \"Get-Content \\(Join-Path $env:APPDATA ''GestureSign\\\\GestureSign.config''\\) | Select-String ''TouchPad''\")",
-      "Bash(Select-String -Pattern \"error|succeeded|failed\")"
+      "Bash(Select-String -Pattern \"error|succeeded|failed\")",
+      "Bash(powershell -NoProfile -Command:*)",
+      "Bash(test:*)"
     ]
   }
 }

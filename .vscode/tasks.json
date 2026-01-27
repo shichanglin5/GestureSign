@@ -1,4 +1,4 @@
-﻿{
+{
   "version": "2.0.0",
   // ============================================================
   // GestureSign 开发任务配置
@@ -39,7 +39,6 @@
       },
       "problemMatcher": []
     },
-
     // ==================== 基础构建任务 ====================
     {
       "label": "debug: build",
@@ -64,7 +63,6 @@
       },
       "problemMatcher": "$msCompile"
     },
-
     {
       "label": "debug: clean",
       "type": "shell",
@@ -88,7 +86,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "debug: rebuild",
       "dependsOn": [
@@ -99,7 +96,6 @@
       "group": "build",
       "problemMatcher": []
     },
-
     {
       "label": "release: build",
       "type": "shell",
@@ -123,7 +119,6 @@
       },
       "problemMatcher": "$msCompile"
     },
-
     {
       "label": "release: clean",
       "type": "shell",
@@ -147,18 +142,33 @@
       },
       "problemMatcher": []
     },
-
     {
-      "label": "release: rebuild",
+      "label": "release: restart",
       "dependsOn": [
-        "release: clean",
-        "release: build"
+        "stop-gesturesign",
+        "log: delete",
+        "run: daemon-release",
+        "log: tail"
       ],
       "dependsOrder": "sequence",
       "group": "build",
       "problemMatcher": []
     },
-
+    {
+      "label": "release: rebuild + run",
+      "dependsOn": [
+        "stop-gesturesign",
+        "log: delete",
+        "release: clean",
+        "release: build",
+        "run: daemon-release",
+        "log: tail"
+        // "run: controlpanel-release"
+      ],
+      "dependsOrder": "sequence",
+      "group": "build",
+      "problemMatcher": []
+    },
     {
       "label": "uiAccessRelease: build",
       "type": "shell",
@@ -182,7 +192,6 @@
       },
       "problemMatcher": "$msCompile"
     },
-
     {
       "label": "uiAccessRelease: clean",
       "type": "shell",
@@ -206,7 +215,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "uiAccessRelease: rebuild",
       "dependsOn": [
@@ -217,7 +225,6 @@
       "group": "build",
       "problemMatcher": []
     },
-
     // ==================== 代码签名任务 ====================
     {
       "label": "signing: create-cert",
@@ -226,7 +233,9 @@
       "args": [
         "-NoProfile",
         "-Command",
-        "$cert = Get-ChildItem Cert:\\CurrentUser\\My | Where-Object { $_.Subject -eq "CN=GestureSign Development" -and $_.NotAfter -gt (Get-Date) } | Select-Object -First 1; if ($cert) { Write-Host "Certificate already exists: " -NoNewline; Write-Host $cert.Thumbprint -ForegroundColor Green } else { $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=GestureSign Development' -KeyUsage DigitalSignature -FriendlyName "GestureSign Code Signing Certificate" -CertStoreLocation Cert:\\CurrentUser\\My -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}") -KeyLength 2048 -HashAlgorithm SHA256 -NotAfter (Get-Date).AddYears(5); Write-Host "Certificate created: " -NoNewline; Write-Host $cert.Thumbprint -ForegroundColor Green }"
+        "$cert = Get-ChildItem Cert:\\CurrentUser\\My | Where-Object { $_.Subject -eq "CN=GestureSign Development" -and $_.NotAfter -gt (Get-Date) } | Select-Object -First 1; if ($cert) { Write-Host "Certificate already exists: " -NoNewline; Write-Host $cert.Thumbprint -ForegroundColor Green } else { $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=GestureSign Development' -KeyUsage DigitalSignature -FriendlyName "GestureSign Code Signing Certificate" -CertStoreLocation Cert:\\CurrentUser\\My -TextExtension @("2.5.29.37={text
+        }1.3.6.1.5.5.7.3.3", "2.5.29.19={text
+        }") -KeyLength 2048 -HashAlgorithm SHA256 -NotAfter (Get-Date).AddYears(5); Write-Host "Certificate created: " -NoNewline; Write-Host $cert.Thumbprint -ForegroundColor Green }"
       ],
       "group": "none",
       "presentation": {
@@ -239,7 +248,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "signing: install-cert",
       "type": "shell",
@@ -260,7 +268,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "signing: sign-daemon",
       "type": "shell",
@@ -281,7 +288,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "signing: sign-controlpanel",
       "type": "shell",
@@ -302,7 +308,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "signing: verify",
       "type": "shell",
@@ -323,7 +328,6 @@
       },
       "problemMatcher": []
     },
-
     // ==================== 文件操作任务 ====================
     {
       "label": "copy: to-programfiles",
@@ -345,7 +349,6 @@
       },
       "problemMatcher": []
     },
-
     // ==================== Windows 系统任务 ====================
     {
       "label": "system: check-testmode",
@@ -367,7 +370,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "system: enable-testmode",
       "type": "shell",
@@ -388,7 +390,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "system: disable-testmode",
       "type": "shell",
@@ -409,7 +410,49 @@
       },
       "problemMatcher": []
     },
-
+    // ==================== 日志任务 ====================
+    {
+      "label": "log: tail",
+      "detail": "Get-Content $env:LOCALAPPDATA\\GestureSign\\GestureSign.log -Wait -Tail 50",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-EncodedCommand",
+        "WwBDAG8AbgBzAG8AbABlAF0AOgA6AE8AdQB0AHAAdQB0AEUAbgBjAG8AZABpAG4AZwAgAD0AIABbAFMAeQBzAHQAZQBtAC4AVABlAHgAdAAuAEUAbgBjAG8AZABpAG4AZwBdADoAOgBVAFQARgA4ADsAIAAkAGwAbwBnAFAAYQB0AGgAIAA9ACAASgBvAGkAbgAtAFAAYQB0AGgAIAAkAGUAbgB2ADoATABPAEMAQQBMAEEAUABQAEQAQQBUAEEAIAAiAEcAZQBzAHQAdQByAGUAUwBpAGcAbgBcAEcAZQBzAHQAdQByAGUAUwBpAGcAbgAuAGwAbwBnACIAOwAgAGkAZgAgACgALQBuAG8AdAAgACgAVABlAHMAdAAtAFAAYQB0AGgAIAAkAGwAbwBnAFAAYQB0AGgAKQApACAAewAgAFcAcgBpAHQAZQAtAEgAbwBzAHQAIAAoACIATABvAGcAIABmAGkAbABlACAAbgBvAHQAIABmAG8AdQBuAGQAOgAgACIAIAArACAAJABsAG8AZwBQAGEAdABoACkAIAAtAEYAbwByAGUAZwByAG8AdQBuAGQAQwBvAGwAbwByACAAWQBlAGwAbABvAHcAOwAgAFcAcgBpAHQAZQAtAEgAbwBzAHQAIAAiAFcAYQBpAHQAaQBuAGcAIABmAG8AcgAgAGwAbwBnACAAZgBpAGwAZQAuAC4ALgAiACAALQBGAG8AcgBlAGcAcgBvAHUAbgBkAEMAbwBsAG8AcgAgAEcAcgBhAHkAOwAgAHcAaABpAGwAZQAgACgALQBuAG8AdAAgACgAVABlAHMAdAAtAFAAYQB0AGgAIAAkAGwAbwBnAFAAYQB0AGgAKQApACAAewAgAFMAdABhAHIAdAAtAFMAbABlAGUAcAAgAC0ATQBpAGwAbABpAHMAZQBjAG8AbgBkAHMAIAA1ADAAMAAgAH0AIAB9ADsAIABXAHIAaQB0AGUALQBIAG8AcwB0ACAAKAAiAFQAYQBpAGwAaQBuAGcAOgAgACIAIAArACAAJABsAG8AZwBQAGEAdABoACkAIAAtAEYAbwByAGUAZwByAG8AdQBuAGQAQwBvAGwAbwByACAAQwB5AGEAbgA7ACAARwBlAHQALQBDAG8AbgB0AGUAbgB0ACAAJABsAG8AZwBQAGEAdABoACAALQBXAGEAaQB0ACAALQBUAGEAaQBsACAANQAwACAALQBFAG4AYwBvAGQAaQBuAGcAIABVAFQARgA4AA=="
+      ],
+      "group": "none",
+      "presentation": {
+        "echo": false,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "log: delete",
+      "detail": "Remove-Item $env:LOCALAPPDATA\\GestureSign\\GestureSign.log",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-EncodedCommand",
+        "JABsAG8AZwBQAGEAdABoACAAPQAgAEoAbwBpAG4ALQBQAGEAdABoACAAJABlAG4AdgA6AEwATwBDAEEATABBAFAAUABEAEEAVABBACAAIgBHAGUAcwB0AHUAcgBlAFMAaQBnAG4AXABHAGUAcwB0AHUAcgBlAFMAaQBnAG4ALgBsAG8AZwAiADsAIABpAGYAIAAoAFQAZQBzAHQALQBQAGEAdABoACAAJABsAG8AZwBQAGEAdABoACkAIAB7ACAAUgBlAG0AbwB2AGUALQBJAHQAZQBtACAAJABsAG8AZwBQAGEAdABoACAALQBGAG8AcgBjAGUAOwAgAFcAcgBpAHQAZQAtAEgAbwBzAHQAIAAoACIARABlAGwAZQB0AGUAZAA6ACAAIgAgACsAIAAkAGwAbwBnAFAAYQB0AGgAKQAgAC0ARgBvAHIAZQBnAHIAbwB1AG4AZABDAG8AbABvAHIAIABHAHIAZQBlAG4AIAB9ACAAZQBsAHMAZQAgAHsAIABXAHIAaQB0AGUALQBIAG8AcwB0ACAAIgBMAG8AZwAgAGYAaQBsAGUAIABuAG8AdAAgAGYAbwB1AG4AZAAiACAALQBGAG8AcgBlAGcAcgBvAHUAbgBkAEMAbwBsAG8AcgAgAFkAZQBsAGwAbwB3ACAAfQA="
+      ],
+      "presentation": {
+        "echo": false,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
     // ==================== 运行任务 ====================
     {
       "label": "run: daemon-debug",
@@ -431,7 +474,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "run: controlpanel-debug",
       "type": "shell",
@@ -439,7 +481,7 @@
       "args": [
         "-NoProfile",
         "-Command",
-        "Start-Process -FilePath "D:\\wd\\soft\\GestureSign\\GestureSignControlPanel.exe" -WorkingDirectory "D:\\wd\\soft\\GestureSign""
+        "Start-Process -FilePath D:\\wd\\soft\\GestureSign\\GestureSignControlPanel.exe -WorkingDirectory D:\\wd\\soft\\GestureSign"
       ],
       "group": "none",
       "presentation": {
@@ -452,7 +494,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "run: daemon-release",
       "type": "shell",
@@ -460,7 +501,7 @@
       "args": [
         "-NoProfile",
         "-Command",
-        "Start-Process -FilePath "D:\\wd\\soft\\GestureSign\\GestureSign.exe" -WorkingDirectory "D:\\wd\\soft\\GestureSign""
+        "Start-Process -FilePath D:\\wd\\soft\\GestureSign\\GestureSign.exe -WorkingDirectory D:\\wd\\soft\\GestureSign"
       ],
       "group": "none",
       "presentation": {
@@ -473,7 +514,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "run: controlpanel-release",
       "type": "shell",
@@ -481,7 +521,7 @@
       "args": [
         "-NoProfile",
         "-Command",
-        "Start-Process -FilePath "D:\\wd\\soft\\GestureSign\\GestureSignControlPanel.exe" -WorkingDirectory "D:\\wd\\soft\\GestureSign""
+        "Start-Process -FilePath D:\\wd\\soft\\GestureSign\\GestureSignControlPanel.exe -WorkingDirectory D:\\wd\\soft\\GestureSign"
       ],
       "group": "none",
       "presentation": {
@@ -494,7 +534,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "run: daemon-uiaccess",
       "type": "shell",
@@ -502,7 +541,7 @@
       "args": [
         "-NoProfile",
         "-Command",
-        "Start-Process -FilePath "C:\\Program Files\\GestureSign\\GestureSign.exe" -ArgumentList '--log.redirectToStd' -WorkingDirectory "C:\\Program Files\\GestureSign""
+        "Start-Process -FilePath C:\\Program Files\\GestureSign\\GestureSign.exe -ArgumentList '--log.redirectToStd' -WorkingDirectory C:\\Program Files\\GestureSign"
       ],
       "group": "none",
       "presentation": {
@@ -515,7 +554,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "run: controlpanel-uiaccess",
       "type": "shell",
@@ -536,8 +574,17 @@
       },
       "problemMatcher": []
     },
-
     // ==================== 复合工作流任务 ====================
+    {
+      "label": "build-and-stop-debug",
+      "dependsOn": [
+        "stop-gesturesign",
+        "debug: build"
+      ],
+      "dependsOrder": "sequence",
+      "group": "build",
+      "problemMatcher": []
+    },
     {
       "label": "workflow: debug-full",
       "dependsOn": [
@@ -561,7 +608,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "workflow: release-full",
       "dependsOn": [
@@ -581,7 +627,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "workflow: uiaccess-setup",
       "dependsOn": [
@@ -600,7 +645,6 @@
       },
       "problemMatcher": []
     },
-
     {
       "label": "workflow: uiaccess-full",
       "dependsOn": [
