@@ -322,12 +322,16 @@ namespace ManagedWinapi.Windows
         private static bool ForceSetForegroundWindow(IntPtr hWnd)
         {
             // 方法 1: 标准 SetForegroundWindow (快速路径)
+            bool method1Success = false;
             if (SetForegroundWindow(hWnd))
             {
-                return true;
+                if (GetForegroundWindow() == hWnd)
+                    method1Success = true;
             }
 
-            // 方法 2: AttachThreadInput + SetForegroundWindow (推荐方法)
+            // 方法 2: AttachThreadInput + SetFocus 确保键盘焦点转移
+            // 即使方法 1 成功，也需要通过 AttachThreadInput 调用 SetFocus
+            // 否则窗口虽然在前台但不接收键盘输入
             try
             {
                 IntPtr currentForegroundWindow = GetForegroundWindow();
@@ -335,42 +339,53 @@ namespace ManagedWinapi.Windows
                 uint targetThreadId = GetWindowThreadProcessId(hWnd, IntPtr.Zero);
                 uint foregroundThreadId = GetWindowThreadProcessId(currentForegroundWindow, IntPtr.Zero);
 
-                // 附加输入线程到目标窗口线程
-                if (currentThreadId != targetThreadId)
+                bool attached1 = false, attached2 = false;
+                try
                 {
-                    AttachThreadInput(currentThreadId, targetThreadId, true);
-                    AttachThreadInput(foregroundThreadId, targetThreadId, true);
+                    if (currentThreadId != foregroundThreadId)
+                        attached1 = AttachThreadInput(currentThreadId, foregroundThreadId, true);
+                    if (foregroundThreadId != targetThreadId)
+                        attached2 = AttachThreadInput(foregroundThreadId, targetThreadId, true);
 
-                    // 尝试激活
-                    BringWindowToTop(hWnd);
-                    ShowWindow(hWnd, SW_RESTORE);
-                    SetForegroundWindow(hWnd);
-
-                    // 分离线程输入
-                    AttachThreadInput(currentThreadId, targetThreadId, false);
-                    AttachThreadInput(foregroundThreadId, targetThreadId, false);
-
-                    // 验证是否成功
-                    if (GetForegroundWindow() == hWnd)
+                    if (!method1Success)
                     {
-                        return true;
+                        // 模拟空按键，让系统认为有用户输入
+                        keybd_event(0, 0, 0, UIntPtr.Zero);
+                        keybd_event(0, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        SetForegroundWindow(hWnd);
                     }
+
+                    // 在线程附加状态下转移键盘输入焦点
+                    SetFocus(hWnd);
                 }
+                finally
+                {
+                    if (attached1)
+                        AttachThreadInput(currentThreadId, foregroundThreadId, false);
+                    if (attached2)
+                        AttachThreadInput(foregroundThreadId, targetThreadId, false);
+                }
+
+                if (method1Success || GetForegroundWindow() == hWnd)
+                    return true;
             }
             catch
             {
-                // 忽略错误，继续尝试其他方法
+                if (method1Success)
+                    return true;
+                // 继续尝试
             }
 
-            // 方法 3: SwitchToThisWindow (最激进的方法)
+            // 方法 3: 使用 SetWindowPos 仅改变 Z-order 而不改变大小/位置
             try
             {
-                SwitchToThisWindow(hWnd, true);
-                return true;
+                SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+                SetForegroundWindow(hWnd);
+                return GetForegroundWindow() == hWnd;
             }
             catch
             {
-                // 最后的尝试也失败了
                 return false;
             }
         }
@@ -1501,6 +1516,10 @@ namespace ManagedWinapi.Windows
         static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
         [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsIconic(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
         private static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
 
         [DllImport("gdi32.dll")]
@@ -1596,7 +1615,16 @@ namespace ManagedWinapi.Windows
         const uint SWP_NOOWNERZORDER = 0x0200;
         const uint SWP_ASYNCWINDOWPOS = 0x4000;
 
+        private const int SW_SHOW = 5;
         private const int SW_RESTORE = 9;
+
+        [DllImport("user32.dll")]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+        private const uint KEYEVENTF_KEYUP = 0x0002;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetFocus(IntPtr hWnd);
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);

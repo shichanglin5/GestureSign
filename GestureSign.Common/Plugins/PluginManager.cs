@@ -55,8 +55,12 @@ namespace GestureSign.Common.Plugins
             var executableActions = ApplicationManager.Instance.GetRecognizedDefinedAction(e.GestureName)?.ToList();
 
             if (executableActions == null || executableActions.Count == 0)
+            {
+                Logging.LogDebug($"[PluginManager] Gesture '{e.GestureName}' recognized but no actions found");
                 return;
+            }
 
+            Logging.LogInfo($"[PluginManager] Gesture '{e.GestureName}' recognized, {executableActions.Count} action(s) to execute");
             ExecuteAction(executableActions, pointCapture.Mode, pointCapture.SourceDevice, e.ContactIdentifiers, e.FirstCapturedPoints, e.Points);
         }
 
@@ -96,6 +100,8 @@ namespace GestureSign.Common.Plugins
             // Fallback to captured window if target is null
             if (target == null)
                 target = ApplicationManager.Instance.CaptureWindow;
+
+            Logging.LogInfo($"[PluginManager] TargetMode={targetMode}, Device={devices}, Target=0x{target?.HWnd:X} '{target?.Title}', ForegroundWindow=0x{SystemWindow.ForegroundWindow?.HWnd:X} '{SystemWindow.ForegroundWindow?.Title}'");
 
             var pointInfo = new PointInfo(firstCapturedPoints, points, target, _mainContext, velocity);
             var action = new Action<object>(o =>
@@ -157,6 +163,11 @@ namespace GestureSign.Common.Plugins
                         }
 
                         pluginInfo.Plugin.Deserialize(command.CommandSettings);
+                        if (!command.PluginClass.EndsWith("InertialScrollPlugin"))
+                        {
+                            var fgWin = SystemWindow.ForegroundWindow;
+                            Logging.LogInfo($"[PluginManager] Executing: Action='{executableAction.Name}', Command='{command.Name}', Plugin={command.PluginClass}, ForegroundWindow=0x{fgWin?.HWnd:X} '{fgWin?.Title}'");
+                        }
                         // Execute plugin process
                         pluginInfo.Plugin.Gestured(pointInfo);
                     }

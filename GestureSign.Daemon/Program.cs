@@ -106,7 +106,6 @@ namespace GestureSign.Daemon
                         Application.ApplicationExit += Application_ApplicationExit;
 
                         Logging.LogInfo("=== GestureSign Daemon Started Successfully ===");
-                        Logging.LogInfo("Entering message loop (press Ctrl+C to stop)...");
                         Application.Run();
                     }
                     catch (Exception e)

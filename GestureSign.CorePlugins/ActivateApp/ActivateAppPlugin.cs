@@ -385,28 +385,38 @@ namespace GestureSign.CorePlugins.ActivateApp
         private bool HandleSingleWindow(IntPtr hWnd)
         {
             var window = new SystemWindow(hWnd);
+            var windowState = window.WindowState;
+            var foregroundWindow = GetForegroundWindow();
+            bool isForeground = hWnd == foregroundWindow;
+
+            var fgWindow = new SystemWindow(foregroundWindow);
+            Logging.LogInfo($"[ActivateApp] HandleSingleWindow: hWnd=0x{hWnd:X}, state={windowState}, isForeground={isForeground}, title='{window.Title}', currentForeground=0x{foregroundWindow:X} '{fgWindow.Title}'");
 
             // Check if window is minimized first
-            if (window.WindowState == FormWindowState.Minimized)
+            if (windowState == FormWindowState.Minimized)
             {
                 // Always restore and activate minimized windows
+                Logging.LogInfo("[ActivateApp] Action: RestoreWindow (was minimized)");
                 window.RestoreWindow();
                 SystemWindow.ForegroundWindow = window;
+                Logging.LogInfo($"[ActivateApp] After restore: state={window.WindowState}");
                 return true;
             }
 
             // Window is not minimized, check if it's the foreground window
-            var foregroundWindow = GetForegroundWindow();
-            if (hWnd == foregroundWindow)
+            if (isForeground)
             {
                 // Window is already foreground and not minimized - minimize it
+                Logging.LogInfo("[ActivateApp] Action: Minimize (was foreground)");
                 window.WindowState = FormWindowState.Minimized;
                 return true;
             }
             else
             {
                 // Window is background - activate it
+                Logging.LogInfo("[ActivateApp] Action: SetForeground (was background)");
                 SystemWindow.ForegroundWindow = window;
+                Logging.LogInfo($"[ActivateApp] After activate: state={window.WindowState}");
                 return true;
             }
         }
