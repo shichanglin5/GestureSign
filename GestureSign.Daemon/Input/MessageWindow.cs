@@ -114,7 +114,7 @@ namespace GestureSign.Daemon.Input
             GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] UpdateRegistration called, clearing {_validDevices.Count} cached devices");
             _validDevices.Clear();
 
-            GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] Registering devices - TouchScreen: {AppConfig.RegisterTouchScreen}, TouchPad: {AppConfig.RegisterTouchPad}");
+            // GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] Registering devices - TouchScreen: {AppConfig.RegisterTouchScreen}, TouchPad: {AppConfig.RegisterTouchPad}");
             UpdateRegisterState(AppConfig.RegisterTouchScreen, NativeMethods.TouchScreenUsage);
             UpdateRegisterState(AppConfig.RegisterTouchPad, NativeMethods.TouchPadUsage);
             GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] UpdateRegistration completed, {_registeredDeviceList.Count} devices registered");
@@ -127,7 +127,7 @@ namespace GestureSign.Daemon.Input
 
             if (register)
             {
-                GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] Registering {deviceName} (usage: 0x{usage:X})");
+                // GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] Registering {deviceName} (usage: 0x{usage:X})");
                 RegisterDevice(usage);
             }
             else
