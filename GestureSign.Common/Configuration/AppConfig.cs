@@ -386,6 +386,18 @@ namespace GestureSign.Common.Configuration
             }
         }
 
+        public static bool ReFetchTargetWindowOnExecution
+        {
+            get
+            {
+                return GetValue(nameof(ReFetchTargetWindowOnExecution), false);
+            }
+            set
+            {
+                SetValue(nameof(ReFetchTargetWindowOnExecution), value);
+            }
+        }
+
         #endregion
 
         static AppConfig()

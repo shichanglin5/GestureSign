@@ -103,9 +103,6 @@ namespace GestureSign.Common.Gestures
 
             var sourceGesture = _gestureLevel == 0 ? _Gestures : _gestureMatchResult;
             var capturedPoints = e.Points.Select(l => l.ToArray()).ToArray();
-
-            Logging.LogInfo($"[GestureMatch] Input: {capturedPoints.Length} trajectory(s), {e.FingerCount} finger(s), level={_gestureLevel}, points=[{string.Join(",", capturedPoints.Select(t => t.Length))}]");
-
             GestureName = GetGestureSetNameMatch(capturedPoints, e.FingerCount, sourceGesture, _gestureLevel, out _gestureMatchResult);
 
             if (pointCapture.Mode != CaptureMode.Training)
@@ -176,7 +173,7 @@ namespace GestureSign.Common.Gestures
         {
             // Shortcut method to control singleton instantiation
 
-            // Wireup event to Touch capture class to catch points captured       
+            // Wireup event to Touch capture class to catch points captured
             if (pointCapture != null)
             {
                 pointCapture.BeforePointsCaptured += PointCapture_BeforePointsCaptured;
@@ -533,11 +530,6 @@ namespace GestureSign.Common.Gestures
             if (recognizedResult.Count > 1)
             {
                 var candidates = string.Join(", ", recognizedResult.Select(r => $"{r.Key}={r.Value / trajectoryCount:F1}%"));
-                Logging.LogInfo($"[GestureMatch] {recognizedResult.Count} candidates (threshold={threshold}%, fingers={fingerCount}): {candidates} → best='{bestMatch}'");
-            }
-            else
-            {
-                Logging.LogInfo($"[GestureMatch] Matched '{bestMatch}' prob={bestProbability / trajectoryCount:F1}% (threshold={threshold}%, fingers={fingerCount})");
             }
 
             return bestMatch;

@@ -44,8 +44,6 @@ namespace GestureSign.Common.Applications
             set { /* Only exists for serialization purposes */ }
         }
 
-        public override bool MatchActivated { get => false; }
-
         #endregion
 
         #region IApplication Methods

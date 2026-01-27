@@ -111,7 +111,7 @@ namespace GestureSign.Daemon.Input
 
         public void UpdateRegistration()
         {
-            GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] UpdateRegistration called, clearing {_validDevices.Count} cached devices, resetting sourceDevice={_sourceDevice}");
+            GestureSign.Common.Log.Logging.LogDebug($"[MessageWindow] UpdateRegistration called, clearing {_validDevices.Count} cached devices, resetting sourceDevice={_sourceDevice}");
             _validDevices.Clear();
             _sourceDevice = Devices.None;
             _requiringContactCount = 0;
@@ -120,7 +120,7 @@ namespace GestureSign.Daemon.Input
             // GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] Registering devices - TouchScreen: {AppConfig.RegisterTouchScreen}, TouchPad: {AppConfig.RegisterTouchPad}");
             UpdateRegisterState(AppConfig.RegisterTouchScreen, NativeMethods.TouchScreenUsage);
             UpdateRegisterState(AppConfig.RegisterTouchPad, NativeMethods.TouchPadUsage);
-            GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] UpdateRegistration completed, {_registeredDeviceList.Count} devices registered");
+            GestureSign.Common.Log.Logging.LogDebug($"[MessageWindow] UpdateRegistration completed, {_registeredDeviceList.Count} devices registered");
         }
 
         private void UpdateRegisterState(bool register, ushort usage)
@@ -163,7 +163,6 @@ namespace GestureSign.Daemon.Input
                 throw new ApplicationException($"Failed to register raw input device {deviceName} (error: {error})");
             }
             _registeredDeviceList.Add(usage);
-            GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] Successfully registered {deviceName}");
         }
 
         private void UnregisterDevice(ushort usage)
@@ -246,8 +245,6 @@ namespace GestureSign.Daemon.Input
                 case NativeMethods.WM_INPUT_DEVICE_CHANGE:
                     {
                         // wParam indicates GIDC_ARRIVAL (1) or GIDC_REMOVAL (2)
-                        string changeType = message.WParam.ToInt32() == 1 ? "ARRIVAL" : "REMOVAL";
-                        GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] WM_INPUT_DEVICE_CHANGE: {changeType}, lParam=0x{message.LParam:X}");
                         _validDevices.Clear();
                         break;
                     }

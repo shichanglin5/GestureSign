@@ -74,17 +74,11 @@ namespace GestureSign.Daemon
                         {
                             LocalizationProvider.Instance.LoadFromResource(Properties.Resources.en);
                         }
-                        Logging.LogInfo("Localization loaded");
-
-                        Logging.LogInfo("Loading PointCapture...");
                         PointCapture.Instance.Load();
                         SynchronizationContext uiContext = SynchronizationContext.Current;
-                        Logging.LogInfo("Loading TriggerManager...");
                         TriggerManager.Instance.Load();
 
-                        Logging.LogInfo("Loading GestureManager...");
                         GestureManager.Instance.Load(PointCapture.Instance);
-                        Logging.LogInfo("Loading ApplicationManager...");
                         ApplicationManager.Instance.Load(PointCapture.Instance);
                         // Create host control class and pass to plugins
                         HostControl hostControl = new HostControl()
@@ -95,16 +89,10 @@ namespace GestureSign.Daemon
                             _PluginManager = PluginManager.Instance,
                             _TrayManager = TrayManager.Instance
                         };
-                        Logging.LogInfo("Loading PluginManager...");
                         PluginManager.Instance.Load(hostControl, uiContext);
-                        Logging.LogInfo("Loading TrayManager...");
                         TrayManager.Instance.Load();
-
-                        Logging.LogInfo("Starting Named Pipe server...");
                         NamedPipe.Instance.RunNamedPipeServer(Constants.Daemon, new MessageProcessor(uiContext));
-
                         Application.ApplicationExit += Application_ApplicationExit;
-
                         Logging.LogInfo("=== GestureSign Daemon Started Successfully ===");
                         Application.Run();
                     }

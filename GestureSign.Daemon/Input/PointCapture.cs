@@ -242,18 +242,12 @@ namespace GestureSign.Daemon.Input
                             _pointerInputTargetWindow.BlockTouchInputThreshold = 0;
                     };
                     ForegroundApplicationsChanged += PointCapture_ForegroundApplicationsChanged;
-
-                    GestureSign.Common.Log.Logging.LogInfo("[PointCapture] PointerInputTargetWindow created (UIAccess mode)");
                 }
                 catch (Exception ex)
                 {
                     GestureSign.Common.Log.Logging.LogError($"[PointCapture] Failed to create PointerInputTargetWindow: {ex.Message}");
                     _pointerInputTargetWindow = null;
                 }
-            }
-            else
-            {
-                GestureSign.Common.Log.Logging.LogInfo("[PointCapture] Skipping PointerInputTargetWindow (non-UIAccess mode)");
             }
 
             SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
@@ -403,7 +397,7 @@ namespace GestureSign.Daemon.Input
             // Skip logging if this is the first input (avoid huge time delta from MinValue)
             if (_lastInputReceivedTime != DateTime.MinValue && timeSinceLastInput.TotalSeconds > 10)
             {
-                GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] First input after {timeSinceLastInput.TotalSeconds:F1}s idle - State: {State}, Fingers: {e.TotalFingerCount}");
+                GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] First input after {timeSinceLastInput.TotalSeconds:F1}s idle - State: {State}, Fingers: {e.TotalFingerCount}");
             }
 
             _lastInputReceivedTime = now;

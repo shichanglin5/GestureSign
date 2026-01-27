@@ -108,7 +108,6 @@ namespace GestureSign.Daemon.Triggers
                         if (gesture != null && gesture.FingerCount == fingerCount)
                         {
                             hasCurrentAppGesture = true;
-                            Logging.LogDebug($"[ContinuousGestureTrigger] Current app has {fingerCount}-finger drawn gesture '{action.GestureName}'");
                             break;
                         }
                     }

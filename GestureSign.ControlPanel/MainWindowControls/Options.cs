@@ -71,6 +71,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 BlockWindowsGesturesSwitch.IsOn = AppConfig.BlockWindowsGestures;
                 TouchPadWindowTargetComboBox.SelectedIndex = (int)AppConfig.TouchPadWindowTargetMode;
                 TouchScreenWindowTargetComboBox.SelectedIndex = (int)AppConfig.TouchScreenWindowTargetMode;
+                ReFetchTargetWindowCheckBox.IsChecked = AppConfig.ReFetchTargetWindowOnExecution;
 
                 LanguageComboBox.ItemsSource = LocalizationProvider.Instance.GetLanguageList("ControlPanel");
                 LanguageComboBox.SelectedValue = AppConfig.CultureName;
@@ -446,6 +447,11 @@ namespace GestureSign.ControlPanel.MainWindowControls
                     AppConfig.TouchScreenWindowTargetMode = mode;
                 }
             }
+        }
+
+        private void ReFetchTargetWindowCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            AppConfig.ReFetchTargetWindowOnExecution = ReFetchTargetWindowCheckBox.IsChecked == true;
         }
 
         private void InitialTimeoutSwitch_Click(object sender, RoutedEventArgs e)

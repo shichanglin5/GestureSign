@@ -46,12 +46,12 @@ namespace GestureSign.Daemon.Input
         {
             if (e.Mode == PowerModes.Resume)
             {
-                GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] System resumed from sleep/hibernate, triggering UpdateDeviceState");
+                GestureSign.Common.Log.Logging.LogDebug($"[InputProvider] System resumed from sleep/hibernate, triggering UpdateDeviceState");
                 UpdateDeviceState();
             }
             else if (e.Mode == PowerModes.Suspend)
             {
-                GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] System suspending (sleep/hibernate)");
+                GestureSign.Common.Log.Logging.LogDebug($"[InputProvider] System suspending (sleep/hibernate)");
             }
         }
 
@@ -84,15 +84,14 @@ namespace GestureSign.Daemon.Input
         {
             if (0 == System.Threading.Interlocked.Exchange(ref _stateUpdating, 1))
             {
-                GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] UpdateDeviceState initiated, waiting 600ms for hardware stabilization");
+                GestureSign.Common.Log.Logging.LogDebug($"[InputProvider] UpdateDeviceState initiated, waiting 600ms for hardware stabilization");
                 Task.Delay(600).ContinueWith((t) =>
                 {
                     try
                     {
                         System.Threading.Interlocked.Exchange(ref _stateUpdating, 0);
-                        GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] 600ms delay complete, calling MessageWindow.UpdateRegistration()");
                         _messageWindow.UpdateRegistration();
-                        GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] UpdateDeviceState completed successfully");
+                        GestureSign.Common.Log.Logging.LogDebug($"[InputProvider] UpdateDeviceState completed successfully");
                     }
                     catch (Exception ex)
                     {

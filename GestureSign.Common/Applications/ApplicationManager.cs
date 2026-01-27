@@ -81,7 +81,7 @@ namespace GestureSign.Common.Applications
                 }
             }
 
-            CaptureWindow = GetWindowFromPoint(e.FirstCapturedPoints.FirstOrDefault());
+            CaptureWindow = GetCaptureWindowByTargetMode(pointCapture.SourceDevice, e.FirstCapturedPoints.FirstOrDefault());
             _recognizedApplication = GetApplicationFromWindow(CaptureWindow);
 
             int maxThreshold = 0, maxLimitNumber = 1;
@@ -126,24 +126,6 @@ namespace GestureSign.Common.Applications
 
         protected void PointCapture_BeforePointsCaptured(object sender, PointsCapturedEventArgs e)
         {
-            var appsToMatch = Applications.Where(a => a is UserApp && a.MatchActivated);
-            if (appsToMatch.Any())
-            {
-                CaptureWindow = SystemWindow.ForegroundWindow;
-                string className, title, fileName;
-                GetWindowInfo(CaptureWindow, out className, out title, out fileName);
-                var matchedForegroundApps = FindMatchApplications(appsToMatch, className, title, fileName);
-
-                if (matchedForegroundApps.Length != 0)
-                {
-                    _recognizedApplication = matchedForegroundApps;
-                    return;
-                }
-            }
-
-            // Derive capture window from capture point
-            CaptureWindow = GetWindowFromPoint(e.FirstCapturedPoints.FirstOrDefault());
-            _recognizedApplication = GetApplicationFromWindow(CaptureWindow);
         }
 
         #endregion
@@ -484,6 +466,29 @@ namespace GestureSign.Common.Applications
         #endregion
 
         #region Private Methods
+
+        private SystemWindow GetCaptureWindowByTargetMode(Devices sourceDevice, Point point)
+        {
+            var targetMode = (sourceDevice & Devices.TouchPad) != 0
+                ? AppConfig.TouchPadWindowTargetMode
+                : AppConfig.TouchScreenWindowTargetMode;
+
+            if (targetMode == WindowTargetMode.ActiveWindow)
+            {
+                var foreground = SystemWindow.ForegroundWindow;
+                if (foreground != null && foreground.WindowState == System.Windows.Forms.FormWindowState.Minimized)
+                {
+                    if ((sourceDevice & Devices.TouchPad) != 0)
+                    {
+                        return GetWindowFromPoint(System.Windows.Forms.Cursor.Position);
+                    }
+                    return GetWindowFromPoint(point);
+                }
+                return foreground ?? GetWindowFromPoint(point);
+            }
+
+            return GetWindowFromPoint(point);
+        }
 
         private IApplication[] FindMatchApplications(IEnumerable<IApplication> applications, string className, string title, string fileName)
         {

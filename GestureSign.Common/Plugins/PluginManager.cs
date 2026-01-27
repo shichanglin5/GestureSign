@@ -56,11 +56,8 @@ namespace GestureSign.Common.Plugins
 
             if (executableActions == null || executableActions.Count == 0)
             {
-                Logging.LogDebug($"[PluginManager] Gesture '{e.GestureName}' recognized but no actions found");
                 return;
             }
-
-            Logging.LogInfo($"[PluginManager] Gesture '{e.GestureName}' recognized, {executableActions.Count} action(s) to execute");
             ExecuteAction(executableActions, pointCapture.Mode, pointCapture.SourceDevice, e.ContactIdentifiers, e.FirstCapturedPoints, e.Points);
         }
 
@@ -74,34 +71,55 @@ namespace GestureSign.Common.Plugins
             if (mode == CaptureMode.Training)
                 return;
 
-            // Determine target window based on device type and configuration
-            var targetMode = devices == Input.Devices.TouchPad
-                ? Configuration.AppConfig.TouchPadWindowTargetMode
-                : Configuration.AppConfig.TouchScreenWindowTargetMode;
+            SystemWindow? target;
 
-            SystemWindow? target = null;
-
-            switch (targetMode)
+            if (Configuration.AppConfig.ReFetchTargetWindowOnExecution)
             {
-                case Input.WindowTargetMode.MousePosition:
-                    var mousePosition = System.Windows.Forms.Cursor.Position;
-                    target = ApplicationManager.Instance.GetWindowFromPoint(mousePosition);
-                    break;
+                // 重新获取目标窗口
+                var targetMode = devices == Input.Devices.TouchPad
+                    ? Configuration.AppConfig.TouchPadWindowTargetMode
+                    : Configuration.AppConfig.TouchScreenWindowTargetMode;
 
-                case Input.WindowTargetMode.ActiveWindow:
-                    target = SystemWindow.ForegroundWindow;
-                    break;
+                target = null;
 
-                case Input.WindowTargetMode.GestureStartPosition:
-                    target = ApplicationManager.Instance.CaptureWindow;
-                    break;
+                switch (targetMode)
+                {
+                    case Input.WindowTargetMode.MousePosition:
+                        var mousePosition = System.Windows.Forms.Cursor.Position;
+                        target = ApplicationManager.Instance.GetWindowFromPoint(mousePosition);
+                        break;
+
+                    case Input.WindowTargetMode.ActiveWindow:
+                        target = SystemWindow.ForegroundWindow;
+                        // 如果 foreground 窗口已最小化，根据设备类型回退
+                        if (target != null && target.WindowState == System.Windows.Forms.FormWindowState.Minimized)
+                        {
+                            if ((devices & Devices.TouchPad) != 0)
+                            {
+                                var mousePos = System.Windows.Forms.Cursor.Position;
+                                target = ApplicationManager.Instance.GetWindowFromPoint(mousePos);
+                            }
+                            else
+                            {
+                                target = ApplicationManager.Instance.GetWindowFromPoint(firstCapturedPoints.FirstOrDefault());
+                            }
+                        }
+                        break;
+
+                    case Input.WindowTargetMode.GestureStartPosition:
+                        target = ApplicationManager.Instance.GetWindowFromPoint(firstCapturedPoints.FirstOrDefault());
+                        break;
+                }
+
+                // Fallback to gesture start position window if target is null
+                if (target == null)
+                    target = ApplicationManager.Instance.GetWindowFromPoint(firstCapturedPoints.FirstOrDefault());
             }
-
-            // Fallback to captured window if target is null
-            if (target == null)
+            else
+            {
+                // 复用匹配阶段获取的窗口
                 target = ApplicationManager.Instance.CaptureWindow;
-
-            Logging.LogInfo($"[PluginManager] TargetMode={targetMode}, Device={devices}, Target=0x{target?.HWnd:X} '{target?.Title}', ForegroundWindow=0x{SystemWindow.ForegroundWindow?.HWnd:X} '{SystemWindow.ForegroundWindow?.Title}'");
+            }
 
             var pointInfo = new PointInfo(firstCapturedPoints, points, target, _mainContext, velocity);
             var action = new Action<object>(o =>
@@ -135,28 +153,44 @@ namespace GestureSign.Common.Plugins
                             if (executableAction.ActivateWindow == null && pluginInfo.Plugin.ActivateWindowDefault ||
                             executableAction.ActivateWindow.GetValueOrDefault())
                             {
-                                // Determine window to activate based on device type and configuration
-                                var targetMode = devices == Input.Devices.TouchPad
-                                    ? Configuration.AppConfig.TouchPadWindowTargetMode
-                                    : Configuration.AppConfig.TouchScreenWindowTargetMode;
+                                SystemWindow? windowToActivate;
 
-                                SystemWindow? windowToActivate = null;
-
-                                switch (targetMode)
+                                if (Configuration.AppConfig.ReFetchTargetWindowOnExecution)
                                 {
-                                    case Input.WindowTargetMode.MousePosition:
-                                        var mousePosition = System.Windows.Forms.Cursor.Position;
-                                        windowToActivate = ApplicationManager.Instance.GetWindowFromPoint(mousePosition);
-                                        break;
+                                    var targetMode = devices == Input.Devices.TouchPad
+                                        ? Configuration.AppConfig.TouchPadWindowTargetMode
+                                        : Configuration.AppConfig.TouchScreenWindowTargetMode;
 
-                                    case Input.WindowTargetMode.ActiveWindow:
-                                        windowToActivate = SystemWindow.ForegroundWindow;
-                                        break;
+                                    windowToActivate = null;
 
-                                    case Input.WindowTargetMode.GestureStartPosition:
-                                        windowToActivate = target;  // Use captured window
-                                        break;
+                                    switch (targetMode)
+                                    {
+                                        case Input.WindowTargetMode.MousePosition:
+                                            var mousePosition = System.Windows.Forms.Cursor.Position;
+                                            windowToActivate = ApplicationManager.Instance.GetWindowFromPoint(mousePosition);
+                                            break;
+
+                                        case Input.WindowTargetMode.ActiveWindow:
+                                            windowToActivate = SystemWindow.ForegroundWindow;
+                                            if (windowToActivate != null && windowToActivate.WindowState == System.Windows.Forms.FormWindowState.Minimized)
+                                            {
+                                                if ((devices & Devices.TouchPad) != 0)
+                                                    windowToActivate = ApplicationManager.Instance.GetWindowFromPoint(System.Windows.Forms.Cursor.Position);
+                                                else
+                                                    windowToActivate = ApplicationManager.Instance.GetWindowFromPoint(firstCapturedPoints.FirstOrDefault());
+                                            }
+                                            break;
+
+                                        case Input.WindowTargetMode.GestureStartPosition:
+                                            windowToActivate = ApplicationManager.Instance.GetWindowFromPoint(firstCapturedPoints.FirstOrDefault());
+                                            break;
+                                    }
                                 }
+                                else
+                                {
+                                    windowToActivate = target;
+                                }
+
                                 if (windowToActivate != null && windowToActivate.HWnd.ToInt64() != SystemWindow.ForegroundWindow?.HWnd.ToInt64())
                                     SystemWindow.ForegroundWindow = windowToActivate;
                             }
@@ -166,7 +200,7 @@ namespace GestureSign.Common.Plugins
                         if (!command.PluginClass.EndsWith("InertialScrollPlugin"))
                         {
                             var fgWin = SystemWindow.ForegroundWindow;
-                            Logging.LogInfo($"[PluginManager] Executing: Action='{executableAction.Name}', Command='{command.Name}', Plugin={command.PluginClass}, ForegroundWindow=0x{fgWin?.HWnd:X} '{fgWin?.Title}'");
+                            Logging.LogDebug($"[PluginManager] Executing: Action='{executableAction.Name}', Command='{command.Name}', Plugin={command.PluginClass}, ForegroundWindow=0x{fgWin?.HWnd:X} '{fgWin?.Title}'");
                         }
                         // Execute plugin process
                         pluginInfo.Plugin.Gestured(pointInfo);

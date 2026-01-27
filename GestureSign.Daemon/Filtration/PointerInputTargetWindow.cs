@@ -76,7 +76,6 @@ namespace GestureSign.Daemon.Filtration
                     if (NativeMethods.RegisterPointerInputTarget(Handle, POINTER_INPUT_TYPE.TOUCH))
                     {
                         _isRegistered = true;
-                        GestureSign.Common.Log.Logging.LogInfo("[PointerInputTargetWindow] Successfully registered as Pointer Input Target");
                     }
                     else
                     {
