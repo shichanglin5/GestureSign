@@ -167,6 +167,7 @@
     <NextApplication>
       <Name>Switch Window</Name>
       <Description>Switches to the next window</Description>
+      <SkipMinimizedWindows>Skip minimized/hidden windows</SkipMinimizedWindows>
     </NextApplication>
     <TemporarilyDisable>
       <Name>Temporarily Disable</Name>
@@ -224,6 +225,7 @@
       <ConfigMethod>Configuration Method:</ConfigMethod>
       <BrowseApp>Browse for Application</BrowseApp>
       <SelectWindow>Select from Running Windows</SelectWindow>
+      <DragToCapture>Drag to a window to view details</DragToCapture>
       <AppPath>Application Path:</AppPath>
       <Browse>Browse Start Menu Programs</Browse>
       <Or>Or</Or>

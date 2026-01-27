@@ -168,6 +168,7 @@
     <NextApplication>
       <Name>切换窗口</Name>
       <Description>切换到下一个窗口</Description>
+      <SkipMinimizedWindows>跳过最小化/隐藏的窗口</SkipMinimizedWindows>
     </NextApplication>
     <TemporarilyDisable>
       <Name>临时禁用手势识别</Name>
@@ -225,6 +226,7 @@
       <ConfigMethod>配置方式:</ConfigMethod>
       <BrowseApp>浏览应用程序</BrowseApp>
       <SelectWindow>从运行中的窗口选择</SelectWindow>
+      <DragToCapture>拖拽到窗口上查看详细信息</DragToCapture>
       <AppPath>应用程序路径:</AppPath>
       <Browse>浏览开始菜单程序</Browse>
       <Or>或</Or>

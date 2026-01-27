@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using GestureSign.Common.Log;
+using ManagedWinapi.Windows;
 
 namespace GestureSign.CorePlugins.ActivateApp
 {
@@ -128,6 +132,31 @@ namespace GestureSign.CorePlugins.ActivateApp
             {
                 Logging.LogError($"[ActivateAppUI] Error opening window selection dialog: {ex.Message}");
                 MessageBox.Show($"Error opening window selection: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetCursorPos(out System.Drawing.Point lpPoint);
+
+        private void CaptureCrosshair_CrosshairDragged(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                GetCursorPos(out System.Drawing.Point cursorPosition);
+                var window = SystemWindow.FromPointEx(cursorPosition.X, cursorPosition.Y, true, true);
+                if (window == null || window.HWnd == IntPtr.Zero)
+                    return;
+
+                var detailsDialog = new WindowDetailsDialog(window.HWnd)
+                {
+                    Owner = Window.GetWindow(this)
+                };
+                detailsDialog.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                Logging.LogError($"[ActivateAppUI] Error capturing window: {ex.Message}");
             }
         }
 

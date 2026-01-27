@@ -7,7 +7,7 @@
     <!-- uiAccessRelease 配置使用受保护目录 (C:\Program Files\)，以便 UIAccess 权限生效 -->
     <!-- 其他配置(Debug/Release/Portable/Centennial)使用开发目录 -->
     <PackageOutputDir Condition="'$(Configuration)' == 'uiAccessRelease'">C:\Program Files\GestureSign</PackageOutputDir>
-    <PackageOutputDir Condition="'$(Configuration)' != 'uiAccessRelease'">D:\wd\soft\GestureSign</PackageOutputDir>
+    <PackageOutputDir Condition="'$(Configuration)' == 'Release'">D:\wd\soft\GestureSign</PackageOutputDir>
   </PropertyGroup>
 
   <!-- Package target - run for both Debug and Release, only for main projects -->
