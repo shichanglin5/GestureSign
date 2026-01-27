@@ -257,6 +257,7 @@ namespace GestureSign.Daemon.Input
             }
 
             SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
+            SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
         }
 
         #endregion
@@ -279,6 +280,7 @@ namespace GestureSign.Daemon.Input
                 _surfaceForm = null;
 
                 SystemEvents.SessionSwitch -= SystemEvents_SessionSwitch;
+                SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
                 if (_hWinEventHook != IntPtr.Zero)
                     UnhookWinEvent(_hWinEventHook);
                 if (_winEventGch.IsAllocated)
@@ -338,6 +340,25 @@ namespace GestureSign.Daemon.Input
                     break;
                 default:
                     break;
+            }
+        }
+
+        private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
+        {
+            if (e.Mode == PowerModes.Resume)
+            {
+                var previousState = State;
+                Logging.LogInfo($"[PointCapture] PowerMode Resume, State: {previousState}");
+
+                // Reset state machine if stuck in non-Ready state during sleep
+                if (previousState != CaptureState.Ready && previousState != CaptureState.Disabled)
+                {
+                    Logging.LogWarning($"[PointCapture] Resetting stuck state {previousState} → Ready after resume");
+                    _pointsCaptured?.Clear();
+                    _featureFingerIds?.Clear();
+                    _pendingFirstPoints = null;
+                    State = CaptureState.Ready;
+                }
             }
         }
 

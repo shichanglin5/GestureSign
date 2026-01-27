@@ -111,8 +111,11 @@ namespace GestureSign.Daemon.Input
 
         public void UpdateRegistration()
         {
-            GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] UpdateRegistration called, clearing {_validDevices.Count} cached devices");
+            GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] UpdateRegistration called, clearing {_validDevices.Count} cached devices, resetting sourceDevice={_sourceDevice}");
             _validDevices.Clear();
+            _sourceDevice = Devices.None;
+            _requiringContactCount = 0;
+            _outputTouchs.Clear();
 
             // GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] Registering devices - TouchScreen: {AppConfig.RegisterTouchScreen}, TouchPad: {AppConfig.RegisterTouchPad}");
             UpdateRegisterState(AppConfig.RegisterTouchScreen, NativeMethods.TouchScreenUsage);
@@ -244,6 +247,7 @@ namespace GestureSign.Daemon.Input
                     {
                         // wParam indicates GIDC_ARRIVAL (1) or GIDC_REMOVAL (2)
                         string changeType = message.WParam.ToInt32() == 1 ? "ARRIVAL" : "REMOVAL";
+                        GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] WM_INPUT_DEVICE_CHANGE: {changeType}, lParam=0x{message.LParam:X}");
                         _validDevices.Clear();
                         break;
                     }
