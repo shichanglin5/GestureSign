@@ -1,0 +1,362 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    // ==================== 进程管理 ====================
+    // stop-gesturesign - 停止所有 GestureSign 进程
+
+    {
+      "label": "stop-gesturesign",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "Get-Process -Name 'GestureSign*' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Write-Host 'GestureSign processes stopped' -ForegroundColor Green"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "debug: build",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "Debug",
+        "-v",
+        "minimal"
+      ],
+      "group": "_internal_",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "debug: clean",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "clean",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "Debug",
+        "-v",
+        "minimal"
+      ],
+      "group": "_internal_",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "release: build",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "Release",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": "$msCompile"
+    },
+
+    {
+      "label": "release: rebuild",
+      "dependsOn": [
+        "release: clean",
+        "release: build"
+      ],
+      "dependsOrder": "sequence",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "release: clean",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "clean",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "Release",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "release: stop-build-run",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/Build-And-Run.ps1",
+        "-Configuration",
+        "Release"
+      ],
+      "group": "run",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    // ==================== 构建任务 (uiAccessRelease) ====================
+    {
+      "label": "uiAccessRelease: build",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "uiAccessRelease",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": "$msCompile"
+    },
+
+    {
+      "label": "uiAccessRelease: rebuild",
+      "dependsOn": [
+        "uiAccessRelease: clean",
+        "uiAccessRelease: build"
+      ],
+      "dependsOrder": "sequence",
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "uiAccessRelease: clean",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "clean",
+        "${workspaceFolder}/GestureSign.sln",
+        "-c",
+        "uiAccessRelease",
+        "-v",
+        "minimal"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "clean-all-configs",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "Write-Host 'Cleaning all build outputs...' -ForegroundColor Yellow; Remove-Item -Recurse -Force bin,obj -ErrorAction SilentlyContinue; Write-Host 'All bin and obj directories deleted' -ForegroundColor Green"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    // ==================== UIAccess 专用任务 ====================
+    {
+      "label": "build-and-run-uiAccessRelease",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/Build-And-Run.ps1",
+        "-Configuration",
+        "uiAccessRelease"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "sign-code-uiAccessRelease",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/Sign-Code.ps1",
+        "-BuildConfiguration",
+        "uiAccessRelease"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "build-and-stop-debug",
+      "dependsOn": [
+        "stop-gesturesign",
+        "debug: build"
+      ],
+      "dependsOrder": "sequence",
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": "$msCompile"
+    },
+
+        {
+      "label": "build-and-stop-debug-daemon",
+      "dependsOn": [
+        "stop gesturesign",
+        "debug: build daemon"
+      ],
+      "dependsOrder": "sequence",
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": "$msCompile"
+    },
+
+    {
+      "label": "build-uiAccessRelease-admin",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/Open-AdminTerminal.ps1",
+        "-Command",
+        ".\\scripts\\Build-And-Run.ps1 -Configuration uiAccessRelease"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    }
+  ]
+}
