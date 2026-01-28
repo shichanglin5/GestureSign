@@ -129,6 +129,8 @@ namespace GestureSign.CorePlugins.ActivateApp
                     return false;
                 }
 
+                Logging.LogDebug($"[ActivateApp] Activating: {_settings.DisplayName ?? Path.GetFileNameWithoutExtension(_settings.ApplicationPath)}");
+
                 // Step 1: Check if application is running
                 var appWindows = GetApplicationWindows(_settings);
 
@@ -322,6 +324,8 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             var windows = new List<IntPtr>();
 
+            Logging.LogDebug($"[ActivateApp] Searching for ClassName='{settings.WindowClassName}', Path='{settings.ApplicationPath}'");
+
             EnumWindows((hWnd, lParam) =>
             {
                 if (IsSwitchableWindow(hWnd))
@@ -337,7 +341,23 @@ namespace GestureSign.CorePlugins.ActivateApp
                         // Check ProcessPath
                         GetWindowThreadProcessId(hWnd, out int pid);
                         var process = Process.GetProcessById(pid);
-                        var processPath = process.MainModule?.FileName;
+                        string processPath = null;
+
+                        try
+                        {
+                            processPath = process.MainModule?.FileName;
+                        }
+                        catch (System.ComponentModel.Win32Exception)
+                        {
+                            // Access denied - try matching by process name instead
+                            string expectedFileName = Path.GetFileName(settings.ApplicationPath);
+                            string actualFileName = process.ProcessName + ".exe";
+                            if (string.Equals(expectedFileName, actualFileName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                processPath = settings.ApplicationPath; // Treat as match
+                                Logging.LogDebug($"[ActivateApp] Process path access denied, matched by process name: {actualFileName}");
+                            }
+                        }
 
                         if (string.Equals(processPath, settings.ApplicationPath,
                             StringComparison.OrdinalIgnoreCase))
@@ -345,6 +365,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                             // Apply title filters
                             if (MatchesFilters(hWnd, settings))
                             {
+                                Logging.LogDebug($"[ActivateApp] Found matching window: 0x{hWnd:X} '{window.Title}'");
                                 windows.Add(hWnd);
                             }
                         }
