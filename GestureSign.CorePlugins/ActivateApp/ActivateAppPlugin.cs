@@ -389,8 +389,8 @@ namespace GestureSign.CorePlugins.ActivateApp
             var foregroundWindow = GetForegroundWindow();
             bool isForeground = hWnd == foregroundWindow;
 
-            var fgWindow = new SystemWindow(foregroundWindow);
-            Logging.LogDebug($"[ActivateApp] HandleSingleWindow: hWnd=0x{hWnd:X}, state={windowState}, isForeground={isForeground}, title='{window.Title}', currentForeground=0x{foregroundWindow:X} '{fgWindow.Title}'");
+            // var fgWindow = new SystemWindow(foregroundWindow);
+            // Logging.LogDebug($"[ActivateApp] HandleSingleWindow: hWnd=0x{hWnd:X}, state={windowState}, isForeground={isForeground}, title='{window.Title}', currentForeground=0x{foregroundWindow:X} '{fgWindow.Title}'");
 
             // Check if window is minimized first
             if (windowState == FormWindowState.Minimized)
@@ -421,30 +421,39 @@ namespace GestureSign.CorePlugins.ActivateApp
             // Sort windows by Z-order (most recently activated first)
             windows = windows.OrderByDescending(w => GetWindowZOrder(w)).ToList();
 
-            IntPtr targetWindow = IntPtr.Zero;
-
-            // Get last activated window for this app
             string appKey = _settings.ApplicationPath.ToLowerInvariant();
-            IntPtr lastWindow = IntPtr.Zero;
-            _lastActivatedWindows.TryGetValue(appKey, out lastWindow);
+            IntPtr foreground = GetForegroundWindow();
 
-            // Validate last window still exists
-            if (lastWindow != IntPtr.Zero && !windows.Contains(lastWindow))
-            {
-                lastWindow = IntPtr.Zero;
-            }
+            // Check if the current foreground window belongs to this application
+            bool foregroundIsThisApp = windows.Contains(foreground);
 
-            if (lastWindow == IntPtr.Zero)
+            IntPtr targetWindow;
+
+            if (foregroundIsThisApp)
             {
-                // First activation or previous window closed - activate the topmost window
-                targetWindow = windows[0];
+                // Already in this app — cycle to the next window
+                int currentIndex = windows.IndexOf(foreground);
+                int nextIndex = (currentIndex + 1) % windows.Count;
+                targetWindow = windows[nextIndex];
+                Logging.LogDebug($"[ActivateApp] Foreground is this app, cycling: index {currentIndex} -> {nextIndex}");
             }
             else
             {
-                // Find next window in cycle
-                int currentIndex = windows.IndexOf(lastWindow);
-                int nextIndex = (currentIndex + 1) % windows.Count;
-                targetWindow = windows[nextIndex];
+                // Coming from another app — restore the last activated window
+                _lastActivatedWindows.TryGetValue(appKey, out IntPtr lastWindow);
+
+                // Validate last window still exists in the list
+                if (lastWindow != IntPtr.Zero && windows.Contains(lastWindow))
+                {
+                    targetWindow = lastWindow;
+                    Logging.LogDebug($"[ActivateApp] From other app, restoring last window: 0x{targetWindow:X}");
+                }
+                else
+                {
+                    // No valid last window — activate the topmost one
+                    targetWindow = windows[0];
+                    Logging.LogDebug($"[ActivateApp] From other app, no last window, using topmost: 0x{targetWindow:X}");
+                }
             }
 
             // Activate the target window

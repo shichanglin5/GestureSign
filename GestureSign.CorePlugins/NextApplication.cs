@@ -122,27 +122,19 @@ namespace GestureSign.CorePlugins
         {
             try
             {
-                Logging.LogDebug($"[NextApplication] Gestured called, SkipMinimizedWindows={_settings.SkipMinimizedWindows}");
-
                 // Get all switchable windows
                 var windows = GetSwitchableWindows();
-                Logging.LogDebug($"[NextApplication] Found {windows.Count} switchable windows");
-
                 if (windows.Count <= 1)
                 {
-                    Logging.LogDebug($"[NextApplication] Not enough windows to switch (count={windows.Count})");
                     return false;
                 }
 
                 // Get current foreground window
                 IntPtr currentWindow = GetForegroundWindow();
                 bool foregroundMinimized = IsIconic(currentWindow);
-                Logging.LogDebug($"[NextApplication] Current foreground: 0x{currentWindow:X}, title=\"{GetWindowTitle(currentWindow)}\", minimized={foregroundMinimized}");
-
                 // If foreground is minimized, restore it directly (like Alt+Tab)
                 if (foregroundMinimized)
                 {
-                    Logging.LogDebug($"[NextApplication] Foreground is minimized, restoring directly");
                     ShowWindow(currentWindow, SW_RESTORE);
                     SetForegroundWindow(currentWindow);
                     return true;
@@ -150,8 +142,6 @@ namespace GestureSign.CorePlugins
 
                 // Find current window index
                 int currentIndex = windows.IndexOf(currentWindow);
-                Logging.LogDebug($"[NextApplication] Current window index in list: {currentIndex}");
-
                 // If current window is not in the list, start from beginning
                 if (currentIndex < 0)
                 {
@@ -161,17 +151,13 @@ namespace GestureSign.CorePlugins
                 // Get next window (cycle to first if at end)
                 int nextIndex = (currentIndex + 1) % windows.Count;
                 IntPtr nextWindow = windows[nextIndex];
-                Logging.LogDebug($"[NextApplication] Switching to index {nextIndex}: 0x{nextWindow:X}, title=\"{GetWindowTitle(nextWindow)}\"");
 
                 // Activate next window (restore if minimized)
                 if (IsIconic(nextWindow))
                 {
-                    Logging.LogDebug($"[NextApplication] Window is minimized, restoring first");
                     ShowWindow(nextWindow, SW_RESTORE);
                 }
                 bool result = SetForegroundWindow(nextWindow);
-                Logging.LogDebug($"[NextApplication] SetForegroundWindow result: {result}");
-
                 return true;
             }
             catch (Exception ex)
@@ -222,7 +208,6 @@ namespace GestureSign.CorePlugins
             IntPtr ownerWindow = GetWindow(hWnd, GW_OWNER);
             if (ownerWindow != IntPtr.Zero)
             {
-                Logging.LogDebug($"[NextApplication] Skipped (has owner): 0x{hWnd:X} \"{title}\"");
                 return false;
             }
 
@@ -232,11 +217,8 @@ namespace GestureSign.CorePlugins
             // Skip tool windows unless they have WS_EX_APPWINDOW
             if ((exStyle & WS_EX_TOOLWINDOW) != 0 && (exStyle & WS_EX_APPWINDOW) == 0)
             {
-                Logging.LogDebug($"[NextApplication] Skipped (tool window): 0x{hWnd:X} \"{title}\"");
                 return false;
             }
-
-            Logging.LogDebug($"[NextApplication] Accepted: 0x{hWnd:X} \"{title}\" visible={visible} iconic={iconic}");
             return true;
         }
 
