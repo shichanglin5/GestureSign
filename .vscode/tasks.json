@@ -12,7 +12,7 @@
   // 原子任务分类:
   //   - stop-gesturesign - 停止所有进程
   //   - debug/release/uiAccessRelease: build/clean/rebuild
-  //   - signing: create-cert, install-cert, sign-*
+  //   - signing: sign, verify
   //   - run: daemon-*/controlpanel-*
   //   - copy: to-programfiles
   //   - system: *-testmode
@@ -24,19 +24,8 @@
       "label": "stop-gesturesign",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "Get-Process -Name \"GestureSign*\" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Write-Host \"GestureSign processes stopped\" -ForegroundColor Green"
-      ],
-      "presentation": {
-        "echo": true,
-        "reveal": "silent",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Stop-GestureSign.ps1"],
+      "presentation": { "echo": true, "reveal": "silent", "panel": "shared", "showReuseMessage": false },
       "problemMatcher": []
     },
     // ==================== 基础构建任务 ====================
@@ -44,54 +33,21 @@
       "label": "debug: build",
       "type": "shell",
       "command": "dotnet",
-      "args": [
-        "build",
-        "${workspaceFolder}/GestureSign.sln",
-        "-c",
-        "Debug",
-        "-v",
-        "minimal"
-      ],
+      "args": ["build", "${workspaceFolder}/GestureSign.sln", "-c", "Debug", "-v", "minimal"],
       "group": "build",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": true,
-        "clear": false
-      },
       "problemMatcher": "$msCompile"
     },
     {
       "label": "debug: clean",
       "type": "shell",
       "command": "dotnet",
-      "args": [
-        "clean",
-        "${workspaceFolder}/GestureSign.sln",
-        "-c",
-        "Debug",
-        "-v",
-        "minimal"
-      ],
+      "args": ["clean", "${workspaceFolder}/GestureSign.sln", "-c", "Debug", "-v", "minimal"],
       "group": "build",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": true,
-        "clear": false
-      },
       "problemMatcher": []
     },
     {
       "label": "debug: rebuild",
-      "dependsOn": [
-        "debug: clean",
-        "debug: build"
-      ],
+      "dependsOn": ["debug: clean", "debug: build"],
       "dependsOrder": "sequence",
       "group": "build",
       "problemMatcher": []
@@ -100,71 +56,21 @@
       "label": "release: build",
       "type": "shell",
       "command": "dotnet",
-      "args": [
-        "build",
-        "${workspaceFolder}/GestureSign.sln",
-        "-c",
-        "Release",
-        "-v",
-        "minimal"
-      ],
+      "args": ["build", "${workspaceFolder}/GestureSign.sln", "-c", "Release", "-v", "minimal"],
       "group": "build",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": true,
-        "clear": false
-      },
       "problemMatcher": "$msCompile"
     },
     {
       "label": "release: clean",
       "type": "shell",
       "command": "dotnet",
-      "args": [
-        "clean",
-        "${workspaceFolder}/GestureSign.sln",
-        "-c",
-        "Release",
-        "-v",
-        "minimal"
-      ],
+      "args": ["clean", "${workspaceFolder}/GestureSign.sln", "-c", "Release", "-v", "minimal"],
       "group": "build",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": true,
-        "clear": false
-      },
       "problemMatcher": []
     },
     {
       "label": "release: restart",
-      "dependsOn": [
-        "stop-gesturesign",
-        "log: delete",
-        "run: daemon-release",
-        "log: tail"
-      ],
-      "dependsOrder": "sequence",
-      "group": "build",
-      "problemMatcher": []
-    },
-    {
-      "label": "release: rebuild + run",
-      "dependsOn": [
-        "stop-gesturesign",
-        "log: delete",
-        "release: clean",
-        "release: build",
-        "run: daemon-release",
-        "log: tail"
-        // "run: controlpanel-release"
-      ],
+      "dependsOn": ["stop-gesturesign", "log: delete", "run: daemon-release", "log: tail"],
       "dependsOrder": "sequence",
       "group": "build",
       "problemMatcher": []
@@ -173,180 +79,53 @@
       "label": "uiAccessRelease: build",
       "type": "shell",
       "command": "dotnet",
-      "args": [
-        "build",
-        "${workspaceFolder}/GestureSign.sln",
-        "-c",
-        "uiAccessRelease",
-        "-v",
-        "minimal"
-      ],
+      "args": ["build", "${workspaceFolder}/GestureSign.sln", "-c", "uiAccessRelease", "-v", "minimal"],
       "group": "build",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": true,
-        "clear": false
-      },
       "problemMatcher": "$msCompile"
     },
     {
       "label": "uiAccessRelease: clean",
       "type": "shell",
       "command": "dotnet",
-      "args": [
-        "clean",
-        "${workspaceFolder}/GestureSign.sln",
-        "-c",
-        "uiAccessRelease",
-        "-v",
-        "minimal"
-      ],
+      "args": ["clean", "${workspaceFolder}/GestureSign.sln", "-c", "uiAccessRelease", "-v", "minimal"],
       "group": "build",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": true,
-        "clear": false
-      },
       "problemMatcher": []
     },
     {
-      "label": "uiAccessRelease: rebuild",
-      "dependsOn": [
-        "uiAccessRelease: clean",
-        "uiAccessRelease: build"
-      ],
+      "label": "uiAccessRelease: restart",
+      "dependsOn": ["stop-gesturesign", "log: delete", "run: daemon-uiaccess", "log: tail"],
       "dependsOrder": "sequence",
       "group": "build",
       "problemMatcher": []
     },
     // ==================== 代码签名任务 ====================
     {
-      "label": "signing: create-cert",
+      "label": "signing: setup-and-sign",
+      "detail": "创建证书并签名 (需要管理员权限)",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "$cert = Get-ChildItem Cert:\\CurrentUser\\My | Where-Object { $_.Subject -eq "CN=GestureSign Development" -and $_.NotAfter -gt (Get-Date) } | Select-Object -First 1; if ($cert) { Write-Host "Certificate already exists: " -NoNewline; Write-Host $cert.Thumbprint -ForegroundColor Green } else { $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=GestureSign Development' -KeyUsage DigitalSignature -FriendlyName "GestureSign Code Signing Certificate" -CertStoreLocation Cert:\\CurrentUser\\My -TextExtension @("2.5.29.37={text
-        }1.3.6.1.5.5.7.3.3", "2.5.29.19={text
-        }") -KeyLength 2048 -HashAlgorithm SHA256 -NotAfter (Get-Date).AddYears(5); Write-Host "Certificate created: " -NoNewline; Write-Host $cert.Thumbprint -ForegroundColor Green }"
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "signing: install-cert",
-      "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "$cert = Get-ChildItem Cert:\\CurrentUser\\My | Where-Object { $_.Subject -eq "CN=GestureSign Development" } | Select-Object -First 1; if (-not $cert) { Write-Host "Certificate not found. Run signing: create-cert first." -ForegroundColor Red; exit 1 }; $store = New-Object System.Security.Cryptography.X509Certificates.X509Store('Root','CurrentUser'); $store.Open('ReadWrite'); if ($store.Certificates -contains $cert) { Write-Host "Certificate already in CurrentUser\\Root" -ForegroundColor Yellow } else { $store.Add($cert); Write-Host "Certificate installed to CurrentUser\\Root" -ForegroundColor Green }; $store.Close(); $store = New-Object System.Security.Cryptography.X509Certificates.X509Store('Root','LocalMachine'); $store.Open('ReadWrite'); if ($store.Certificates -contains $cert) { Write-Host "Certificate already in LocalMachine\\Root" -ForegroundColor Yellow } else { $store.Add($cert); Write-Host "Certificate installed to LocalMachine\\Root" -ForegroundColor Green }; $store.Close()"
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "signing: sign-daemon",
-      "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "$signtool = @("C:\\Program Files (x86)\\Windows Kits\\10\\bin\\*\\x64\\signtool.exe", "C:\\Program Files (x86)\\Windows Kits\\10\\App Certification Kit\\signtool.exe", "C:\\Program Files\\Microsoft SDKs\\Windows\\*\\bin\\*\\x64\\signtool.exe") | ForEach-Object { Get-Item $_ -ErrorAction SilentlyContinue } | Select-Object -First 1 -ExpandProperty FullName; if (-not $signtool) { Write-Host "signtool.exe not found" -ForegroundColor Red; exit 1 }; $cert = Get-ChildItem Cert:\\CurrentUser\\My | Where-Object { $_.Subject -eq "CN=GestureSign Development" } | Select-Object -First 1; if (-not $cert) { Write-Host "Certificate not found" -ForegroundColor Red; exit 1 }; $binPath = '${workspaceFolder}\\bin\\uiAccessRelease'; $exePath = \"$binPath\\GestureSign.exe\"; if (-not (Test-Path $exePath)) { $binPath = \"$binPath\\net8.0-windows10.0.19041.0\"; $exePath = \"$binPath\\GestureSign.exe\" }; if (-not (Test-Path $exePath)) { Write-Host "GestureSign.exe not found" -ForegroundColor Red; exit 1 }; $existingSig = & $signtool verify /pa $exePath 2>&1; if ($LASTEXITCODE -eq 0) { Write-Host "Already signed, skipping" -ForegroundColor Yellow } else { & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint /t http://timestamp.digicert.com $exePath; if ($LASTEXITCODE -eq 0) { Write-Host "Signed successfully" -ForegroundColor Green } else { Write-Host "Signing failed" -ForegroundColor Red; exit 1 } }"
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "signing: sign-controlpanel",
-      "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "$signtool = @("C:\\Program Files (x86)\\Windows Kits\\10\\bin\\*\\x64\\signtool.exe", "C:\\Program Files (x86)\\Windows Kits\\10\\App Certification Kit\\signtool.exe", "C:\\Program Files\\Microsoft SDKs\\Windows\\*\\bin\\*\\x64\\signtool.exe") | ForEach-Object { Get-Item $_ -ErrorAction SilentlyContinue } | Select-Object -First 1 -ExpandProperty FullName; if (-not $signtool) { Write-Host "signtool.exe not found" -ForegroundColor Red; exit 1 }; $cert = Get-ChildItem Cert:\\CurrentUser\\My | Where-Object { $_.Subject -eq "CN=GestureSign Development" } | Select-Object -First 1; if (-not $cert) { Write-Host "Certificate not found" -ForegroundColor Red; exit 1 }; $binPath = '${workspaceFolder}\\bin\\uiAccessRelease'; $exePath = \"$binPath\\GestureSignControlPanel.exe\"; if (-not (Test-Path $exePath)) { $binPath = \"$binPath\\net8.0-windows10.0.19041.0\"; $exePath = \"$binPath\\GestureSignControlPanel.exe\" }; if (-not (Test-Path $exePath)) { Write-Host "GestureSignControlPanel.exe not found" -ForegroundColor Red; exit 1 }; $existingSig = & $signtool verify /pa $exePath 2>&1; if ($LASTEXITCODE -eq 0) { Write-Host "Already signed, skipping" -ForegroundColor Yellow } else { & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint /t http://timestamp.digicert.com $exePath; if ($LASTEXITCODE -eq 0) { Write-Host "Signed successfully" -ForegroundColor Green } else { Write-Host "Signing failed" -ForegroundColor Red; exit 1 } }"
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Sign-Code.ps1"],
+      "presentation": { "echo": true, "reveal": "always", "focus": true, "panel": "dedicated", "showReuseMessage": false },
       "problemMatcher": []
     },
     {
       "label": "signing: verify",
+      "detail": "验证可执行文件签名",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "$signtool = @("C:\\Program Files (x86)\\Windows Kits\\10\\bin\\*\\x64\\signtool.exe", "C:\\Program Files (x86)\\Windows Kits\\10\\App Certification Kit\\signtool.exe") | ForEach-Object { Get-Item $_ -ErrorAction SilentlyContinue } | Select-Object -First 1 -ExpandProperty FullName; if (-not $signtool) { Write-Host "signtool.exe not found, skipping verification" -ForegroundColor Yellow; exit 0 }; $files = @("C:\\Program Files\\GestureSign\\GestureSign.exe", "C:\\Program Files\\GestureSign\\GestureSignControlPanel.exe"); foreach ($file in $files) { if (Test-Path $file) { Write-Host \"Verifying: $file\" -ForegroundColor Cyan; $result = & $signtool verify /pa /v $file 2>&1 | Out-String; if ($LASTEXITCODE -eq 0) { Write-Host "Valid signature" -ForegroundColor Green } else { Write-Host "Invalid or missing signature" -ForegroundColor Red }; Write-Host '' } else { Write-Host \"Not found: $file\" -ForegroundColor Yellow } }"
-      ],
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Verify-Signature.ps1"],
       "group": "test",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "presentation": { "echo": true, "reveal": "always", "focus": true, "panel": "dedicated", "showReuseMessage": false },
       "problemMatcher": []
     },
     // ==================== 文件操作任务 ====================
     {
       "label": "copy: to-programfiles",
+      "detail": "复制构建输出到 C:\\Program Files\\GestureSign",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "$src = '${workspaceFolder}\\bin\\uiAccessRelease'; if (-not (Test-Path \"$src\\GestureSign.exe\")) { $src = \"$src\\net8.0-windows10.0.19041.0\" }; if (-not (Test-Path \"$src\\GestureSign.exe\")) { Write-Host "Source files not found. Build first." -ForegroundColor Red; exit 1 }; $dest = 'C:\\Program Files\\GestureSign'; if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null; Write-Host \"Created directory: $dest\" -ForegroundColor Green }; Write-Host "Copying files..." -ForegroundColor Cyan; Copy-Item \"$src\\*\" -Destination $dest -Recurse -Force; Write-Host "Files copied successfully" -ForegroundColor Green; Get-ChildItem $dest -File | ForEach-Object { Write-Host \"  $($_.Name) - $($_.LastWriteTime)\" -ForegroundColor Gray }"
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Copy-ToProgramFiles.ps1"],
+      "presentation": { "echo": true, "reveal": "always", "focus": true, "panel": "dedicated", "showReuseMessage": false },
       "problemMatcher": []
     },
     // ==================== Windows 系统任务 ====================
@@ -354,103 +133,45 @@
       "label": "system: check-testmode",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "$result = bcdedit /enum \"{current}\" | Select-String \"testsigning\"; if ($result -match \"Yes\") { Write-Host \"Test signing mode: ENABLED\" -ForegroundColor Green; Write-Host \"Windows will show Test Mode watermark\" -ForegroundColor Yellow } else { Write-Host \"Test signing mode: DISABLED\" -ForegroundColor Cyan; Write-Host \"Use system: enable-testmode to enable - requires restart\" -ForegroundColor Gray }"
-      ],
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Manage-TestMode.ps1", "-Action", "check"],
       "group": "test",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "presentation": { "echo": true, "reveal": "always", "focus": true, "panel": "dedicated", "showReuseMessage": false },
       "problemMatcher": []
     },
     {
       "label": "system: enable-testmode",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "Write-Host \"Enabling test signing mode...\" -ForegroundColor Yellow; bcdedit /set testsigning on; if ($LASTEXITCODE -eq 0) { Write-Host \"Test signing enabled successfully\" -ForegroundColor Green; Write-Host \"RESTART REQUIRED to take effect\" -ForegroundColor Red } else { Write-Host \"Failed to enable test signing - run as Administrator\" -ForegroundColor Red; exit 1 }"
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Manage-TestMode.ps1", "-Action", "enable"],
+      "presentation": { "echo": true, "reveal": "always", "focus": true, "panel": "dedicated", "showReuseMessage": false },
       "problemMatcher": []
     },
     {
       "label": "system: disable-testmode",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "Write-Host \"Disabling test signing mode...\" -ForegroundColor Yellow; bcdedit /set testsigning off; if ($LASTEXITCODE -eq 0) { Write-Host \"Test signing disabled successfully\" -ForegroundColor Green; Write-Host \"RESTART REQUIRED to take effect\" -ForegroundColor Red } else { Write-Host \"Failed to disable test signing - run as Administrator\" -ForegroundColor Red; exit 1 }"
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Manage-TestMode.ps1", "-Action", "disable"],
+      "presentation": { "echo": true, "reveal": "always", "focus": true, "panel": "dedicated", "showReuseMessage": false },
       "problemMatcher": []
     },
     // ==================== 日志任务 ====================
     {
       "label": "log: tail",
-      "detail": "Get-Content $env:LOCALAPPDATA\\GestureSign\\GestureSign.log -Wait -Tail 50",
+      "detail": "实时跟踪 GestureSign 日志",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-EncodedCommand",
-        "WwBDAG8AbgBzAG8AbABlAF0AOgA6AE8AdQB0AHAAdQB0AEUAbgBjAG8AZABpAG4AZwAgAD0AIABbAFMAeQBzAHQAZQBtAC4AVABlAHgAdAAuAEUAbgBjAG8AZABpAG4AZwBdADoAOgBVAFQARgA4ADsAIAAkAGwAbwBnAFAAYQB0AGgAIAA9ACAASgBvAGkAbgAtAFAAYQB0AGgAIAAkAGUAbgB2ADoATABPAEMAQQBMAEEAUABQAEQAQQBUAEEAIAAiAEcAZQBzAHQAdQByAGUAUwBpAGcAbgBcAEcAZQBzAHQAdQByAGUAUwBpAGcAbgAuAGwAbwBnACIAOwAgAGkAZgAgACgALQBuAG8AdAAgACgAVABlAHMAdAAtAFAAYQB0AGgAIAAkAGwAbwBnAFAAYQB0AGgAKQApACAAewAgAFcAcgBpAHQAZQAtAEgAbwBzAHQAIAAoACIATABvAGcAIABmAGkAbABlACAAbgBvAHQAIABmAG8AdQBuAGQAOgAgACIAIAArACAAJABsAG8AZwBQAGEAdABoACkAIAAtAEYAbwByAGUAZwByAG8AdQBuAGQAQwBvAGwAbwByACAAWQBlAGwAbABvAHcAOwAgAFcAcgBpAHQAZQAtAEgAbwBzAHQAIAAiAFcAYQBpAHQAaQBuAGcAIABmAG8AcgAgAGwAbwBnACAAZgBpAGwAZQAuAC4ALgAiACAALQBGAG8AcgBlAGcAcgBvAHUAbgBkAEMAbwBsAG8AcgAgAEcAcgBhAHkAOwAgAHcAaABpAGwAZQAgACgALQBuAG8AdAAgACgAVABlAHMAdAAtAFAAYQB0AGgAIAAkAGwAbwBnAFAAYQB0AGgAKQApACAAewAgAFMAdABhAHIAdAAtAFMAbABlAGUAcAAgAC0ATQBpAGwAbABpAHMAZQBjAG8AbgBkAHMAIAA1ADAAMAAgAH0AIAB9ADsAIABXAHIAaQB0AGUALQBIAG8AcwB0ACAAKAAiAFQAYQBpAGwAaQBuAGcAOgAgACIAIAArACAAJABsAG8AZwBQAGEAdABoACkAIAAtAEYAbwByAGUAZwByAG8AdQBuAGQAQwBvAGwAbwByACAAQwB5AGEAbgA7ACAARwBlAHQALQBDAG8AbgB0AGUAbgB0ACAAJABsAG8AZwBQAGEAdABoACAALQBXAGEAaQB0ACAALQBUAGEAaQBsACAANQAwACAALQBFAG4AYwBvAGQAaQBuAGcAIABVAFQARgA4AA=="
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": false,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": true
-      },
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Manage-Log.ps1", "-Action", "tail"],
+      "presentation": { "echo": false, "reveal": "always", "focus": true, "panel": "dedicated", "showReuseMessage": false, "clear": true },
       "isBackground": true,
       "problemMatcher": []
     },
     {
       "label": "log: delete",
-      "detail": "Remove-Item $env:LOCALAPPDATA\\GestureSign\\GestureSign.log",
+      "detail": "删除 GestureSign 日志文件",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-EncodedCommand",
-        "JABsAG8AZwBQAGEAdABoACAAPQAgAEoAbwBpAG4ALQBQAGEAdABoACAAJABlAG4AdgA6AEwATwBDAEEATABBAFAAUABEAEEAVABBACAAIgBHAGUAcwB0AHUAcgBlAFMAaQBnAG4AXABHAGUAcwB0AHUAcgBlAFMAaQBnAG4ALgBsAG8AZwAiADsAIABpAGYAIAAoAFQAZQBzAHQALQBQAGEAdABoACAAJABsAG8AZwBQAGEAdABoACkAIAB7ACAAUgBlAG0AbwB2AGUALQBJAHQAZQBtACAAJABsAG8AZwBQAGEAdABoACAALQBGAG8AcgBjAGUAOwAgAFcAcgBpAHQAZQAtAEgAbwBzAHQAIAAoACIARABlAGwAZQB0AGUAZAA6ACAAIgAgACsAIAAkAGwAbwBnAFAAYQB0AGgAKQAgAC0ARgBvAHIAZQBnAHIAbwB1AG4AZABDAG8AbABvAHIAIABHAHIAZQBlAG4AIAB9ACAAZQBsAHMAZQAgAHsAIABXAHIAaQB0AGUALQBIAG8AcwB0ACAAIgBMAG8AZwAgAGYAaQBsAGUAIABuAG8AdAAgAGYAbwB1AG4AZAAiACAALQBGAG8AcgBlAGcAcgBvAHUAbgBkAEMAbwBsAG8AcgAgAFkAZQBsAGwAbwB3ACAAfQA="
-      ],
-      "presentation": {
-        "echo": false,
-        "reveal": "silent",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Manage-Log.ps1", "-Action", "delete"],
+      "presentation": { "echo": false, "reveal": "silent", "panel": "shared", "showReuseMessage": false },
       "problemMatcher": []
     },
     // ==================== 运行任务 ====================
@@ -458,213 +179,83 @@
       "label": "run: daemon-debug",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "Start-Process -FilePath "D:\\wd\\soft\\GestureSign\\GestureSign.exe" -ArgumentList '--log.redirectToStd' -WorkingDirectory "D:\\wd\\soft\\GestureSign""
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "args": ["-NoProfile", "-Command", "Start-Process 'D:\\wd\\soft\\GestureSign\\GestureSign.exe' -ArgumentList '--log.redirectToStd' -WorkingDirectory 'D:\\wd\\soft\\GestureSign'"],
+      "presentation": { "echo": true, "reveal": "always", "panel": "dedicated", "showReuseMessage": false },
       "problemMatcher": []
     },
     {
       "label": "run: controlpanel-debug",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "Start-Process -FilePath D:\\wd\\soft\\GestureSign\\GestureSignControlPanel.exe -WorkingDirectory D:\\wd\\soft\\GestureSign"
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "silent",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "args": ["-NoProfile", "-Command", "Start-Process 'D:\\wd\\soft\\GestureSign\\GestureSignControlPanel.exe' -WorkingDirectory 'D:\\wd\\soft\\GestureSign'"],
+      "presentation": { "echo": true, "reveal": "silent", "panel": "shared", "showReuseMessage": false },
       "problemMatcher": []
     },
     {
       "label": "run: daemon-release",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "Start-Process -FilePath D:\\wd\\soft\\GestureSign\\GestureSign.exe -WorkingDirectory D:\\wd\\soft\\GestureSign"
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "silent",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "args": ["-NoProfile", "-Command", "Start-Process 'D:\\wd\\soft\\GestureSign\\GestureSign.exe' -WorkingDirectory 'D:\\wd\\soft\\GestureSign'"],
+      "presentation": { "echo": true, "reveal": "silent", "panel": "shared", "showReuseMessage": false },
       "problemMatcher": []
     },
     {
       "label": "run: controlpanel-release",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "Start-Process -FilePath D:\\wd\\soft\\GestureSign\\GestureSignControlPanel.exe -WorkingDirectory D:\\wd\\soft\\GestureSign"
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "silent",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "args": ["-NoProfile", "-Command", "Start-Process 'D:\\wd\\soft\\GestureSign\\GestureSignControlPanel.exe' -WorkingDirectory 'D:\\wd\\soft\\GestureSign'"],
+      "presentation": { "echo": true, "reveal": "silent", "panel": "shared", "showReuseMessage": false },
       "problemMatcher": []
     },
     {
       "label": "run: daemon-uiaccess",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "Start-Process -FilePath C:\\Program Files\\GestureSign\\GestureSign.exe -ArgumentList '--log.redirectToStd' -WorkingDirectory C:\\Program Files\\GestureSign"
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "args": ["-NoProfile", "-Command", "& 'C:\\Program Files\\GestureSign\\GestureSign.exe'"],
+      "presentation": { "echo": true, "reveal": "always", "panel": "dedicated", "showReuseMessage": false },
       "problemMatcher": []
     },
     {
       "label": "run: controlpanel-uiaccess",
       "type": "shell",
       "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "Start-Process -FilePath "C:\\Program Files\\GestureSign\\GestureSignControlPanel.exe" -WorkingDirectory "C:\\Program Files\\GestureSign""
-      ],
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "silent",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "args": ["-NoProfile", "-Command", "Start-Process 'C:\\Program Files\\GestureSign\\GestureSignControlPanel.exe' -WorkingDirectory 'C:\\Program Files\\GestureSign'"],
+      "presentation": { "echo": true, "reveal": "silent", "panel": "shared", "showReuseMessage": false },
       "problemMatcher": []
     },
     // ==================== 复合工作流任务 ====================
     {
       "label": "build-and-stop-debug",
-      "dependsOn": [
-        "stop-gesturesign",
-        "debug: build"
-      ],
+      "dependsOn": ["stop-gesturesign", "debug: build"],
       "dependsOrder": "sequence",
       "group": "build",
       "problemMatcher": []
     },
     {
       "label": "workflow: debug-full",
-      "dependsOn": [
-        "stop-gesturesign",
-        "debug: build",
-        "run: daemon-debug",
-        "run: controlpanel-debug"
-      ],
+      "dependsOn": ["stop-gesturesign", "debug: build", "run: daemon-debug", "run: controlpanel-debug"],
       "dependsOrder": "sequence",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
+      "group": { "kind": "build", "isDefault": true },
       "problemMatcher": []
     },
     {
       "label": "workflow: release-full",
-      "dependsOn": [
-        "stop-gesturesign",
-        "release: build",
-        "run: daemon-release"
-      ],
+      "dependsOn": ["stop-gesturesign", "log: delete", "release: clean", "release: build", "run: daemon-release", "log: tail"],
       "dependsOrder": "sequence",
       "group": "build",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
       "problemMatcher": []
     },
     {
       "label": "workflow: uiaccess-setup",
-      "dependsOn": [
-        "signing: create-cert",
-        "signing: install-cert"
-      ],
+      "dependsOn": ["signing: setup-and-sign"],
       "dependsOrder": "sequence",
-      "group": "none",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
       "problemMatcher": []
     },
     {
       "label": "workflow: uiaccess-full",
-      "dependsOn": [
-        "stop-gesturesign",
-        "uiAccessRelease: rebuild",
-        "signing: sign-daemon",
-        "signing: sign-controlpanel",
-        "copy: to-programfiles",
-        "signing: verify"
-      ],
+      "dependsOn": ["stop-gesturesign", "log: delete", "uiAccessRelease: clean", "uiAccessRelease: build", "signing: setup-and-sign", "copy: to-programfiles", "run: daemon-uiaccess", "log: tail"],
       "dependsOrder": "sequence",
       "group": "build",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated",
-        "showReuseMessage": false,
-        "clear": false
-      },
       "problemMatcher": []
     }
   ]
