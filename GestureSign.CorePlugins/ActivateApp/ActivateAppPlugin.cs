@@ -67,11 +67,15 @@ namespace GestureSign.CorePlugins.ActivateApp
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
 
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
         private const uint GW_OWNER = 4;
         private const uint GW_HWNDPREV = 3;
         private const int GWL_EXSTYLE = -20;
         private const uint WS_EX_TOOLWINDOW = 0x00000080;
         private const uint WS_EX_APPWINDOW = 0x00040000;
+        private const int SW_SHOW = 5;
 
         #endregion
 
@@ -303,8 +307,18 @@ namespace GestureSign.CorePlugins.ActivateApp
                 }
 
                 // Cache miss or disabled - perform full scan
-                windows = GetWindowsByClassNameAndPath(settings);
+                windows = GetWindowsByClassNameAndPath(settings, includeHidden: false);
                 Logging.LogDebug($"[ActivateApp] Matched by ClassName + ProcessPath for {settings.DisplayName}: {windows.Count} windows found");
+
+                // If no visible windows found, try to find hidden windows (tray apps like WeChat)
+                if (windows.Count == 0)
+                {
+                    windows = GetWindowsByClassNameAndPath(settings, includeHidden: true);
+                    if (windows.Count > 0)
+                    {
+                        Logging.LogDebug($"[ActivateApp] Found {windows.Count} hidden windows (tray app)");
+                    }
+                }
 
                 // Update cache
                 if (settings.CacheExpirationSeconds > 0 && windows.Count > 0)
@@ -320,60 +334,65 @@ namespace GestureSign.CorePlugins.ActivateApp
             return windows;
         }
 
-        private List<IntPtr> GetWindowsByClassNameAndPath(ActivateAppSettings settings)
+        private List<IntPtr> GetWindowsByClassNameAndPath(ActivateAppSettings settings, bool includeHidden = false)
         {
             var windows = new List<IntPtr>();
 
-            Logging.LogDebug($"[ActivateApp] Searching for ClassName='{settings.WindowClassName}', Path='{settings.ApplicationPath}'");
+            Logging.LogDebug($"[ActivateApp] Searching for ClassName='{settings.WindowClassName}', Path='{settings.ApplicationPath}', includeHidden={includeHidden}");
 
             EnumWindows((hWnd, lParam) =>
             {
-                if (IsSwitchableWindow(hWnd))
+                // For hidden windows search, skip IsSwitchableWindow check
+                if (!includeHidden && !IsSwitchableWindow(hWnd))
+                    return true;
+
+                // For hidden windows, only check if it's a valid window handle
+                if (includeHidden && !IsWindow(hWnd))
+                    return true;
+
+                try
                 {
+                    var window = new SystemWindow(hWnd);
+
+                    // Check ClassName
+                    if (window.ClassName != settings.WindowClassName)
+                        return true; // Continue enumeration
+
+                    // Check ProcessPath
+                    GetWindowThreadProcessId(hWnd, out int pid);
+                    var process = Process.GetProcessById(pid);
+                    string processPath = null;
+
                     try
                     {
-                        var window = new SystemWindow(hWnd);
-
-                        // Check ClassName
-                        if (window.ClassName != settings.WindowClassName)
-                            return true; // Continue enumeration
-
-                        // Check ProcessPath
-                        GetWindowThreadProcessId(hWnd, out int pid);
-                        var process = Process.GetProcessById(pid);
-                        string processPath = null;
-
-                        try
-                        {
-                            processPath = process.MainModule?.FileName;
-                        }
-                        catch (System.ComponentModel.Win32Exception)
-                        {
-                            // Access denied - try matching by process name instead
-                            string expectedFileName = Path.GetFileName(settings.ApplicationPath);
-                            string actualFileName = process.ProcessName + ".exe";
-                            if (string.Equals(expectedFileName, actualFileName, StringComparison.OrdinalIgnoreCase))
-                            {
-                                processPath = settings.ApplicationPath; // Treat as match
-                                Logging.LogDebug($"[ActivateApp] Process path access denied, matched by process name: {actualFileName}");
-                            }
-                        }
-
-                        if (string.Equals(processPath, settings.ApplicationPath,
-                            StringComparison.OrdinalIgnoreCase))
-                        {
-                            // Apply title filters
-                            if (MatchesFilters(hWnd, settings))
-                            {
-                                Logging.LogDebug($"[ActivateApp] Found matching window: 0x{hWnd:X} '{window.Title}'");
-                                windows.Add(hWnd);
-                            }
-                        }
+                        processPath = process.MainModule?.FileName;
                     }
-                    catch
+                    catch (System.ComponentModel.Win32Exception)
                     {
-                        // Process may have exited or access denied
+                        // Access denied - try matching by process name instead
+                        string expectedFileName = Path.GetFileName(settings.ApplicationPath);
+                        string actualFileName = process.ProcessName + ".exe";
+                        if (string.Equals(expectedFileName, actualFileName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            processPath = settings.ApplicationPath; // Treat as match
+                            Logging.LogDebug($"[ActivateApp] Process path access denied, matched by process name: {actualFileName}");
+                        }
                     }
+
+                    if (string.Equals(processPath, settings.ApplicationPath,
+                        StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Apply title filters
+                        if (MatchesFilters(hWnd, settings))
+                        {
+                            Logging.LogDebug($"[ActivateApp] Found matching window: 0x{hWnd:X} '{window.Title}'");
+                            windows.Add(hWnd);
+                        }
+                    }
+                }
+                catch
+                {
+                    // Process may have exited or access denied
                 }
                 return true;
             }, IntPtr.Zero);
@@ -406,9 +425,21 @@ namespace GestureSign.CorePlugins.ActivateApp
         private bool HandleSingleWindow(IntPtr hWnd)
         {
             var window = new SystemWindow(hWnd);
-            var windowState = window.WindowState;
             var foregroundWindow = GetForegroundWindow();
             bool isForeground = hWnd == foregroundWindow;
+            bool isVisible = IsWindowVisible(hWnd);
+
+            // Handle hidden window (tray app like WeChat)
+            if (!isVisible)
+            {
+                Logging.LogDebug($"[ActivateApp] Showing hidden window: 0x{hWnd:X} '{window.Title}'");
+                ShowWindow(hWnd, SW_SHOW);
+                window.RestoreWindow();
+                SystemWindow.ForegroundWindow = window;
+                return true;
+            }
+
+            var windowState = window.WindowState;
 
             // var fgWindow = new SystemWindow(foregroundWindow);
             // Logging.LogDebug($"[ActivateApp] HandleSingleWindow: hWnd=0x{hWnd:X}, state={windowState}, isForeground={isForeground}, title='{window.Title}', currentForeground=0x{foregroundWindow:X} '{fgWindow.Title}'");
