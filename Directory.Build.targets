@@ -14,7 +14,7 @@
   <!-- Run after PostBuildEvent (which runs after _CreateAppHost) to ensure .exe files are created -->
   <Target Name="Package"
           AfterTargets="PostBuildEvent"
-          Condition="'$(AssemblyName)' == 'GestureSign' OR '$(AssemblyName)' == 'GestureSignControlPanel'">
+          Condition="('$(AssemblyName)' == 'GestureSign' OR '$(AssemblyName)' == 'GestureSignControlPanel') AND '$(Configuration)' != 'uiAccessRelease'">
 
     <Message Text="========================================" Importance="high" />
     <Message Text="Packaging $(AssemblyName) [$(Configuration)] to $(PackageOutputDir)" Importance="high" />

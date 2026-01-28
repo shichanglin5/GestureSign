@@ -14,20 +14,31 @@ $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
 $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $isAdmin) {
-    Write-Host "=== Administrator privileges required ===" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Code signing and UIAccess configuration requires administrator privileges." -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "Please:" -ForegroundColor White
-    Write-Host "  1. Right-click PowerShell or Terminal" -ForegroundColor Gray
-    Write-Host "  2. Select 'Run as Administrator'" -ForegroundColor Gray
-    Write-Host "  3. Navigate to: $PSScriptRoot" -ForegroundColor Gray
-    Write-Host "  4. Run: .\Sign-Code.ps1 -BuildConfiguration $BuildConfiguration" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "Or to skip signing (for development only):" -ForegroundColor Yellow
-    Write-Host "  1. Comment out the SignExecutable PostBuild task in GestureSign.Daemon.csproj" -ForegroundColor Gray
-    Write-Host ""
-    exit 1
+    Write-Host "Requesting administrator privileges..." -ForegroundColor Yellow
+    $logFile = Join-Path $env:TEMP "GestureSign-SignCode.log"
+    # Use -Command with script block to enable Start-Transcript inside elevated process
+    $scriptPath = $PSCommandPath -replace "'", "''"
+    $cmd = "Start-Transcript -Path '$logFile' -Force | Out-Null; try { & '$scriptPath' -BuildConfiguration '$BuildConfiguration'"
+    if ($SkipSigning) { $cmd += " -SkipSigning" }
+    $cmd += " } finally { Stop-Transcript | Out-Null }"
+    $proc = Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command $cmd" -Wait -PassThru
+    if (Test-Path $logFile) {
+        Write-Host ""
+        $lines = Get-Content $logFile
+        $inHeader = $true
+        foreach ($line in $lines) {
+            if ($inHeader -and $line -match '^\*{4}') {
+                if ($line -match 'end of .* transcript') { break }
+                $inHeader = -not $inHeader
+                continue
+            }
+            if ($inHeader) { continue }
+            if ($line -match '^\*{4}.*end of .* transcript') { break }
+            Write-Host $line
+        }
+        Remove-Item $logFile -Force -ErrorAction SilentlyContinue
+    }
+    exit $proc.ExitCode
 }
 
 # Configuration

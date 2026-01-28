@@ -85,15 +85,4 @@
           ContinueOnError="true" />
   </Target>
 
-  <!-- PostBuild for uiAccessRelease: Sign the executable -->
-  <Target Name="SignExecutable" AfterTargets="AfterBuild" Condition="'$(Configuration)' == 'uiAccessRelease'">
-    <Message Text="Signing UIAccess executable..." Importance="high" />
-    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)..\scripts\Sign-Code.ps1&quot; -BuildConfiguration $(Configuration)"
-          WorkingDirectory="$(ProjectDir)..\scripts"
-          IgnoreExitCode="true"
-          ContinueOnError="WarnAndContinue" />
-    <Warning Text="Code signing failed - executable may not have UIAccess privileges. Run as Administrator to enable code signing."
-             Condition="$([MSBuild]::ValueOrDefault('$(ExitCode)', '0')) != '0'" />
-  </Target>
-
 </Project>

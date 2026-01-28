@@ -11,11 +11,12 @@
   //
   // 原子任务分类:
   //   - stop-gesturesign - 停止所有进程
-  //   - debug/release/uiAccessRelease: build/clean/rebuild
-  //   - signing: sign, verify
-  //   - run: daemon-*/controlpanel-*
+  //   - debug/release/uiAccess: build/clean/restart
+  //   - signing: sign/verify
   //   - copy: to-programfiles
+  //   - run: daemon-*/controlpanel-*
   //   - system: *-testmode
+  //   - log: tail/delete
   //
   // ============================================================
   "tasks": [
@@ -46,8 +47,8 @@
       "problemMatcher": []
     },
     {
-      "label": "debug: rebuild",
-      "dependsOn": ["debug: clean", "debug: build"],
+      "label": "debug: restart",
+      "dependsOn": ["stop-gesturesign", "log: delete", "run: daemon-debug", "log: tail"],
       "dependsOrder": "sequence",
       "group": "build",
       "problemMatcher": []
@@ -76,7 +77,7 @@
       "problemMatcher": []
     },
     {
-      "label": "uiAccessRelease: build",
+      "label": "uiAccess: build",
       "type": "shell",
       "command": "dotnet",
       "args": ["build", "${workspaceFolder}/GestureSign.sln", "-c", "uiAccessRelease", "-v", "minimal"],
@@ -84,7 +85,7 @@
       "problemMatcher": "$msCompile"
     },
     {
-      "label": "uiAccessRelease: clean",
+      "label": "uiAccess: clean",
       "type": "shell",
       "command": "dotnet",
       "args": ["clean", "${workspaceFolder}/GestureSign.sln", "-c", "uiAccessRelease", "-v", "minimal"],
@@ -92,40 +93,10 @@
       "problemMatcher": []
     },
     {
-      "label": "uiAccessRelease: restart",
+      "label": "uiAccess: restart",
       "dependsOn": ["stop-gesturesign", "log: delete", "run: daemon-uiaccess", "log: tail"],
       "dependsOrder": "sequence",
       "group": "build",
-      "problemMatcher": []
-    },
-    // ==================== 代码签名任务 ====================
-    {
-      "label": "signing: setup-and-sign",
-      "detail": "创建证书并签名 (需要管理员权限)",
-      "type": "shell",
-      "command": "powershell",
-      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Sign-Code.ps1"],
-      "presentation": { "echo": true, "reveal": "always", "focus": true, "panel": "dedicated", "showReuseMessage": false },
-      "problemMatcher": []
-    },
-    {
-      "label": "signing: verify",
-      "detail": "验证可执行文件签名",
-      "type": "shell",
-      "command": "powershell",
-      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Verify-Signature.ps1"],
-      "group": "test",
-      "presentation": { "echo": true, "reveal": "always", "focus": true, "panel": "dedicated", "showReuseMessage": false },
-      "problemMatcher": []
-    },
-    // ==================== 文件操作任务 ====================
-    {
-      "label": "copy: to-programfiles",
-      "detail": "复制构建输出到 C:\\Program Files\\GestureSign",
-      "type": "shell",
-      "command": "powershell",
-      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Copy-ToProgramFiles.ps1"],
-      "presentation": { "echo": true, "reveal": "always", "focus": true, "panel": "dedicated", "showReuseMessage": false },
       "problemMatcher": []
     },
     // ==================== Windows 系统任务 ====================
@@ -179,15 +150,15 @@
       "label": "run: daemon-debug",
       "type": "shell",
       "command": "powershell",
-      "args": ["-NoProfile", "-Command", "Start-Process 'D:\\wd\\soft\\GestureSign\\GestureSign.exe' -ArgumentList '--log.redirectToStd' -WorkingDirectory 'D:\\wd\\soft\\GestureSign'"],
-      "presentation": { "echo": true, "reveal": "always", "panel": "dedicated", "showReuseMessage": false },
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Run-GestureSign.ps1", "-Config", "debug"],
+      "presentation": { "echo": true, "reveal": "silent", "panel": "shared", "showReuseMessage": false },
       "problemMatcher": []
     },
     {
       "label": "run: controlpanel-debug",
       "type": "shell",
       "command": "powershell",
-      "args": ["-NoProfile", "-Command", "Start-Process 'D:\\wd\\soft\\GestureSign\\GestureSignControlPanel.exe' -WorkingDirectory 'D:\\wd\\soft\\GestureSign'"],
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Run-GestureSign.ps1", "-Config", "debug", "-ControlPanel"],
       "presentation": { "echo": true, "reveal": "silent", "panel": "shared", "showReuseMessage": false },
       "problemMatcher": []
     },
@@ -195,7 +166,7 @@
       "label": "run: daemon-release",
       "type": "shell",
       "command": "powershell",
-      "args": ["-NoProfile", "-Command", "Start-Process 'D:\\wd\\soft\\GestureSign\\GestureSign.exe' -WorkingDirectory 'D:\\wd\\soft\\GestureSign'"],
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Run-GestureSign.ps1", "-Config", "release"],
       "presentation": { "echo": true, "reveal": "silent", "panel": "shared", "showReuseMessage": false },
       "problemMatcher": []
     },
@@ -203,7 +174,7 @@
       "label": "run: controlpanel-release",
       "type": "shell",
       "command": "powershell",
-      "args": ["-NoProfile", "-Command", "Start-Process 'D:\\wd\\soft\\GestureSign\\GestureSignControlPanel.exe' -WorkingDirectory 'D:\\wd\\soft\\GestureSign'"],
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Run-GestureSign.ps1", "-Config", "release", "-ControlPanel"],
       "presentation": { "echo": true, "reveal": "silent", "panel": "shared", "showReuseMessage": false },
       "problemMatcher": []
     },
@@ -211,7 +182,7 @@
       "label": "run: daemon-uiaccess",
       "type": "shell",
       "command": "powershell",
-      "args": ["-NoProfile", "-Command", "& 'C:\\Program Files\\GestureSign\\GestureSign.exe'"],
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Run-GestureSign.ps1", "-Config", "uiaccess"],
       "presentation": { "echo": true, "reveal": "always", "panel": "dedicated", "showReuseMessage": false },
       "problemMatcher": []
     },
@@ -219,8 +190,36 @@
       "label": "run: controlpanel-uiaccess",
       "type": "shell",
       "command": "powershell",
-      "args": ["-NoProfile", "-Command", "Start-Process 'C:\\Program Files\\GestureSign\\GestureSignControlPanel.exe' -WorkingDirectory 'C:\\Program Files\\GestureSign'"],
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Run-GestureSign.ps1", "-Config", "uiaccess", "-ControlPanel"],
       "presentation": { "echo": true, "reveal": "silent", "panel": "shared", "showReuseMessage": false },
+      "problemMatcher": []
+    },
+    // ==================== 签名与部署 ====================
+    {
+      "label": "signing: sign",
+      "detail": "对 uiAccessRelease 构建输出进行代码签名",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Sign-Code.ps1"],
+      "presentation": { "echo": true, "reveal": "always", "panel": "dedicated", "showReuseMessage": false },
+      "problemMatcher": []
+    },
+    {
+      "label": "signing: verify",
+      "detail": "验证 Program Files 中的数字签名",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Verify-Signature.ps1"],
+      "presentation": { "echo": true, "reveal": "always", "panel": "dedicated", "showReuseMessage": false },
+      "problemMatcher": []
+    },
+    {
+      "label": "copy: to-programfiles",
+      "detail": "复制构建输出到 Program Files",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/Copy-ToProgramFiles.ps1"],
+      "presentation": { "echo": true, "reveal": "always", "panel": "dedicated", "showReuseMessage": false },
       "problemMatcher": []
     },
     // ==================== 复合工作流任务 ====================
@@ -228,32 +227,32 @@
       "label": "build-and-stop-debug",
       "dependsOn": ["stop-gesturesign", "debug: build"],
       "dependsOrder": "sequence",
-      "group": "build",
       "problemMatcher": []
     },
     {
-      "label": "workflow: debug-full",
-      "dependsOn": ["stop-gesturesign", "debug: build", "run: daemon-debug", "run: controlpanel-debug"],
+      "label": "workflow: debug",
+      "dependsOn": ["stop-gesturesign", "log: delete", "debug: build", "run: daemon-debug", "log: tail"],
       "dependsOrder": "sequence",
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": []
     },
     {
-      "label": "workflow: release-full",
+      "label": "workflow: release",
       "dependsOn": ["stop-gesturesign", "log: delete", "release: clean", "release: build", "run: daemon-release", "log: tail"],
       "dependsOrder": "sequence",
       "group": "build",
       "problemMatcher": []
     },
     {
-      "label": "workflow: uiaccess-setup",
-      "dependsOn": ["signing: setup-and-sign"],
+      "label": "workflow: uiaccess",
+      "dependsOn": ["stop-gesturesign", "log: delete", "uiAccess: build", "signing: sign", "copy: to-programfiles", "run: daemon-uiaccess", "log: tail"],
       "dependsOrder": "sequence",
+      "group": "build",
       "problemMatcher": []
     },
     {
       "label": "workflow: uiaccess-full",
-      "dependsOn": ["stop-gesturesign", "log: delete", "uiAccessRelease: clean", "uiAccessRelease: build", "signing: setup-and-sign", "copy: to-programfiles", "run: daemon-uiaccess", "log: tail"],
+      "dependsOn": ["stop-gesturesign", "log: delete", "uiAccess: clean", "uiAccess: build", "signing: sign", "copy: to-programfiles", "run: daemon-uiaccess", "log: tail"],
       "dependsOrder": "sequence",
       "group": "build",
       "problemMatcher": []
