@@ -600,7 +600,7 @@ namespace GestureSign.Daemon.Input
                 var thresholdValue = _blockTouchInputThreshold.GetValueOrDefault();
                 _blockTouchInputThreshold = null;
 
-                Logging.LogDebug($"[PointCapture] Applying BlockTouchInputThreshold={thresholdValue}");
+                // Logging.LogDebug($"[PointCapture] Applying BlockTouchInputThreshold={thresholdValue}");
 
                 // Apply threshold synchronously to ensure blocking takes effect immediately
                 // This is critical for preventing the first touch frame from being forwarded to Windows

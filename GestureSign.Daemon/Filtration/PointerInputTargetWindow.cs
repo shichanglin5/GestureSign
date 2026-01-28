@@ -41,7 +41,7 @@ namespace GestureSign.Daemon.Filtration
 
                 bool flag = _blockTouchInputThreshold >= 2;
 
-                GestureSign.Common.Log.Logging.LogDebug($"[PointerInputTargetWindow] Setting threshold={value}, needRegister={flag}, InvokeRequired={InvokeRequired}");
+                // GestureSign.Common.Log.Logging.LogDebug($"[PointerInputTargetWindow] Setting threshold={value}, needRegister={flag}, InvokeRequired={InvokeRequired}");
 
                 if (InvokeRequired)
                     Invoke(new Action(() => IsRegistered = flag));
