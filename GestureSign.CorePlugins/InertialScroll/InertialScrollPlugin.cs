@@ -1,4 +1,6 @@
 using System;
+using System.Runtime.InteropServices;
+using System.Windows.Automation;
 using WindowsInput;
 using GestureSign.Common.Localization;
 using GestureSign.Common.Plugins;
@@ -12,6 +14,36 @@ namespace GestureSign.CorePlugins.InertialScroll
     /// </summary>
     public class InertialScrollPlugin : IPlugin
     {
+        #region Native Methods
+
+        private const int WM_MOUSEWHEEL = 0x020A;
+        private const int WM_MOUSEHWHEEL = 0x020E;
+
+        // mouse_event flags
+        private const uint MOUSEEVENTF_WHEEL = 0x0800;
+        private const uint MOUSEEVENTF_HWHEEL = 0x1000;
+
+        [DllImport("user32.dll")]
+        private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetCursorPos(out POINT lpPoint);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr WindowFromPoint(POINT point);
+
+        [DllImport("user32.dll")]
+        private static extern void mouse_event(uint dwFlags, int dx, int dy, int dwData, UIntPtr dwExtraInfo);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int X;
+            public int Y;
+        }
+
+        #endregion
+
         #region Private Variables
 
         private InertialScrollSettings _settings = null;
@@ -25,6 +57,10 @@ namespace GestureSign.CorePlugins.InertialScroll
         // 上次手势时间戳 - 用于检测新手势会话
         private DateTime _lastGestureTime = DateTime.MinValue;
         private const int NewGestureThresholdMs = 200;
+
+        // WinUI/UWP 应用检测缓存
+        private bool _isWinUIApp;
+        private IntPtr _cachedWindowHandle;
 
         #endregion
 
@@ -83,6 +119,22 @@ namespace GestureSign.CorePlugins.InertialScroll
                 _accumulatedY = 0;
             }
             _lastGestureTime = velocity.Timestamp;
+
+            // 检测目标窗口是否为 WinUI/UWP 应用（新手势会话或窗口变化时重新检测）
+            if (_settings.EnableWinUIDetection)
+            {
+                var window = actionPoint.Window;
+                var windowHandle = window?.HWnd ?? IntPtr.Zero;
+                if (windowHandle != _cachedWindowHandle)
+                {
+                    _cachedWindowHandle = windowHandle;
+                    _isWinUIApp = IsWinUIOrUWPApp(window);
+                    if (_isWinUIApp)
+                    {
+                        Logging.LogDebug($"[InertialScroll] WinUI multiplier active: {_settings.WinUIScrollMultiplier}x");
+                    }
+                }
+            }
 
             // 基于位移判断 - 只要有位移就滚动，不再检查速度阈值
             // 这样即使慢速滑动也能响应，实现真正的跟手滚动
@@ -152,16 +204,22 @@ namespace GestureSign.CorePlugins.InertialScroll
         {
             try
             {
+                // WinUI/UWP 应用滚动补偿
+                if (_isWinUIApp && _settings.EnableWinUIDetection)
+                {
+                    deltaX *= _settings.WinUIScrollMultiplier;
+                    deltaY *= _settings.WinUIScrollMultiplier;
+                }
+
                 // 累积位移
                 _accumulatedX += deltaX;
                 _accumulatedY += deltaY;
 
-                // 高精度滚动：将像素转换为原始滚轮delta值
                 // WHEEL_DELTA = 120 是标准鼠标滚轮一格的值
-                // PixelsPerScrollUnit 表示多少像素等于一个标准滚轮单位(120)
                 const int WHEEL_DELTA = 120;
 
-                // 计算原始wheel delta值（不再是整数"格"）
+                // 高精度滚动，将像素转换为原始滚轮delta值
+                // PixelsPerScrollUnit 表示多少像素等于一个标准滚轮单位(120)
                 int scrollDeltaX = (int)(_accumulatedX / _settings.PixelsPerScrollUnit * WHEEL_DELTA);
                 int scrollDeltaY = (int)(_accumulatedY / _settings.PixelsPerScrollUnit * WHEEL_DELTA);
 
@@ -171,11 +229,22 @@ namespace GestureSign.CorePlugins.InertialScroll
                 if (scrollDeltaY != 0)
                     _accumulatedY -= scrollDeltaY * _settings.PixelsPerScrollUnit / WHEEL_DELTA;
 
-                // 使用高精度滚动API发送原始delta值
-                if (scrollDeltaY != 0)
-                    SendScrollDelta(scrollDeltaY, isHorizontal: false);
-                if (scrollDeltaX != 0)
-                    SendScrollDelta(scrollDeltaX, isHorizontal: true);
+                if (_isWinUIApp && _settings.EnableWinUIDetection)
+                {
+                    // WinUI/UWP 应用：使用专用方法（优先 UI Automation，回退 mouse_event）
+                    if (scrollDeltaY != 0)
+                        SendWheelMessageToWindow(_cachedWindowHandle, scrollDeltaY, isHorizontal: false);
+                    if (scrollDeltaX != 0)
+                        SendWheelMessageToWindow(_cachedWindowHandle, scrollDeltaX, isHorizontal: true);
+                }
+                else
+                {
+                    // 普通应用：使用 SendInput 高精度滚动
+                    if (scrollDeltaY != 0)
+                        SendScrollDelta(scrollDeltaY, isHorizontal: false);
+                    if (scrollDeltaX != 0)
+                        SendScrollDelta(scrollDeltaX, isHorizontal: true);
+                }
             }
             catch (Exception ex)
             {
@@ -203,6 +272,92 @@ namespace GestureSign.CorePlugins.InertialScroll
             {
                 Logging.LogException(ex);
             }
+        }
+
+        /// <summary>
+        /// 使用 UI Automation 滚动 WinUI/UWP 应用
+        /// </summary>
+        private void SendWheelMessageToWindow(IntPtr hwnd, int delta, bool isHorizontal)
+        {
+            try
+            {
+                // 获取当前鼠标位置
+                GetCursorPos(out POINT pt);
+
+                // 使用 UI Automation 滚动
+                var element = AutomationElement.FromPoint(new System.Windows.Point(pt.X, pt.Y));
+                if (element != null)
+                {
+                    var scrollElement = FindScrollableElement(element);
+                    if (scrollElement != null)
+                    {
+                        var scrollPattern = scrollElement.GetCurrentPattern(ScrollPattern.Pattern) as ScrollPattern;
+                        if (scrollPattern != null)
+                        {
+                            int scrollUnits = Math.Abs(delta) / 120;
+                            if (scrollUnits == 0) scrollUnits = 1;
+
+                            ScrollAmount amount = delta > 0 ? ScrollAmount.SmallDecrement : ScrollAmount.SmallIncrement;
+
+                            if (isHorizontal)
+                            {
+                                if (scrollPattern.Current.HorizontallyScrollable)
+                                {
+                                    for (int i = 0; i < scrollUnits; i++)
+                                    {
+                                        scrollPattern.Scroll(amount, ScrollAmount.NoAmount);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                if (scrollPattern.Current.VerticallyScrollable)
+                                {
+                                    for (int i = 0; i < scrollUnits; i++)
+                                    {
+                                        scrollPattern.Scroll(ScrollAmount.NoAmount, amount);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.LogException(ex);
+            }
+        }
+
+        /// <summary>
+        /// 向上遍历 UI 树，找到支持滚动的元素
+        /// </summary>
+        private static AutomationElement FindScrollableElement(AutomationElement element)
+        {
+            var current = element;
+            int maxDepth = 10; // 防止无限循环
+
+            while (current != null && maxDepth-- > 0)
+            {
+                try
+                {
+                    var scrollPattern = current.GetCurrentPattern(ScrollPattern.Pattern) as ScrollPattern;
+                    if (scrollPattern != null &&
+                        (scrollPattern.Current.VerticallyScrollable || scrollPattern.Current.HorizontallyScrollable))
+                    {
+                        return current;
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    // Pattern not supported, continue to parent
+                }
+
+                var walker = TreeWalker.ControlViewWalker;
+                current = walker.GetParent(current);
+            }
+
+            return null;
         }
 
         private InertialScrollUI CreateGUI()
@@ -302,6 +457,74 @@ namespace GestureSign.CorePlugins.InertialScroll
                 double velocityRatio = absVelocity / 2000.0;  // >= 1.0
                 double exponent = Math.Log(velocityRatio, 2.0) * 0.3;  // 温和的对数增长
                 return Math.Pow(_settings.AccelerationFactor, exponent);
+            }
+        }
+
+        /// <summary>
+        /// 检测窗口是否为 WinUI/UWP 应用
+        /// </summary>
+        private bool IsWinUIOrUWPApp(ManagedWinapi.Windows.SystemWindow window)
+        {
+            if (window == null)
+                return false;
+
+            try
+            {
+                // 获取顶级窗口（向上遍历到没有父窗口的窗口）
+                var topWindow = window;
+                while (topWindow.Parent != null && topWindow.Parent.HWnd != IntPtr.Zero)
+                {
+                    topWindow = topWindow.Parent;
+                }
+
+                string className = topWindow.ClassName;
+
+                // UWP/WinUI 应用的标准窗口类
+                if ("ApplicationFrameWindow".Equals(className, StringComparison.Ordinal) ||
+                    "Windows.UI.Core.CoreWindow".Equals(className, StringComparison.Ordinal) ||
+                    "WinUIDesktopWin32WindowClass".Equals(className, StringComparison.Ordinal))
+                {
+                    Logging.LogDebug($"[InertialScroll] WinUI detected by class: {className}");
+                    return true;
+                }
+
+                // WinUI 3 桌面应用通过进程名检测
+                try
+                {
+                    string processName = topWindow.Process?.ProcessName;
+                    if (string.IsNullOrEmpty(processName))
+                        return false;
+
+                    // 常见 WinUI/UWP 应用进程名
+                    string[] winUIProcesses = {
+                        "SystemSettings",      // Windows 设置
+                        "PowerToys.Settings",  // PowerToys 设置
+                        "WinStore.App",        // Microsoft Store
+                        "PhoneExperienceHost", // 手机连接
+                        "WindowsTerminal",     // Windows Terminal (WinUI)
+                        "DevHome",             // Dev Home
+                        "ms-teams",            // Microsoft Teams (new)
+                    };
+
+                    foreach (var name in winUIProcesses)
+                    {
+                        if (processName.Equals(name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Logging.LogDebug($"[InertialScroll] WinUI detected by process: {processName}");
+                            return true;
+                        }
+                    }
+                }
+                catch
+                {
+                    // 进程访问被拒绝或已退出
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
             }
         }
 

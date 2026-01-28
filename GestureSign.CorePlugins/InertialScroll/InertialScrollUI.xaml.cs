@@ -54,6 +54,10 @@ namespace GestureSign.CorePlugins.InertialScroll
 
             // 抖动过滤阈值
             MinorAxisThresholdSlider.Value = _settings.MinorAxisThreshold;
+
+            // WinUI 检测
+            EnableWinUIDetectionCheckBox.IsChecked = _settings.EnableWinUIDetection;
+            WinUIScrollMultiplierSlider.Value = _settings.WinUIScrollMultiplier;
         }
 
         /// <summary>
@@ -84,6 +88,12 @@ namespace GestureSign.CorePlugins.InertialScroll
             // 抖动过滤阈值
             if (MinorAxisThresholdSlider != null)
                 _settings.MinorAxisThreshold = MinorAxisThresholdSlider.Value;
+
+            // WinUI 检测
+            if (EnableWinUIDetectionCheckBox != null)
+                _settings.EnableWinUIDetection = EnableWinUIDetectionCheckBox.IsChecked ?? true;
+            if (WinUIScrollMultiplierSlider != null)
+                _settings.WinUIScrollMultiplier = WinUIScrollMultiplierSlider.Value;
         }
 
         #region Event Handlers
@@ -109,6 +119,11 @@ namespace GestureSign.CorePlugins.InertialScroll
         }
 
         private void MinorAxisThresholdSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            SaveSettings();
+        }
+
+        private void EnableWinUIDetectionCheckBox_Changed(object sender, RoutedEventArgs e)
         {
             SaveSettings();
         }

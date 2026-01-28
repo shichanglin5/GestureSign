@@ -253,6 +253,9 @@
       <DirectionVertical>垂直</DirectionVertical>
       <DirectionHorizontal>水平</DirectionHorizontal>
       <DirectionBoth>双向（自动）</DirectionBoth>
+      <EnableWinUIDetection>自动检测 WinUI/UWP 应用并提升滚动速度</EnableWinUIDetection>
+      <WinUIScrollMultiplier>WinUI/UWP 滚动倍数</WinUIScrollMultiplier>
+      <WinUIMultiplierDescription>WinUI/UWP 应用（如 Windows 设置、PowerToys）对滚轮事件的响应较慢，此倍数用于补偿。推荐值：3.0 倍</WinUIMultiplierDescription>
     </InertialScroll>
   </CorePlugins>
 </Language>

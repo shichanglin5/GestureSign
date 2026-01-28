@@ -44,6 +44,18 @@ namespace GestureSign.CorePlugins.InertialScroll
         /// 默认 0.3 (30%)
         /// </summary>
         public double MinorAxisThreshold { get; set; } = 0.3;
+
+        /// <summary>
+        /// 是否启用 WinUI/UWP 应用检测和自动滚动倍率调整
+        /// </summary>
+        public bool EnableWinUIDetection { get; set; } = true;
+
+        /// <summary>
+        /// WinUI/UWP 应用滚动倍数 (1.0-10.0)
+        /// WinUI/UWP 应用对滚轮事件的响应比 Win32 应用慢，需要额外倍数补偿
+        /// 默认 3.0
+        /// </summary>
+        public double WinUIScrollMultiplier { get; set; } = 3.0;
     }
 
     /// <summary>

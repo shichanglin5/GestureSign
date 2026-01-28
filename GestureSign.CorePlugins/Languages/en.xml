@@ -252,6 +252,9 @@
       <DirectionVertical>Vertical</DirectionVertical>
       <DirectionHorizontal>Horizontal</DirectionHorizontal>
       <DirectionBoth>Both (Auto)</DirectionBoth>
+      <EnableWinUIDetection>Auto-detect WinUI/UWP apps and boost scroll speed</EnableWinUIDetection>
+      <WinUIScrollMultiplier>WinUI/UWP Scroll Multiplier</WinUIScrollMultiplier>
+      <WinUIMultiplierDescription>WinUI/UWP apps (Windows Settings, PowerToys) scroll slower with mouse wheel events. This multiplier compensates for the difference. Recommended: 3.0x</WinUIMultiplierDescription>
     </InertialScroll>
   </CorePlugins>
 </Language>
