@@ -27,10 +27,10 @@ namespace GestureSign.CorePlugins.ActivateApp
         /// Window list cache expiration time in seconds
         /// Set to ≤ 0 to disable caching and re-scan every time
         /// Set to > 0 to cache for the specified number of seconds
-        /// Default: 5 seconds (suitable for most scenarios)
+        /// Default: 30 seconds (suitable for most scenarios)
         /// Note: This caches the list of matching window handles, not individual window properties
         /// </summary>
-        public int CacheExpirationSeconds { get; set; } = 5;
+        public int CacheExpirationSeconds { get; set; } = 30;
 
         /// <summary>
         /// Minimize the window if it is already activated (foreground)

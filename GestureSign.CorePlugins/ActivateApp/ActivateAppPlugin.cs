@@ -219,7 +219,11 @@ namespace GestureSign.CorePlugins.ActivateApp
 
                     if (validWindows.Count > 0)
                     {
-                        _windowListCache[cacheKey] = (validWindows, DateTime.Now);
+                        // 只有窗口数量变化时才更新缓存，保持原始时间戳
+                        if (validWindows.Count != cachedData.Handles.Count)
+                        {
+                            _windowListCache[cacheKey] = (validWindows, cachedData.LastUpdate);
+                        }
                         return validWindows;
                     }
                 }

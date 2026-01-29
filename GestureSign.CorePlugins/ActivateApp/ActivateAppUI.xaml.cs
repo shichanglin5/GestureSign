@@ -48,7 +48,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                 }
                 else
                 {
-                    _settings.CacheExpirationSeconds = 5; // Default value
+                    _settings.CacheExpirationSeconds = 30; // Default value
                 }
 
                 // Get minimize if activated setting
