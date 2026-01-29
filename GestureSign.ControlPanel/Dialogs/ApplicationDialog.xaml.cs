@@ -136,7 +136,7 @@ namespace GestureSign.ControlPanel.Dialogs
 
         private void ShowRunningButton_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new GestureSign.ControlPanel.Common.WindowSelectorDialog { Owner = this };
+            var dialog = new GestureSign.Common.UI.WindowSelectorDialog { Owner = this };
             if (dialog.ShowDialog() == true && dialog.SelectedWindow != null)
             {
                 var info = dialog.SelectedWindow;
@@ -184,7 +184,7 @@ namespace GestureSign.ControlPanel.Dialogs
         private void chCrosshair_CrosshairDragged(object sender, MouseButtonEventArgs e)
         {
             // 弹出窗口选择对话框
-            var dialog = new GestureSign.ControlPanel.Common.WindowSelectorDialog { Owner = this };
+            var dialog = new GestureSign.Common.UI.WindowSelectorDialog { Owner = this };
             if (dialog.ShowDialog() == true && dialog.SelectedWindow != null)
             {
                 var info = dialog.SelectedWindow;

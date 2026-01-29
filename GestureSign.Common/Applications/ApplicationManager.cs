@@ -24,6 +24,7 @@ namespace GestureSign.Common.Applications
         private List<IApplication> _applications;
         IEnumerable<IApplication> _recognizedApplication;
         private Timer _timer;
+        private Point _lastTouchPadGestureMousePosition;
         #endregion
 
         #region Public Instance Properties
@@ -487,6 +488,22 @@ namespace GestureSign.Common.Applications
 
             if (targetMode == WindowTargetMode.ActiveWindow)
             {
+                // 触控板设备：检查鼠标位置是否发生变化
+                if ((sourceDevice & Devices.TouchPad) != 0)
+                {
+                    var currentMousePosition = System.Windows.Forms.Cursor.Position;
+
+                    // 如果鼠标位置发生变化，使用鼠标位置所在窗口
+                    if (currentMousePosition != _lastTouchPadGestureMousePosition)
+                    {
+                        _lastTouchPadGestureMousePosition = currentMousePosition;
+                        return GetWindowFromPoint(currentMousePosition);
+                    }
+
+                    // 更新记录位置
+                    _lastTouchPadGestureMousePosition = currentMousePosition;
+                }
+
                 var foreground = SystemWindow.ForegroundWindow;
                 if (foreground != null && foreground.WindowState == System.Windows.Forms.FormWindowState.Minimized)
                 {
