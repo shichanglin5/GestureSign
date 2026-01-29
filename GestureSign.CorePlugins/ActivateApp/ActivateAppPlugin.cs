@@ -318,8 +318,12 @@ namespace GestureSign.CorePlugins.ActivateApp
             // Window is not minimized, check if it's the foreground window
             if (isForeground)
             {
-                // Window is already foreground and not minimized - minimize it
-                window.WindowState = FormWindowState.Minimized;
+                // Window is already foreground and not minimized
+                if (_settings.MinimizeIfActivated)
+                {
+                    // Minimize it
+                    window.WindowState = FormWindowState.Minimized;
+                }
                 return true;
             }
             else

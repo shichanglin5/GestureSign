@@ -33,6 +33,12 @@ namespace GestureSign.CorePlugins.ActivateApp
         public int CacheExpirationSeconds { get; set; } = 5;
 
         /// <summary>
+        /// Minimize the window if it is already activated (foreground)
+        /// Default: true (minimize when clicking on an already active window)
+        /// </summary>
+        public bool MinimizeIfActivated { get; set; } = true;
+
+        /// <summary>
         /// Track the last activated window handle for multi-window cycling
         /// (Note: This is runtime state, not persisted)
         /// </summary>

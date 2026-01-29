@@ -51,6 +51,9 @@ namespace GestureSign.CorePlugins.ActivateApp
                     _settings.CacheExpirationSeconds = 5; // Default value
                 }
 
+                // Get minimize if activated setting
+                _settings.MinimizeIfActivated = MinimizeIfActivatedCheckBox.IsChecked ?? true;
+
                 return _settings;
             }
             set
@@ -65,6 +68,9 @@ namespace GestureSign.CorePlugins.ActivateApp
 
                 // Set cache expiration
                 CacheExpirationTextBox.Text = _settings.CacheExpirationSeconds.ToString();
+
+                // Set minimize if activated checkbox
+                MinimizeIfActivatedCheckBox.IsChecked = _settings.MinimizeIfActivated;
 
                 // Set default display name if empty but has ProcessPath condition
                 if (string.IsNullOrEmpty(DisplayNameTextBox.Text) && _settings.MatchConditions != null)

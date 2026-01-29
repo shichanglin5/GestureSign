@@ -237,6 +237,7 @@
       <WindowTitlePattern>窗口标题模式:</WindowTitlePattern>
       <UseRegex>使用正则表达式</UseRegex>
       <DisplayName>显示名称:</DisplayName>
+      <MinimizeIfActivated>已激活则最小化</MinimizeIfActivated>
     </ActivateApp>
     <InertialScroll>
       <Name>模拟惯性滑动</Name>

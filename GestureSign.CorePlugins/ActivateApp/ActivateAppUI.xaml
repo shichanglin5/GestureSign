@@ -55,6 +55,11 @@
                   IsExpanded="False"
                   Margin="0,10,0,0">
             <StackPanel Margin="10,10,0,10">
+                <CheckBox x:Name="MinimizeIfActivatedCheckBox"
+                          Content="{localization:LocalisedText CorePlugins.ActivateApp.MinimizeIfActivated}"
+                          IsChecked="True"
+                          Margin="0,0,0,10" />
+
                 <TextBlock Text="Cache Expiration (seconds) / 窗口列表缓存过期时间（秒）"
                            Margin="0,0,0,5" />
 

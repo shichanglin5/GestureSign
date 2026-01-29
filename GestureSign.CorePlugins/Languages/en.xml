@@ -236,6 +236,7 @@
       <WindowTitlePattern>Window Title Pattern:</WindowTitlePattern>
       <UseRegex>Use Regular Expression</UseRegex>
       <DisplayName>Display Name:</DisplayName>
+      <MinimizeIfActivated>Minimize if already activated</MinimizeIfActivated>
     </ActivateApp>
     <InertialScroll>
       <Name>Simulate Inertial Swipe</Name>
