@@ -16,7 +16,8 @@
                     BorderBrush="{StaticResource MahApps.Brushes.Accent}"
                     MinWidth="586"
                     MinHeight="420"
-                    Loaded="MetroWindow_Loaded">
+                    Loaded="MetroWindow_Loaded"
+                    PreviewKeyDown="MainWindow_PreviewKeyDown">
     <controls:MetroWindow.Resources>
         <ResourceDictionary>
             <Path x:Key="QuestionIcon"

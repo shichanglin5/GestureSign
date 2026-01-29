@@ -15,20 +15,27 @@ This may lead to function failure(e.g. Start application at Windows startup).
     <StartupError>Can not launch "{0}". Please check if you have some antivirus blocking the startup or try reinstalling GestureSign. </StartupError>
     <UnexpectedException>An unexpected exception has occurred. Shutting down the application. You can help fix the problems by "Send Feedback" </UnexpectedException>
     <FileWriteException>Failed to save. Please try to change the GestureSign location if you are using portable edition.</FileWriteException>
+    <SavedTitle>Saved</SavedTitle>
+    <AllConfigurationsSaved>All configurations have been saved.</AllConfigurationsSaved>
   </Messages>
   <Common>
     <GlobalActions>(Global Actions)</GlobalActions>
     <Cancel>Cancel</Cancel>
+    <Delete>Delete</Delete>
     <FileName>File Name</FileName>
     <No>No</No>
     <OK>OK</OK>
     <Save>Save</Save>
-    <WindowClass>Class</WindowClass>
+    <WindowClass>Class Name</WindowClass>
     <WindowTitle>Title</WindowTitle>
+    <ProcessName>Process Name</ProcessName>
+    <ProcessPath>Process Path</ProcessPath>
     <Yes>Yes</Yes>
     <Import>Import...</Import>
     <Export>Export...</Export>
     <Reset>Reset</Reset>
+    <AUMID>App ID</AUMID>
+    <ClassAndPath>Class+Path</ClassAndPath>
   </Common>
   <About>
     <Header>About</Header>
@@ -66,9 +73,11 @@ Email:ccfyzh@gmail.com
     <Group>Group</Group>
     <MatchString>Match String</MatchString>
     <MatchUsing>Match Using</MatchUsing>
+    <MatchConditions>Match Conditions</MatchConditions>
+    <AddCondition>+ Add Condition</AddCondition>
     <GetMatchString>Get Match String</GetMatchString>
     <Browse>Browse Start Menu Programs</Browse>
-    <UsingRegularExpression>Match as pattern</UsingRegularExpression>
+    <UsingRegularExpression>Regex</UsingRegularExpression>
     <DragCrosshair>Drag and drop the crosshair on the target window</DragCrosshair>
     <Or>Or</Or>
     <ShowRunningApplications>Select Running..</ShowRunningApplications>
@@ -78,19 +87,24 @@ Email:ccfyzh@gmail.com
     <BlockTouchInputInfo>At least {0} fingers</BlockTouchInputInfo>
     <LimitNumberOfFingers>Number Of Fingers</LimitNumberOfFingers>
     <LimitNumberOfFingersInfo>At least {0} fingers</LimitNumberOfFingersInfo>
+    <ProcessPath>Process Path</ProcessPath>
+    <ProcessPathWatermark>Full process path for precise matching</ProcessPathWatermark>
     <Messages>
       <EmptyStringTitle>No Match String</EmptyStringTitle>
       <EmptyString>Please provide Match String for the application</EmptyString>
+      <EmptyConditions>Please add at least one match condition</EmptyConditions>
       <IgnoredAppExistsTitle>Ignored Application Conflict</IgnoredAppExistsTitle>
       <IgnoredAppExists>The Match String you provided already exists, please provide a different Match String</IgnoredAppExists>
       <StringConflictTitle>Match String Conflict</StringConflictTitle>
       <StringConflict>The Match String "{0}" already exists in {1}, please provide a different Match String.</StringConflict>
+      <ConditionConflict>These match conditions already exist in application {0}, please modify the conditions.</ConditionConflict>
       <NoApplicationNameTitle>No Application Name Specified</NoApplicationNameTitle>
       <NoApplicationName>Please provide a name for the application</NoApplicationName>
       <AppExistsTitle>Name Already Exists</AppExistsTitle>
       <AppExists>The application name you provided already exists, please provide a different name</AppExists>
       <NoMatchStringTitle>No Match String</NoMatchStringTitle>
       <NoMatchString>Please provide Match String for the application</NoMatchString>
+      <EmptyProcessPath>Process path is required when using Class+Path matching</EmptyProcessPath>
     </Messages>
   </ApplicationDialog>
   <ActionDialog>
@@ -219,6 +233,27 @@ Email:ccfyzh@gmail.com
   <RuningApplicationsFlyout>
     <Title>Runing Applications</Title>
   </RuningApplicationsFlyout>
+  <WindowSelector>
+    <Title>Select Window</Title>
+    <CaptureMethod>Capture Method</CaptureMethod>
+    <DragToCapture>Drag crosshair to target window</DragToCapture>
+    <IncludeChildWindows>Include Child Windows</IncludeChildWindows>
+    <StartTracking>Start Tracking</StartTracking>
+    <StopTracking>Stop Tracking</StopTracking>
+    <TrackingActive>Tracking active window... Press F2 to pause</TrackingActive>
+    <WindowList>Window List</WindowList>
+    <WindowInfo>Window Info</WindowInfo>
+    <WindowTitle>Window Title</WindowTitle>
+    <ClassName>Class Name</ClassName>
+    <ProcessName>Process Name</ProcessName>
+    <ProcessPath>Process Path</ProcessPath>
+    <Handle>Handle</Handle>
+    <CopyInfo>Copy Info</CopyInfo>
+    <Details>Details</Details>
+    <Refresh>Refresh</Refresh>
+    <NoSelection>No Window Selected</NoSelection>
+    <SelectWindowFirst>Please select a window first</SelectWindowFirst>
+  </WindowSelector>
   <GestureDefinition>
     <Edit>Redraw Gesture</Edit>
     <ExistingGesture>Exist similar gesture.Use it?</ExistingGesture>

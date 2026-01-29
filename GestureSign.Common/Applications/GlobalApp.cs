@@ -1,4 +1,4 @@
-﻿using GestureSign.Common.Localization;
+using GestureSign.Common.Localization;
 
 namespace GestureSign.Common.Applications
 {
@@ -20,11 +20,7 @@ namespace GestureSign.Common.Applications
             //set { /* Set only exists for deserialization purposes */ }
         }
 
-        public override MatchUsing MatchUsing
-        {
-            get { return MatchUsing.All; }
-            //	set { /* Set only exists for deserialization purposes */ }
-        }
+        // GlobalApp 的 MatchConditions 为空列表，表示匹配所有窗口
 
         #endregion
     }

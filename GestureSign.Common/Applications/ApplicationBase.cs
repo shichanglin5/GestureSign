@@ -1,11 +1,10 @@
-﻿using ManagedWinapi.Windows;
+using ManagedWinapi.Windows;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace GestureSign.Common.Applications
 {
@@ -18,10 +17,15 @@ namespace GestureSign.Common.Applications
         #endregion
 
         #region IApplication Instance Properties
+
         public virtual string Name { get; set; }
-        public virtual MatchUsing MatchUsing { get; set; }
-        public virtual string MatchString { get; set; }
-        public virtual bool IsRegEx { get; set; }
+
+        /// <summary>
+        /// 匹配条件列表（多条件 AND 组合）
+        /// </summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public virtual List<MatchCondition> MatchConditions { get; set; } = new List<MatchCondition>();
+
         [DefaultValue("")]
         public virtual string Group { get; set; }
 
@@ -93,34 +97,7 @@ namespace GestureSign.Common.Applications
 
         public bool IsSystemWindowMatch(SystemWindow Window)
         {
-            string compareMatchString = MatchString ?? String.Empty;
-            string windowMatchString = String.Empty;
-            try
-            {
-                switch (MatchUsing)
-                {
-                    case MatchUsing.WindowClass:
-                        windowMatchString = Window.ClassName;
-
-                        break;
-                    case MatchUsing.WindowTitle:
-                        windowMatchString = Window.Title;
-
-                        break;
-                    case MatchUsing.ExecutableFilename:
-                        windowMatchString = Window.Process.MainModule.ModuleName;
-
-                        break;
-                    case MatchUsing.All:
-                        return true;
-                }
-
-                return IsRegEx ? Regex.IsMatch(windowMatchString, compareMatchString, RegexOptions.Singleline | RegexOptions.IgnoreCase) : String.Equals(windowMatchString.Trim(), compareMatchString.Trim(), StringComparison.CurrentCultureIgnoreCase);
-            }
-            catch
-            {
-                return false;
-            }
+            return WindowMatcher.IsMatch(Window, this);
         }
 
         public int CompareTo(object obj)

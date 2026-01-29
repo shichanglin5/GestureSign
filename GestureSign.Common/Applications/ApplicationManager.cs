@@ -274,8 +274,8 @@ namespace GestureSign.Common.Applications
             GetWindowInfo(window, out className, out title, out fileName);
 
             IApplication[] definedApplications = userApplicationOnly
-                ? FindMatchApplications(Applications.Where(a => a is UserApp), className, title, fileName)
-                : FindMatchApplications(Applications.Where(a => !(a is GlobalApp)), className, title, fileName);
+                ? FindMatchApplications(Applications.Where(a => a is UserApp), window, className, title, fileName)
+                : FindMatchApplications(Applications.Where(a => !(a is GlobalApp)), window, className, title, fileName);
             // Try to find any user or ignored applications that match the given system window
             // If not user or ignored application could be found, return the global application
             return definedApplications.Length != 0
@@ -363,12 +363,18 @@ namespace GestureSign.Common.Applications
             else return globalApp;
         }
 
-        public IApplication[] FindMatchApplications<TApplication>(MatchUsing matchUsing, string matchString, string excludedApplication = null) where TApplication : IApplication
+        public IApplication[] FindMatchApplications<TApplication>(List<MatchCondition> matchConditions, string excludedApplication = null) where TApplication : IApplication
         {
+            if (matchConditions == null || matchConditions.Count == 0)
+                return Array.Empty<IApplication>();
+
             return Applications.FindAll(
                     a => a is TApplication &&
-                        matchString.Equals(a.MatchString, StringComparison.CurrentCultureIgnoreCase) &&
-                        matchUsing == a.MatchUsing &&
+                        a.MatchConditions != null &&
+                        a.MatchConditions.Count == matchConditions.Count &&
+                        matchConditions.All(mc => a.MatchConditions.Any(amc =>
+                            amc.Type == mc.Type &&
+                            string.Equals(amc.Value, mc.Value, StringComparison.OrdinalIgnoreCase))) &&
                         excludedApplication != a.Name).ToArray();
         }
 
@@ -393,10 +399,16 @@ namespace GestureSign.Common.Applications
         {
             var versionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(executablefilePath);
             app.Name = string.IsNullOrWhiteSpace(versionInfo.ProductName) ? Path.GetFileNameWithoutExtension(executablefilePath) : versionInfo.ProductName;
-            app.MatchUsing = MatchUsing.ExecutableFilename;
-            app.MatchString = Path.GetFileName(executablefilePath);
+            app.MatchConditions = new List<MatchCondition>
+            {
+                new MatchCondition
+                {
+                    Type = MatchConditionType.ProcessName,
+                    Value = Path.GetFileName(executablefilePath)
+                }
+            };
 
-            var matchApplications = FindMatchApplications<TApp>(app.MatchUsing, app.MatchString);
+            var matchApplications = FindMatchApplications<TApp>(app.MatchConditions);
             if (matchApplications.Length != 0)
             {
                 return matchApplications[0];
@@ -490,58 +502,17 @@ namespace GestureSign.Common.Applications
             return GetWindowFromPoint(point);
         }
 
-        private IApplication[] FindMatchApplications(IEnumerable<IApplication> applications, string className, string title, string fileName)
+        private IApplication[] FindMatchApplications(IEnumerable<IApplication> applications, SystemWindow window, string className, string title, string fileName)
         {
-            var byFileName = new List<IApplication>();
-            var byTitle = new List<IApplication>();
-            var byClass = new List<IApplication>();
+            var result = new List<IApplication>();
             foreach (var app in applications)
             {
-                switch (app.MatchUsing)
-                {
-                    case MatchUsing.WindowClass:
-                        byClass.Add(app);
-                        break;
-                    case MatchUsing.WindowTitle:
-                        byTitle.Add(app);
-                        break;
-                    case MatchUsing.ExecutableFilename:
-                        byFileName.Add(app);
-                        break;
-                    case MatchUsing.All:
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-            }
-            List<IApplication> result = new List<IApplication>();
-            if (byClass.Count != 0)
-            {
                 try
                 {
-                    result.AddRange(byClass.Where(a => a.MatchString != null && CompareString(a.MatchString, className, a.IsRegEx)));
-                }
-                catch
-                {
-                    // ignored
-                }
-            }
-            if (byTitle.Count != 0)
-            {
-                try
-                {
-                    result.AddRange(byTitle.Where(a => a.MatchString != null && CompareString(a.MatchString, title, a.IsRegEx)));
-                }
-                catch
-                {
-                    // ignored
-                }
-            }
-            if (byFileName.Count != 0)
-            {
-                try
-                {
-                    result.AddRange(byFileName.Where(a => a.MatchString != null && CompareString(a.MatchString, fileName, a.IsRegEx)));
+                    if (WindowMatcher.IsMatch(window, app))
+                    {
+                        result.Add(app);
+                    }
                 }
                 catch
                 {
@@ -549,14 +520,6 @@ namespace GestureSign.Common.Applications
                 }
             }
             return result.ToArray();
-        }
-
-        private static bool CompareString(string compareMatchString, string windowMatchString, bool useRegEx)
-        {
-            if (string.IsNullOrEmpty(windowMatchString)) return false;
-            return useRegEx
-                ? Regex.IsMatch(windowMatchString, compareMatchString, RegexOptions.Singleline | RegexOptions.IgnoreCase)
-                : string.Equals(windowMatchString.Trim(), compareMatchString.Trim(), StringComparison.CurrentCultureIgnoreCase);
         }
 
 #pragma warning disable CS0618
@@ -576,9 +539,7 @@ namespace GestureSign.Common.Applications
                         BlockTouchInputThreshold = legacyUserApp.BlockTouchInputThreshold,
                         LimitNumberOfFingers = legacyUserApp.LimitNumberOfFingers,
                         Group = legacyUserApp.Group,
-                        IsRegEx = legacyUserApp.IsRegEx,
-                        MatchString = legacyUserApp.MatchString,
-                        MatchUsing = legacyUserApp.MatchUsing,
+                        MatchConditions = ConvertLegacyMatchConditions(legacyUserApp.MatchUsing, legacyUserApp.MatchString, legacyUserApp.IsRegEx),
                         Name = legacyUserApp.Name
                     };
                     _applications.Add(newApp);
@@ -590,7 +551,9 @@ namespace GestureSign.Common.Applications
                 {
                     var temp = legacyIgnoredApp.Name.Split(new[] { '$' }, StringSplitOptions.RemoveEmptyEntries);
                     var newName = temp.Length > 1 ? temp[1] : legacyIgnoredApp.Name;
-                    var newApp = new IgnoredApp(newName, legacyIgnoredApp.MatchUsing, legacyIgnoredApp.MatchString, legacyIgnoredApp.IsRegEx, legacyIgnoredApp.IsEnabled);
+                    var newApp = new IgnoredApp(newName,
+                        ConvertLegacyMatchConditions(legacyIgnoredApp.MatchUsing, legacyIgnoredApp.MatchString, legacyIgnoredApp.IsRegEx),
+                        legacyIgnoredApp.IsEnabled);
                     _applications.Add(newApp);
                     continue;
                 }
@@ -608,6 +571,30 @@ namespace GestureSign.Common.Applications
             }
 
             return true;
+        }
+
+        private static List<MatchCondition> ConvertLegacyMatchConditions(MatchUsing matchUsing, string matchString, bool isRegEx)
+        {
+            if (string.IsNullOrEmpty(matchString))
+                return new List<MatchCondition>();
+
+            var conditionType = matchUsing switch
+            {
+                MatchUsing.WindowClass => MatchConditionType.ClassName,
+                MatchUsing.WindowTitle => MatchConditionType.Title,
+                MatchUsing.ExecutableFilename => MatchConditionType.ProcessName,
+                _ => MatchConditionType.ProcessName
+            };
+
+            return new List<MatchCondition>
+            {
+                new MatchCondition
+                {
+                    Type = conditionType,
+                    Value = matchString,
+                    IsRegex = isRegEx && conditionType == MatchConditionType.Title
+                }
+            };
         }
 
         private List<IAction> ConvertLegacyActions(List<GestureSign.Applications.Action> legacyActions)

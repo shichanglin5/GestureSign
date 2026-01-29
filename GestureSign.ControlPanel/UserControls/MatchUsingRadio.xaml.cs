@@ -24,6 +24,8 @@ namespace GestureSign.ControlPanel.UserControls
             multiBinding.Bindings.Add(new Binding("IsChecked") { ElementName = "FileNameRadio" });
             multiBinding.Bindings.Add(new Binding("IsChecked") { ElementName = "TitleRadio" });
             multiBinding.Bindings.Add(new Binding("IsChecked") { ElementName = "ClassRadio" });
+            multiBinding.Bindings.Add(new Binding("IsChecked") { ElementName = "AUMIDRadio" });
+            multiBinding.Bindings.Add(new Binding("IsChecked") { ElementName = "ClassAndPathRadio" });
 
             SetBinding(MatchUsingProperty, multiBinding);
         }
@@ -33,9 +35,27 @@ namespace GestureSign.ControlPanel.UserControls
             set
             {
                 SetValue(MatchUsingProperty, value);
-                if (value == MatchUsing.ExecutableFilename) FileNameRadio.IsChecked = true;
-                else if (value == MatchUsing.WindowTitle) TitleRadio.IsChecked = true;
-                else ClassRadio.IsChecked = true;
+                switch (value)
+                {
+                    case MatchUsing.ExecutableFilename:
+                        FileNameRadio.IsChecked = true;
+                        break;
+                    case MatchUsing.WindowTitle:
+                        TitleRadio.IsChecked = true;
+                        break;
+                    case MatchUsing.WindowClass:
+                        ClassRadio.IsChecked = true;
+                        break;
+                    case MatchUsing.AUMID:
+                        AUMIDRadio.IsChecked = true;
+                        break;
+                    case MatchUsing.ClassNameAndPath:
+                        ClassAndPathRadio.IsChecked = true;
+                        break;
+                    default:
+                        FileNameRadio.IsChecked = true;
+                        break;
+                }
             }
         }
         public static readonly DependencyProperty MatchUsingProperty =
@@ -45,14 +65,20 @@ namespace GestureSign.ControlPanel.UserControls
         {
             public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
             {
-                return (bool)values[0] ?
-                 MatchUsing.ExecutableFilename : (bool)values[1] ?
-                   MatchUsing.WindowTitle : MatchUsing.WindowClass;
+                if (values.Length >= 5)
+                {
+                    if ((bool)values[0]) return MatchUsing.ExecutableFilename;
+                    if ((bool)values[1]) return MatchUsing.WindowTitle;
+                    if ((bool)values[2]) return MatchUsing.WindowClass;
+                    if ((bool)values[3]) return MatchUsing.AUMID;
+                    if ((bool)values[4]) return MatchUsing.ClassNameAndPath;
+                }
+                return MatchUsing.ExecutableFilename;
             }
 
             public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
             {
-                return new object[3] { Binding.DoNothing, Binding.DoNothing, Binding.DoNothing };
+                return new object[5] { Binding.DoNothing, Binding.DoNothing, Binding.DoNothing, Binding.DoNothing, Binding.DoNothing };
             }
         }
     }

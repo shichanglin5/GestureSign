@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -11,16 +11,13 @@ namespace GestureSign.Common.Applications
 
         public IgnoredApp()
         {
-
         }
 
-        public IgnoredApp(string Name, MatchUsing MatchUsing, string MatchString, bool IsRegEx, bool isEnabled)
+        public IgnoredApp(string name, List<MatchCondition> matchConditions, bool isEnabled)
         {
-            this.Name = Name;
-            this.MatchUsing = MatchUsing;
-            this.MatchString = MatchString;
-            this.IsRegEx = IsRegEx;
-            this.IsEnabled = isEnabled;
+            Name = name;
+            MatchConditions = matchConditions ?? new List<MatchCondition>();
+            IsEnabled = isEnabled;
         }
 
         #endregion

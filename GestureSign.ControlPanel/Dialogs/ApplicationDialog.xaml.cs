@@ -1,9 +1,8 @@
-﻿using GestureSign.Common.Applications;
+using GestureSign.Common.Applications;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Localization;
+using GestureSign.Common.UI;
 using GestureSign.ControlPanel.Common;
-using GestureSign.ControlPanel.Flyouts;
-using MahApps.Metro.Controls;
 using MahApps.Metro.Controls.Dialogs;
 using ManagedWinapi.Windows;
 using Microsoft.Win32;
@@ -12,7 +11,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Management;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
@@ -27,7 +25,6 @@ namespace GestureSign.ControlPanel.Dialogs
     {
         private bool _newApplication;
         private IApplication _currentApplication;
-        private Dictionary<uint, string> _processInfoMap;
 
         public ApplicationListViewItem ApplicationListViewItem
         {
@@ -45,7 +42,6 @@ namespace GestureSign.ControlPanel.Dialogs
         public ApplicationDialog()
         {
             InitializeComponent();
-            RuningApplicationsFlyout.RuningAppSelectionChanged += (o, e) => { if (e != null) ApplicationListViewItem = e; };
         }
 
         public ApplicationDialog(IApplication targetApplication, bool newApplication = false) : this()
@@ -80,7 +76,6 @@ namespace GestureSign.ControlPanel.Dialogs
                     if (!_newApplication)
                     {
                         GroupComboBox.Text = _currentApplication.Group;
-
                         BlockTouchInputSlider.Value = userApp.BlockTouchInputThreshold;
                         LimitNumberOfFingersSlider.Value = userApp.LimitNumberOfFingers;
                     }
@@ -91,16 +86,15 @@ namespace GestureSign.ControlPanel.Dialogs
                     LimitNumberOfFingersSlider.Minimum = 2;
                     LimitNumberOfFingersSlider.Value = globalApp.LimitNumberOfFingers;
                     List<FrameworkElement> elements =
-                        new List<FrameworkElement> { chCrosshair, ApplicationNameTextBox, ShowRunningButton, BrowseButton, matchUsingRadio, MatchStringTextBox, RegexCheckBox };
+                        new List<FrameworkElement> { chCrosshair, ApplicationNameTextBox, ShowRunningButton, BrowseButton, matchConditionList };
                     elements.ForEach(el => el.IsEnabled = false);
                     break;
             }
             if (!_newApplication)
             {
                 ApplicationNameTextBox.Text = _currentApplication.Name;
-                matchUsingRadio.MatchUsing = _currentApplication.MatchUsing;
-                RegexCheckBox.IsChecked = _currentApplication.IsRegEx;
-                MatchStringTextBox.Text = _currentApplication.MatchString;
+                // 加载现有条件
+                matchConditionList.SetConditions(_currentApplication.MatchConditions);
             }
             GroupComboBox.ItemsSource =
                 ApplicationManager.Instance.Applications.Where(app => !string.IsNullOrEmpty(app.Group))
@@ -117,12 +111,6 @@ namespace GestureSign.ControlPanel.Dialogs
                     AppConfig.UiAccess && isUserApp ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        private void MatchStringTextBox_OnGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
-        {
-            MatchStringPopup.IsOpen = true;
-            MatchStringPopupTextBox.Focus();
-        }
-
         private void BrowseButton_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog ofdExecutable = new OpenFileDialog
@@ -134,15 +122,47 @@ namespace GestureSign.ControlPanel.Dialogs
             };
             if (ofdExecutable.ShowDialog().Value)
             {
-                matchUsingRadio.MatchUsing = MatchUsing.ExecutableFilename;
                 ApplicationNameTextBox.Text = System.IO.Path.GetFileNameWithoutExtension(ofdExecutable.FileName);
-                MatchStringTextBox.Text = ofdExecutable.SafeFileName;
+
+                // 使用新的条件列表方式
+                var info = new WindowMatchInfo
+                {
+                    ProcessPath = ofdExecutable.FileName,
+                    ProcessName = ofdExecutable.SafeFileName
+                };
+                matchConditionList.PopulateFromWindowInfo(info);
             }
         }
 
         private void ShowRunningButton_Click(object sender, RoutedEventArgs e)
         {
-            RuningAppFlyout.IsOpen = !RuningAppFlyout.IsOpen;
+            var dialog = new GestureSign.ControlPanel.Common.WindowSelectorDialog { Owner = this };
+            if (dialog.ShowDialog() == true && dialog.SelectedWindow != null)
+            {
+                var info = dialog.SelectedWindow;
+                UpdateFromWindowInfo(info);
+            }
+        }
+
+        private void UpdateFromWindowInfo(WindowMatchInfo info)
+        {
+            // 更新应用名称
+            ApplicationNameTextBox.Text = info.Title ?? info.FileName ?? string.Empty;
+
+            // 使用条件列表控件填充
+            matchConditionList.PopulateFromWindowInfo(info);
+
+            // 同时更新 ApplicationListViewItem 供绑定使用
+            ApplicationListViewItem = new ApplicationListViewItem
+            {
+                WindowClass = info.ClassName,
+                WindowTitle = info.Title,
+                WindowFilename = info.FileName,
+                ApplicationIcon = info.Icon,
+                ApplicationName = info.Title,
+                AUMID = info.AUMID,
+                ProcessPath = info.ProcessPath
+            };
         }
 
         private void ChCrosshair_OnCrosshairDragging(object sender, MouseEventArgs e)
@@ -154,31 +174,22 @@ namespace GestureSign.ControlPanel.Dialogs
             {
                 // Set application name from filename
                 ApplicationNameTextBox.Text = GetDescription(realWindow);
-                switch (matchUsingRadio.MatchUsing)
-                {
-                    case MatchUsing.WindowClass:
-                        MatchStringTextBox.Text = className;
-
-                        break;
-                    case MatchUsing.WindowTitle:
-                        MatchStringTextBox.Text = title;
-
-                        break;
-                    case MatchUsing.ExecutableFilename:
-                        MatchStringTextBox.Text = GetProcessFilename((uint)realWindow.ProcessId);
-                        MatchStringTextBox.SelectionStart = MatchStringTextBox.Text.Length;
-                        break;
-                }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                MatchStringTextBox.Text = LocalizationProvider.Instance.GetTextValue("Messages.Error") + "：" + ex.Message;
+                // ignored
             }
         }
 
         private void chCrosshair_CrosshairDragged(object sender, MouseButtonEventArgs e)
         {
-            _processInfoMap = null;
+            // 弹出窗口选择对话框
+            var dialog = new GestureSign.ControlPanel.Common.WindowSelectorDialog { Owner = this };
+            if (dialog.ShowDialog() == true && dialog.SelectedWindow != null)
+            {
+                var info = dialog.SelectedWindow;
+                UpdateFromWindowInfo(info);
+            }
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)
@@ -235,12 +246,16 @@ namespace GestureSign.ControlPanel.Dialogs
                         }
                         if (Path.GetExtension(targetFile).ToLower() == ".exe")
                         {
-                            matchUsingRadio.MatchUsing = MatchUsing.ExecutableFilename;
-
                             var versionInfo = FileVersionInfo.GetVersionInfo(targetFile);
                             ApplicationNameTextBox.Text = string.IsNullOrWhiteSpace(versionInfo.ProductName) ? Path.GetFileNameWithoutExtension(targetFile) : versionInfo.ProductName;
 
-                            MatchStringTextBox.Text = Path.GetFileName(targetFile);
+                            // 使用新的条件列表方式
+                            var info = new WindowMatchInfo
+                            {
+                                ProcessPath = targetFile,
+                                ProcessName = Path.GetFileName(targetFile)
+                            };
+                            matchConditionList.PopulateFromWindowInfo(info);
                         }
                     }
                 }
@@ -268,35 +283,9 @@ namespace GestureSign.ControlPanel.Dialogs
             }
         }
 
-        private string GetProcessFilename(uint pid)
-        {
-            if (_processInfoMap == null)
-            {
-                _processInfoMap = new Dictionary<uint, string>();
-                using (var searcher = new ManagementObjectSearcher("SELECT ProcessId, Name FROM Win32_Process"))
-                using (var results = searcher.Get())
-                {
-                    foreach (var item in results)
-                    {
-                        var id = item["ProcessID"];
-                        var name = item["Name"] as string;
-
-                        if (name != null)
-                        {
-                            _processInfoMap.Add((uint)id, name);
-                        }
-                    }
-                }
-            }
-
-            if (_processInfoMap.ContainsKey(pid))
-                return _processInfoMap[pid];
-            return null;
-        }
-
         private SystemWindow GetTargetWindow()
         {
-            Point cursorPosition; //(e.OriginalSource as Image).PointToScreen(e.GetPosition(null));
+            Point cursorPosition;
             GetCursorPos(out cursorPosition);
 
             SystemWindow window = SystemWindow.FromPointEx(cursorPosition.X, cursorPosition.Y, true, true);
@@ -316,7 +305,7 @@ namespace GestureSign.ControlPanel.Dialogs
             if (_currentApplication is GlobalApp)
             {
                 GlobalApp globalApp = (GlobalApp)_currentApplication;
-                int newValue = (int)LimitNumberOfFingersSlider.Value; ;
+                int newValue = (int)LimitNumberOfFingersSlider.Value;
                 if (newValue != globalApp.LimitNumberOfFingers)
                 {
                     globalApp.LimitNumberOfFingers = newValue;
@@ -325,13 +314,13 @@ namespace GestureSign.ControlPanel.Dialogs
                 return true;
             }
 
-            string matchString = MatchStringTextBox.Text.Trim();
+            var conditions = matchConditionList.GetConditions();
 
-            if (string.IsNullOrEmpty(matchString))
+            if (conditions.Count == 0)
             {
                 return ShowErrorMessage(
                         LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.EmptyStringTitle"),
-                        LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.EmptyString"));
+                        LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.EmptyConditions"));
             }
 
             string name = ApplicationNameTextBox.Text.Trim();
@@ -354,21 +343,19 @@ namespace GestureSign.ControlPanel.Dialogs
                             LimitNumberOfFingers = (int)LimitNumberOfFingersSlider.Value,
                             Name = name,
                             Group = groupName,
-                            MatchString = matchString,
-                            MatchUsing = matchUsingRadio.MatchUsing,
-                            IsRegEx = RegexCheckBox.IsChecked.Value
+                            MatchConditions = conditions
                         };
 
                         if (_newApplication)
                         {
-                            //Add new UserApplication
-                            var sameMatchApplications = ApplicationManager.Instance.FindMatchApplications<UserApp>(matchUsingRadio.MatchUsing, matchString);
+                            // 检查是否存在相同条件的应用
+                            var sameMatchApplications = ApplicationManager.Instance.FindMatchApplications<UserApp>(conditions);
                             if (sameMatchApplications.Length != 0)
                             {
                                 string sameApp = sameMatchApplications.Aggregate<IApplication, string>(null, (current, app) => current + (app.Name + " "));
-                                return
-                                    ShowErrorMessage(LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.StringConflictTitle"),
-                                        string.Format(LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.StringConflict"), matchString, sameApp));
+                                return ShowErrorMessage(
+                                    LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.StringConflictTitle"),
+                                    string.Format(LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.ConditionConflict"), sameApp));
                             }
 
                             if (ApplicationManager.Instance.ApplicationExists(name))
@@ -379,13 +366,13 @@ namespace GestureSign.ControlPanel.Dialogs
                         }
                         else
                         {
-                            var sameMatchApplications = ApplicationManager.Instance.FindMatchApplications<UserApp>(matchUsingRadio.MatchUsing, matchString, _currentApplication.Name);
+                            var sameMatchApplications = ApplicationManager.Instance.FindMatchApplications<UserApp>(conditions, _currentApplication.Name);
                             if (sameMatchApplications.Length != 0)
                             {
                                 string sameApp = sameMatchApplications.Aggregate<IApplication, string>(null, (current, app) => current + (app.Name + " "));
                                 return ShowErrorMessage(
                                     LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.StringConflictTitle"),
-                                    string.Format(LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.StringConflict"), matchString, sameApp));
+                                    string.Format(LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.ConditionConflict"), sameApp));
                             }
 
                             if (name != _currentApplication.Name && ApplicationManager.Instance.ApplicationExists(name))
@@ -403,11 +390,14 @@ namespace GestureSign.ControlPanel.Dialogs
                 case IgnoredApp ignoredApp:
                     {
                         if (string.IsNullOrEmpty(name))
-                            name = matchString;
+                        {
+                            // 从第一个条件获取名称
+                            name = conditions.FirstOrDefault()?.Value ?? "Unknown";
+                        }
 
                         if (!_newApplication)
                         {
-                            var existingApp = ApplicationManager.Instance.FindMatchApplications<IgnoredApp>(matchUsingRadio.MatchUsing, matchString, _currentApplication.Name);
+                            var existingApp = ApplicationManager.Instance.FindMatchApplications<IgnoredApp>(conditions, _currentApplication.Name);
                             if (existingApp.Length != 0)
                             {
                                 return ShowErrorMessage(
@@ -416,14 +406,18 @@ namespace GestureSign.ControlPanel.Dialogs
                             }
                             ApplicationManager.Instance.RemoveApplication(_currentApplication);
                         }
-                        else if (ApplicationManager.Instance.GetIgnoredApplications().Any(app => app.MatchUsing == matchUsingRadio.MatchUsing && app.MatchString == matchString))
+                        else
                         {
-                            return ShowErrorMessage(
-                                LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.IgnoredAppExistsTitle"),
-                                LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.IgnoredAppExists"));
+                            var existingApp = ApplicationManager.Instance.FindMatchApplications<IgnoredApp>(conditions);
+                            if (existingApp.Length != 0)
+                            {
+                                return ShowErrorMessage(
+                                    LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.IgnoredAppExistsTitle"),
+                                    LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.IgnoredAppExists"));
+                            }
                         }
 
-                        ApplicationManager.Instance.AddApplication(new IgnoredApp(name, matchUsingRadio.MatchUsing, matchString, RegexCheckBox.IsChecked.Value, true));
+                        ApplicationManager.Instance.AddApplication(new IgnoredApp(name, conditions, true));
                         break;
                     }
             }

@@ -6,9 +6,11 @@
              xmlns:localization="clr-namespace:GestureSign.Common.Localization;assembly=GestureSign.Common"
              mc:Ignorable="d"
              d:DesignHeight="50"
-             d:DesignWidth="233">
+             d:DesignWidth="400">
     <Grid>
         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1*" />
+            <ColumnDefinition Width="1*" />
             <ColumnDefinition Width="1*" />
             <ColumnDefinition Width="1*" />
             <ColumnDefinition Width="1*" />
@@ -36,6 +38,22 @@
                      HorizontalContentAlignment="Center">
             <TextBlock VerticalAlignment="Center"
                        Text="{localization:LocalisedText Common.WindowClass}"></TextBlock>
+        </RadioButton>
+        <RadioButton x:Name="AUMIDRadio"
+                     Grid.Column="3"
+                     GroupName="MatchUsing"
+                     VerticalAlignment="Center"
+                     HorizontalContentAlignment="Center">
+            <TextBlock VerticalAlignment="Center"
+                       Text="{localization:LocalisedText Common.AUMID}"></TextBlock>
+        </RadioButton>
+        <RadioButton x:Name="ClassAndPathRadio"
+                     Grid.Column="4"
+                     GroupName="MatchUsing"
+                     VerticalAlignment="Center"
+                     HorizontalContentAlignment="Center">
+            <TextBlock VerticalAlignment="Center"
+                       Text="{localization:LocalisedText Common.ClassAndPath}"></TextBlock>
         </RadioButton>
     </Grid>
 </UserControl>

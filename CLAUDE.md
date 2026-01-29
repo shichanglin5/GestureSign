@@ -339,4 +339,13 @@ public interface IPlugin
 - 查找 IPC 通信: 搜索 `NamedPipe`
 
 ### git 规范
+
 - commit msg 使用中文
+
+### 回复语言
+
+- 使用中文回答
+
+### 构建规范
+
+- 构建使用 `uiAccessRelease` 配置: `dotnet build GestureSign.sln -c uiAccessRelease`

@@ -257,4 +257,24 @@
       <WinUIMultiplierDescription>WinUI/UWP apps (Windows Settings, PowerToys) scroll slower with mouse wheel events. This multiplier compensates for the difference. Recommended: 3.0x</WinUIMultiplierDescription>
     </InertialScroll>
   </CorePlugins>
+  <WindowSelector>
+    <IncludeChildWindows>Include Child Windows</IncludeChildWindows>
+    <StartTracking>Start Tracking</StartTracking>
+    <StopTracking>Stop Tracking</StopTracking>
+    <TrackingActive>Tracking active window... Press F2 to pause</TrackingActive>
+    <Refresh>Refresh</Refresh>
+    <ProcessName>Process Name</ProcessName>
+    <WindowTitle>Window Title</WindowTitle>
+    <ClassName>Class Name</ClassName>
+    <Details>Details</Details>
+    <SelectWindowFirst>Please select a window first</SelectWindowFirst>
+    <NoSelection>No Window Selected</NoSelection>
+  </WindowSelector>
+  <ActionDialog>
+    <Icon>Icon</Icon>
+  </ActionDialog>
+  <Common>
+    <OK>OK</OK>
+    <Cancel>Cancel</Cancel>
+  </Common>
 </Language>

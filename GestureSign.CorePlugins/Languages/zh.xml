@@ -258,4 +258,24 @@
       <WinUIMultiplierDescription>WinUI/UWP 应用（如 Windows 设置、PowerToys）对滚轮事件的响应较慢，此倍数用于补偿。推荐值：3.0 倍</WinUIMultiplierDescription>
     </InertialScroll>
   </CorePlugins>
+  <WindowSelector>
+    <IncludeChildWindows>包含子窗口</IncludeChildWindows>
+    <StartTracking>开始追踪</StartTracking>
+    <StopTracking>停止追踪</StopTracking>
+    <TrackingActive>正在追踪活跃窗口... 按 F2 暂停</TrackingActive>
+    <Refresh>刷新</Refresh>
+    <ProcessName>进程名</ProcessName>
+    <WindowTitle>窗口标题</WindowTitle>
+    <ClassName>窗口类名</ClassName>
+    <Details>详情</Details>
+    <SelectWindowFirst>请先选择一个窗口</SelectWindowFirst>
+    <NoSelection>未选择窗口</NoSelection>
+  </WindowSelector>
+  <ActionDialog>
+    <Icon>图标</Icon>
+  </ActionDialog>
+  <Common>
+    <OK>确定</OK>
+    <Cancel>取消</Cancel>
+  </Common>
 </Language>

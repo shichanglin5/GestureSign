@@ -15,22 +15,29 @@
 您可以在“选项”中关闭此提示。
     </FindNewErrorLog>
     <StartupError>未能启动 "{0}". 请检查是否被安全软件拦截或存在文件损坏。</StartupError>
-    <UnexpectedException>发生了一个未知错误，程序将关闭。您可以点击“关于”中的“发送反馈”来帮助修复该问题。</UnexpectedException>
+    <UnexpectedException>发生了一个未知错误，程序将关闭。您可以点击"关于"中的"发送反馈"来帮助修复该问题。</UnexpectedException>
     <FileWriteException>保存文件受阻，如使用绿色版请尝试更换程序文件位置，或排除干扰后重试。</FileWriteException>
+    <SavedTitle>已保存</SavedTitle>
+    <AllConfigurationsSaved>所有配置已保存。</AllConfigurationsSaved>
   </Messages>
   <Common>
     <GlobalActions>(全局动作)</GlobalActions>
     <Cancel>取消</Cancel>
+    <Delete>删除</Delete>
     <FileName>文件名</FileName>
     <No>否</No>
     <OK>确定</OK>
     <Save>保存</Save>
-    <WindowClass>窗口类</WindowClass>
+    <WindowClass>窗口类名</WindowClass>
     <WindowTitle>窗口标题</WindowTitle>
+    <ProcessName>进程名</ProcessName>
+    <ProcessPath>进程路径</ProcessPath>
     <Yes>是</Yes>
     <Import>导入...</Import>
     <Export>导出...</Export>
     <Reset>重置</Reset>
+    <AUMID>应用ID</AUMID>
+    <ClassAndPath>类名+路径</ClassAndPath>
   </Common>
   <About>
     <Header>关于</Header>
@@ -70,9 +77,11 @@ QQ交流群：576981420
     <Group>分组</Group>
     <MatchString>匹配文本</MatchString>
     <MatchUsing>匹配类型</MatchUsing>
+    <MatchConditions>匹配条件</MatchConditions>
+    <AddCondition>+ 添加条件</AddCondition>
     <GetMatchString>捕获目标程序</GetMatchString>
     <Browse>浏览开始菜单程序</Browse>
-    <UsingRegularExpression>使用正则表达式</UsingRegularExpression>
+    <UsingRegularExpression>正则</UsingRegularExpression>
     <DragCrosshair>将右侧准星拖至目标程序窗口上</DragCrosshair>
     <Or>或</Or>
     <ShowRunningApplications>选择运行中的窗口..</ShowRunningApplications>
@@ -82,19 +91,24 @@ QQ交流群：576981420
     <BlockTouchInputInfo>屏蔽至少 {0} 根手指的触摸输入</BlockTouchInputInfo>
     <LimitNumberOfFingers>手指数限制</LimitNumberOfFingers>
     <LimitNumberOfFingersInfo>至少 {0} 根手指</LimitNumberOfFingersInfo>
+    <ProcessPath>进程路径</ProcessPath>
+    <ProcessPathWatermark>完整进程路径（用于精确匹配）</ProcessPathWatermark>
     <Messages>
       <EmptyStringTitle>字段为空</EmptyStringTitle>
       <EmptyString>匹配字段不能为空，请重新输入匹配字段</EmptyString>
+      <EmptyConditions>请至少添加一个匹配条件</EmptyConditions>
       <IgnoredAppExistsTitle>该忽略程序已存在</IgnoredAppExistsTitle>
       <IgnoredAppExists>该忽略程序已存在，请重新输入匹配字段</IgnoredAppExists>
       <StringConflictTitle>匹配字段冲突</StringConflictTitle>
       <StringConflict>匹配字段 "{0}" 已经存在于程序{1}中，请输入不同的匹配字段。</StringConflict>
+      <ConditionConflict>该匹配条件已存在于程序 {0} 中，请修改匹配条件。</ConditionConflict>
       <NoApplicationNameTitle>无程序名</NoApplicationNameTitle>
       <NoApplicationName>请提供程序名</NoApplicationName>
       <AppExistsTitle>该程序名已经存在</AppExistsTitle>
       <AppExists>程序名称已经存在，请输入其他名字</AppExists>
       <NoMatchStringTitle>无匹配字段</NoMatchStringTitle>
       <NoMatchString>请先提供一个匹配字段</NoMatchString>
+      <EmptyProcessPath>使用"类名+路径"匹配时，进程路径不能为空</EmptyProcessPath>
     </Messages>
   </ApplicationDialog>
   <ActionDialog>
@@ -223,6 +237,27 @@ QQ交流群：576981420
   <RuningApplicationsFlyout>
     <Title>选择运行中的窗口</Title>
   </RuningApplicationsFlyout>
+  <WindowSelector>
+    <Title>选择窗口</Title>
+    <CaptureMethod>捕获方式</CaptureMethod>
+    <DragToCapture>拖动十字准星至目标窗口</DragToCapture>
+    <IncludeChildWindows>包含子窗口</IncludeChildWindows>
+    <StartTracking>开始追踪</StartTracking>
+    <StopTracking>停止追踪</StopTracking>
+    <TrackingActive>正在追踪活跃窗口... 按 F2 暂停</TrackingActive>
+    <WindowList>窗口列表</WindowList>
+    <WindowInfo>窗口信息</WindowInfo>
+    <WindowTitle>窗口标题</WindowTitle>
+    <ClassName>窗口类名</ClassName>
+    <ProcessName>进程名</ProcessName>
+    <ProcessPath>进程路径</ProcessPath>
+    <Handle>窗口句柄</Handle>
+    <CopyInfo>复制信息</CopyInfo>
+    <Details>详情</Details>
+    <Refresh>刷新</Refresh>
+    <NoSelection>未选择窗口</NoSelection>
+    <SelectWindowFirst>请先选择一个窗口</SelectWindowFirst>
+  </WindowSelector>
   <GestureDefinition>
     <Edit>重画手势</Edit>
     <ExistingGesture>已保存有相似的手势，是否使用该手势？</ExistingGesture>

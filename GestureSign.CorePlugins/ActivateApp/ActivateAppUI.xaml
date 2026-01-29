@@ -1,12 +1,13 @@
-﻿<UserControl x:Class="GestureSign.CorePlugins.ActivateApp.ActivateAppUI"
+<UserControl x:Class="GestureSign.CorePlugins.ActivateApp.ActivateAppUI"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:localization="clr-namespace:GestureSign.Common.Localization;assembly=GestureSign.Common"
-             xmlns:mouse="clr-namespace:GestureSign.CorePlugins.MouseActions"
+             xmlns:ui="clr-namespace:GestureSign.Common.UI;assembly=GestureSign.Common"
+             xmlns:local="clr-namespace:GestureSign.CorePlugins.ActivateApp"
              mc:Ignorable="d"
-             d:DesignHeight="350"
+             d:DesignHeight="400"
              d:DesignWidth="450">
     <StackPanel Margin="10">
         <!-- Configuration Method Label -->
@@ -23,13 +24,13 @@
                     FontSize="14"
                     FontWeight="Bold"
                     HorizontalAlignment="Left" />
-            <mouse:Crosshair x:Name="CaptureCrosshair"
-                             Height="36"
-                             Width="36"
-                             Margin="10,0,0,0"
-                             VerticalAlignment="Center"
-                             CrosshairDragged="CaptureCrosshair_CrosshairDragged"
-                             ToolTip="{localization:LocalisedText CorePlugins.ActivateApp.DragToCapture}" />
+            <ui:Crosshair x:Name="CaptureCrosshair"
+                          Height="36"
+                          Width="36"
+                          Margin="10,0,0,0"
+                          VerticalAlignment="Center"
+                          CrosshairDragged="CaptureCrosshair_CrosshairDragged"
+                          ToolTip="{localization:LocalisedText CorePlugins.ActivateApp.DragToCapture}" />
         </StackPanel>
 
         <!-- Display Name -->
@@ -41,27 +42,25 @@
                  VerticalAlignment="Top"
                  Margin="0,0,0,10" />
 
+        <!-- Matching Conditions -->
+        <TextBlock Text="Matching Conditions / 匹配条件"
+                   FontWeight="Bold"
+                   Margin="0,10,0,5" />
+
+        <local:MatchConditionListControl x:Name="MatchConditionList"
+                                          Margin="0,0,0,10" />
+
         <!-- Advanced Filters -->
         <Expander Header="{localization:LocalisedText CorePlugins.ActivateApp.AdvancedFilters}"
                   IsExpanded="False"
                   Margin="0,10,0,0">
             <StackPanel Margin="10,10,0,10">
-                <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.WindowTitlePattern}"
-                           Margin="0,0,0,5" />
-
-                <TextBox x:Name="WindowTitlePatternTextBox"
-                         Height="23"
-                         Margin="0,0,0,10" />
-
-                <CheckBox x:Name="UseRegexCheckBox"
-                          Content="{localization:LocalisedText CorePlugins.ActivateApp.UseRegex}"
-                          Margin="0,0,0,10" />
-
-                <TextBlock Text="Cache Expiration (seconds) / 缓存过期时间（秒）"
+                <TextBlock Text="Cache Expiration (seconds) / 窗口列表缓存过期时间（秒）"
                            Margin="0,0,0,5" />
 
                 <TextBox x:Name="CacheExpirationTextBox"
                          Height="23"
+                         Text="5"
                          Margin="0,0,0,5" />
 
                 <TextBlock Text="Set to 0 to disable caching / 设置为 0 禁用缓存"
@@ -70,37 +69,5 @@
                            Margin="0,0,0,10" />
             </StackPanel>
         </Expander>
-
-        <!-- Matching Configuration Display -->
-        <TextBlock Text="Current Matching Configuration / 当前匹配配置"
-                   FontWeight="Bold"
-                   Margin="0,20,0,5" />
-
-        <DataGrid x:Name="ConfigDataGrid"
-                  AutoGenerateColumns="False"
-                  IsReadOnly="True"
-                  Height="150"
-                  HeadersVisibility="Column"
-                  GridLinesVisibility="None"
-                  CanUserResizeRows="False"
-                  CanUserSortColumns="False"
-                  SelectionMode="Single">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Property / 属性"
-                                    Binding="{Binding Name}"
-                                    Width="150"
-                                    FontWeight="Bold" />
-                <DataGridTextColumn Header="Value / 值"
-                                    Binding="{Binding Value}"
-                                    Width="*">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="TextWrapping" Value="Wrap" />
-                            <Setter Property="FontFamily" Value="Consolas" />
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-            </DataGrid.Columns>
-        </DataGrid>
     </StackPanel>
 </UserControl>

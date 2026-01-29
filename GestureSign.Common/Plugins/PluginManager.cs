@@ -200,7 +200,8 @@ namespace GestureSign.Common.Plugins
                         if (!command.PluginClass.EndsWith("InertialScrollPlugin"))
                         {
                             var fgWin = SystemWindow.ForegroundWindow;
-                            Logging.LogDebug($"[PluginManager] Executing: Action='{executableAction.Name}', Command='{command.Name}', Plugin={command.PluginClass}, ForegroundWindow=0x{fgWin?.HWnd:X} '{fgWin?.Title}'");
+                            var windowInfo = GetWindowInfo(fgWin);
+                            Logging.LogDebug($"[PluginManager] Executing: Action='{executableAction.Name}', Command='{command.Name}', Plugin={command.PluginClass}, ForegroundWindow=0x{fgWin?.HWnd:X} '{fgWin?.Title}'{windowInfo}");
                         }
                         // Execute plugin process
                         pluginInfo.Plugin.Gestured(pointInfo);
@@ -272,6 +273,27 @@ namespace GestureSign.Common.Plugins
         #endregion
 
         #region Private Methods
+
+        private string GetWindowInfo(SystemWindow window)
+        {
+            if (window == null)
+                return string.Empty;
+
+            try
+            {
+                var hWnd = window.HWnd;
+                var className = window.ClassName;
+                var aumid = WindowMatcher.GetWindowAUMID(hWnd);
+                var processPath = WindowMatcher.GetProcessPath(hWnd, out string processName);
+                var process = processPath ?? processName;
+
+                return $" (aumid={aumid ?? "null"}, class={className}, process={process})";
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
 
         private List<IPluginInfo> LoadPluginsFromAssembly(string assemblyLocation, IHostControl hostControl)
         {

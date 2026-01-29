@@ -13,7 +13,7 @@ namespace GestureSign.Common.Applications
         private string _name;
         private string _pluginClass;
         private string _pluginFilename;
-        private bool _isEnabled;
+        private bool _isEnabled = true;
 
         #endregion
 

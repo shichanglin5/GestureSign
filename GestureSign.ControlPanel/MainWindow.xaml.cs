@@ -1,4 +1,5 @@
 ﻿using GestureSign.Common;
+using GestureSign.Common.Applications;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Localization;
 using GestureSign.Common.Log;
@@ -44,6 +45,19 @@ namespace GestureSign.ControlPanel
             }
 
             Activate();
+        }
+
+        private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            // Ctrl+S: Save all configurations
+            if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                ApplicationManager.Instance.SaveApplications();
+                this.ShowMessageAsync(
+                    LocalizationProvider.Instance.GetTextValue("Messages.SavedTitle") ?? "Saved",
+                    LocalizationProvider.Instance.GetTextValue("Messages.AllConfigurationsSaved") ?? "All configurations have been saved.");
+                e.Handled = true;
+            }
         }
 
         private void SetAboutInfo()

@@ -381,7 +381,7 @@ namespace GestureSign.Daemon.Input
 
                 if (threshold > 0)
                 {
-                    Logging.LogDebug($"[PointCapture] ForegroundApplicationsChanged: Pre-registering with threshold={threshold}");
+                    // Logging.LogDebug($"[PointCapture] ForegroundApplicationsChanged: Pre-registering with threshold={threshold}");
                     UpdateBlockTouchInputThreshold(threshold);
                 }
             }
@@ -397,7 +397,7 @@ namespace GestureSign.Daemon.Input
             // Skip logging if this is the first input (avoid huge time delta from MinValue)
             if (_lastInputReceivedTime != DateTime.MinValue && timeSinceLastInput.TotalSeconds > 10)
             {
-                GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] First input after {timeSinceLastInput.TotalSeconds:F1}s idle - State: {State}, Fingers: {e.TotalFingerCount}");
+                // GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] First input after {timeSinceLastInput.TotalSeconds:F1}s idle - State: {State}, Fingers: {e.TotalFingerCount}");
             }
 
             _lastInputReceivedTime = now;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using GestureSign.Common.Applications;
 using Newtonsoft.Json;
 
 namespace GestureSign.CorePlugins.ActivateApp
@@ -12,51 +13,22 @@ namespace GestureSign.CorePlugins.ActivateApp
         #region Public Properties
 
         /// <summary>
-        /// Full path to the application executable
-        /// </summary>
-        public string ApplicationPath { get; set; }
-
-        /// <summary>
-        /// Process name (derived from path, used for matching)
-        /// </summary>
-        public string ProcessName { get; set; }
-
-        /// <summary>
         /// Display name for UI
         /// </summary>
         public string DisplayName { get; set; }
 
         /// <summary>
-        /// Window class name filter (optional, for precise matching)
+        /// Matching conditions list (ClassName, Title, ProcessName, ProcessPath, AUMID)
+        /// All conditions must match (AND logic)
         /// </summary>
-        public string WindowClassName { get; set; }
+        public List<MatchCondition> MatchConditions { get; set; }
 
         /// <summary>
-        /// Window title pattern (optional, for precise matching)
-        /// </summary>
-        public string WindowTitlePattern { get; set; }
-
-        /// <summary>
-        /// Whether to use regex for title matching
-        /// </summary>
-        public bool UseRegexMatching { get; set; }
-
-        /// <summary>
-        /// Application User Model ID (AUMID) for precise matching
-        /// When set, this takes priority over process name/path matching
-        /// Used to distinguish apps with the same executable (e.g., Edge browser vs Edge PWAs)
-        /// </summary>
-        public string AUMID { get; set; }
-
-        /// <summary>
-        /// Window cache expiration time in seconds
+        /// Window list cache expiration time in seconds
         /// Set to ≤ 0 to disable caching and re-scan every time
         /// Set to > 0 to cache for the specified number of seconds
         /// Default: 5 seconds (suitable for most scenarios)
-        /// Recommendations:
-        ///   - Stable apps (like browsers): 30-60 seconds
-        ///   - Frequently changing apps: 1-3 seconds
-        ///   - Testing/debugging: 0 (disable caching)
+        /// Note: This caches the list of matching window handles, not individual window properties
         /// </summary>
         public int CacheExpirationSeconds { get; set; } = 5;
 
@@ -66,6 +38,32 @@ namespace GestureSign.CorePlugins.ActivateApp
         /// </summary>
         [JsonIgnore]
         public IntPtr LastActivatedWindow { get; set; }
+
+        #endregion
+
+        #region Helper Methods
+
+        /// <summary>
+        /// Check if settings have valid matching conditions
+        /// </summary>
+        [JsonIgnore]
+        public bool HasValidConditions => MatchConditions != null && MatchConditions.Count > 0;
+
+        /// <summary>
+        /// Generate cache key from matching conditions
+        /// </summary>
+        public string GenerateCacheKey()
+        {
+            if (MatchConditions == null || MatchConditions.Count == 0)
+                return string.Empty;
+
+            var parts = new List<string>();
+            foreach (var condition in MatchConditions)
+            {
+                parts.Add($"{condition.Type}:{condition.Value}:{condition.IsRegex}");
+            }
+            return string.Join("|", parts);
+        }
 
         #endregion
     }

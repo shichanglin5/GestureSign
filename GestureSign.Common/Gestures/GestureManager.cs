@@ -477,7 +477,7 @@ namespace GestureSign.Common.Gestures
                 // Early exit if no gestures pass threshold
                 if (validIndices.Count == 0)
                 {
-                    Logging.LogInfo($"[GestureMatch] No gesture passed threshold={threshold}% at trajectory {trajectoryIdx}");
+                    // Logging.LogInfo($"[GestureMatch] No gesture passed threshold={threshold}% at trajectory {trajectoryIdx}");
                     matching = null;
                     return null;
                 }
