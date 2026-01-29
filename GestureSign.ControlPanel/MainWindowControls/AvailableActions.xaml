@@ -314,6 +314,7 @@
         <ListBox x:Name="lstAvailableActions"
                  ItemsSource="{Binding Source={StaticResource ActionsViewSource}}"
                  SelectedValuePath="CommandName"
+                 PreviewKeyDown="lstAvailableActions_PreviewKeyDown"
                  ContextMenuOpening="LstAvailableActions_OnContextMenuOpening"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  SelectionChanged="lstAvailableActions_SelectionChanged"

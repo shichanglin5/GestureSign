@@ -18,7 +18,55 @@ namespace GestureSign.ControlPanel.ViewModel
             IsEnabled = isEnabled;
             CommandName = commandName;
             Description = description;
+
+            // 订阅 Command 的属性变更事件
+            if (command is INotifyPropertyChanged notifyCommand)
+            {
+                notifyCommand.PropertyChanged += Command_PropertyChanged;
+            }
         }
+
+        private void Command_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ICommand.Name))
+            {
+                CommandName = Command.Name;
+            }
+            else if (e.PropertyName == nameof(ICommand.CommandSettings) ||
+                     e.PropertyName == nameof(ICommand.PluginClass) ||
+                     e.PropertyName == nameof(ICommand.PluginFilename))
+            {
+                UpdateDescription();
+            }
+        }
+
+        private void UpdateDescription()
+        {
+            if (string.IsNullOrEmpty(Command.PluginClass) || string.IsNullOrEmpty(Command.PluginFilename))
+            {
+                Description = LocalizationProvider.Instance.GetTextValue("Action.Messages.DoubleClickToEditCommand");
+            }
+            else if (PluginManager.Instance.PluginExists(Command.PluginClass, Command.PluginFilename))
+            {
+                try
+                {
+                    var pluginInfo = PluginManager.Instance.FindPluginByClassAndFilename(
+                        Command.PluginClass, Command.PluginFilename);
+                    pluginInfo.Plugin.Deserialize(Command.CommandSettings);
+                    Description = pluginInfo.Plugin.Description;
+                }
+                catch
+                {
+                    Description = LocalizationProvider.Instance.GetTextValue("Action.Messages.DoubleClickToEditCommand");
+                }
+            }
+            else
+            {
+                Description = string.Format(LocalizationProvider.Instance.GetTextValue("Action.Messages.NoAssociationAction"),
+                    Command.PluginClass, Command.PluginFilename);
+            }
+        }
+
         private bool _isEnabled;
         private IAction _action;
 
@@ -32,9 +80,19 @@ namespace GestureSign.ControlPanel.ViewModel
             set { SetProperty(ref _isEnabled, value); }
         }
 
-        public string CommandName { get; set; }
+        private string _commandName;
+        public string CommandName
+        {
+            get => _commandName;
+            set => SetProperty(ref _commandName, value);
+        }
 
-        public string Description { get; set; }
+        private string _description;
+        public string Description
+        {
+            get => _description;
+            set => SetProperty(ref _description, value);
+        }
 
         public IAction Action
         {

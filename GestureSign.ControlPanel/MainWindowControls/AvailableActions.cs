@@ -156,6 +156,37 @@ namespace GestureSign.ControlPanel.MainWindowControls
             EnableRelevantButtons();
         }
 
+        private void lstAvailableActions_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                switch (e.Key)
+                {
+                    case Key.C:
+                        SetClipboardAction();
+                        _cutActionSource = null;
+                        e.Handled = true;
+                        break;
+                    case Key.X:
+                        if (SetClipboardAction())
+                            _cutActionSource = (IApplication)lstAvailableApplication.SelectedItem;
+                        e.Handled = true;
+                        break;
+                    case Key.V:
+                        if (_commandClipboard.Count > 0)
+                        {
+                            var selectedCommand = lstAvailableActions.SelectedItem as CommandInfo;
+                            if (selectedCommand?.Action != null)
+                                PasteToSelectedActionMenuItem_Click(sender, null);
+                            else
+                                PasteToNewActionMenuItem_Click(sender, null);
+                        }
+                        e.Handled = true;
+                        break;
+                }
+            }
+        }
+
         // Disabled: This event handler was causing scroll issues by dynamically modifying margins
         // which changed total content height and made scrollbar unstable
         //private void LstAvailableActions_OnScrollChanged(object sender, ScrollChangedEventArgs e)
@@ -478,7 +509,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
                     }
 
                     var newCommand = ((Command)info.Command).Clone() as Command;
-                    newCommand.Name = ApplicationManager.GetNextCommandName(newCommand.Name, info.Action);
                     newAction.AddCommand(newCommand);
                 }
             }
@@ -513,7 +543,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
                     }
 
                     var newCommand = ((Command)info.Command).Clone() as Command;
-                    newCommand.Name = ApplicationManager.GetNextCommandName(newCommand.Name, info.Action);
 
                     currentAction.AddCommand(newCommand);
                 }

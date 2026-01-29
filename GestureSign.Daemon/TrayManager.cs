@@ -137,6 +137,7 @@ namespace GestureSign.Daemon
             AppConfig.ConfigChanged += (o, ea) =>
             {
                 _trayIcon.Visible = AppConfig.ShowTrayIcon;
+                Logging.CurrentLogLevel = AppConfig.LogLevel;
             };
         }
 
