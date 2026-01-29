@@ -66,6 +66,7 @@ namespace GestureSign.Daemon.Input
 
         private int? _blockTouchInputThreshold;
         private Point _touchPadStartPoint;
+        private Point _touchPadOriginPoint;  // 触控板手势的原始起点，用于坐标转换
 
         #endregion
 
@@ -733,6 +734,7 @@ namespace GestureSign.Daemon.Input
             if (SourceDevice == Devices.TouchPad)
             {
                 _touchPadStartPoint = System.Windows.Forms.Cursor.Position;
+                _touchPadOriginPoint = featureFingers[0].Point;  // 记录触控板原始起点
                 captureStartedArgs = new PointsCapturedEventArgs(featureFingers.Select(p => new List<Point>() { p.Point }).ToList(), new List<Point>() { _touchPadStartPoint });
                 captureStartedArgs.FingerCount = _totalFingerCount;
             }
@@ -882,12 +884,21 @@ namespace GestureSign.Daemon.Input
                 // Don't accept point if it's within specified distance of last point unless it's the first point
                 if (_pointsCaptured.TryGetValue(p.ContactIdentifier, out List<Point> stroke))
                 {
+                    // 触控板设备：将坐标转换为以鼠标位置为起点的屏幕坐标
+                    Point actualPoint = p.Point;
+                    if (SourceDevice == Devices.TouchPad)
+                    {
+                        actualPoint = new Point(
+                            _touchPadStartPoint.X + (p.Point.X - _touchPadOriginPoint.X),
+                            _touchPadStartPoint.Y + (p.Point.Y - _touchPadOriginPoint.Y)
+                        );
+                    }
 
                     if (stroke.Count != 0)
                     {
-                        double distance = PointPatternMath.GetDistance(stroke.Last(), p.Point);
+                        double distance = PointPatternMath.GetDistance(stroke.Last(), actualPoint);
 
-                        if (PointPatternMath.GetDistance(stroke.Last(), p.Point) < threshold)
+                        if (distance < threshold)
                         {
                             continue;
                         }
@@ -901,7 +912,7 @@ namespace GestureSign.Daemon.Input
 
                     getNewPoint = true;
                     // Add point to captured points list
-                    stroke.Add(p.Point);
+                    stroke.Add(actualPoint);
                 }
                 else
                 {
