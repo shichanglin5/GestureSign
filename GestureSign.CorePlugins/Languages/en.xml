@@ -237,6 +237,7 @@
       <UseRegex>Use Regular Expression</UseRegex>
       <DisplayName>Display Name:</DisplayName>
       <MinimizeIfActivated>Minimize if already activated</MinimizeIfActivated>
+      <ApplicationPath>Application Path:</ApplicationPath>
     </ActivateApp>
     <InertialScroll>
       <Name>Simulate Inertial Swipe</Name>

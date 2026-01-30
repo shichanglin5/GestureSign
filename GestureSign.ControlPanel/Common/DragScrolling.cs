@@ -62,9 +62,39 @@ namespace GestureSign.ControlPanel.Common
         {
             var target = sender as ScrollViewer;
             if (target == null) return;
+
+            // 不捕获来自交互控件的点击，让它们正常处理
+            if (e.OriginalSource is DependencyObject source)
+            {
+                if (IsInteractiveControl(source))
+                {
+                    return;
+                }
+            }
+
             _verticalOffset = target.VerticalOffset;
             _downPoint = e.GetPosition(target);
             target.CaptureMouse();
+        }
+
+        /// <summary>
+        /// 检查元素或其父元素是否是交互控件
+        /// </summary>
+        private static bool IsInteractiveControl(DependencyObject element)
+        {
+            while (element != null)
+            {
+                if (element is System.Windows.Controls.Primitives.ButtonBase ||
+                    element is System.Windows.Controls.Primitives.ToggleButton ||
+                    element is TextBox ||
+                    element is ComboBox ||
+                    element is Slider)
+                {
+                    return true;
+                }
+                element = System.Windows.Media.VisualTreeHelper.GetParent(element);
+            }
+            return false;
         }
 
         static void target_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)

@@ -10,7 +10,6 @@ namespace GestureSign.Common.Applications
         #region Private Fields
 
         private string _commandSettings;
-        private string _name;
         private string _pluginClass;
         private string _pluginFilename;
         private bool _isEnabled = true;
@@ -23,12 +22,6 @@ namespace GestureSign.Common.Applications
         {
             get => _commandSettings;
             set => SetProperty(ref _commandSettings, value);
-        }
-
-        public string Name
-        {
-            get => _name;
-            set => SetProperty(ref _name, value);
         }
 
         public string PluginClass

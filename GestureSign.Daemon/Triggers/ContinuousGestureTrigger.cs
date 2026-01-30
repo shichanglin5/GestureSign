@@ -116,7 +116,7 @@ namespace GestureSign.Daemon.Triggers
                 // 如果当前应用有同手指数的任意手势，则忽略全局的连续手势
                 if (hasCurrentAppGesture)
                 {
-                    Logging.LogDebug($"[ContinuousGestureTrigger] Skip: Current app has {fingerCount}-finger gesture, ignore global continuous gesture");
+                    // Logging.LogDebug($"[ContinuousGestureTrigger] Skip: Current app has {fingerCount}-finger gesture, ignore global continuous gesture");
                     return;
                 }
             }

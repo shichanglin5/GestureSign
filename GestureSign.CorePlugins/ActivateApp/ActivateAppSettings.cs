@@ -18,6 +18,11 @@ namespace GestureSign.CorePlugins.ActivateApp
         public string DisplayName { get; set; }
 
         /// <summary>
+        /// Application path for launching when no matching window found
+        /// </summary>
+        public string ApplicationPath { get; set; }
+
+        /// <summary>
         /// Matching conditions list (ClassName, Title, ProcessName, ProcessPath, AUMID)
         /// All conditions must match (AND logic)
         /// </summary>
@@ -50,25 +55,36 @@ namespace GestureSign.CorePlugins.ActivateApp
         #region Helper Methods
 
         /// <summary>
-        /// Check if settings have valid matching conditions
+        /// Check if settings have valid matching configuration
+        /// Valid if: has MatchConditions OR has ApplicationPath (for fallback matching)
         /// </summary>
         [JsonIgnore]
-        public bool HasValidConditions => MatchConditions != null && MatchConditions.Count > 0;
+        public bool HasValidConditions =>
+            (MatchConditions != null && MatchConditions.Count > 0) ||
+            !string.IsNullOrEmpty(ApplicationPath);
 
         /// <summary>
-        /// Generate cache key from matching conditions
+        /// Generate cache key from matching conditions and ApplicationPath
         /// </summary>
         public string GenerateCacheKey()
         {
-            if (MatchConditions == null || MatchConditions.Count == 0)
-                return string.Empty;
-
             var parts = new List<string>();
-            foreach (var condition in MatchConditions)
+
+            // Include ApplicationPath in cache key (used for fallback matching)
+            if (!string.IsNullOrEmpty(ApplicationPath))
             {
-                parts.Add($"{condition.Type}:{condition.Value}:{condition.IsRegex}");
+                parts.Add($"AppPath:{ApplicationPath}");
             }
-            return string.Join("|", parts);
+
+            if (MatchConditions != null)
+            {
+                foreach (var condition in MatchConditions)
+                {
+                    parts.Add($"{condition.Type}:{condition.Value}:{condition.IsRegex}");
+                }
+            }
+
+            return parts.Count > 0 ? string.Join("|", parts) : string.Empty;
         }
 
         #endregion

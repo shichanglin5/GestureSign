@@ -17,6 +17,15 @@ namespace GestureSign.CorePlugins.ActivateApp
             InitializeComponent();
         }
 
+        /// <summary>
+        /// 条件是否启用
+        /// </summary>
+        public bool IsConditionEnabled
+        {
+            get { return EnabledCheckBox.IsChecked == true; }
+            set { EnabledCheckBox.IsChecked = value; }
+        }
+
         public MatchConditionType ConditionType
         {
             get
@@ -29,7 +38,6 @@ namespace GestureSign.CorePlugins.ActivateApp
                         "ClassName" => MatchConditionType.ClassName,
                         "Title" => MatchConditionType.Title,
                         "ProcessName" => MatchConditionType.ProcessName,
-                        "ProcessPath" => MatchConditionType.ProcessPath,
                         "AUMID" => MatchConditionType.AUMID,
                         _ => MatchConditionType.ClassName
                     };
@@ -43,8 +51,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                     MatchConditionType.ClassName => 0,
                     MatchConditionType.Title => 1,
                     MatchConditionType.ProcessName => 2,
-                    MatchConditionType.ProcessPath => 3,
-                    MatchConditionType.AUMID => 4,
+                    MatchConditionType.AUMID => 3,
                     _ => 0
                 };
                 TypeComboBox.SelectedIndex = index;
@@ -63,9 +70,13 @@ namespace GestureSign.CorePlugins.ActivateApp
             set { RegexCheckBox.IsChecked = value; }
         }
 
+        /// <summary>
+        /// 获取条件（仅当启用且有值时返回）
+        /// </summary>
         public MatchCondition GetCondition()
         {
-            if (string.IsNullOrWhiteSpace(ConditionValue))
+            // 未启用或无值时返回 null
+            if (!IsConditionEnabled || string.IsNullOrWhiteSpace(ConditionValue))
                 return null;
 
             return new MatchCondition
@@ -76,11 +87,12 @@ namespace GestureSign.CorePlugins.ActivateApp
             };
         }
 
-        public void SetCondition(MatchCondition condition)
+        public void SetCondition(MatchCondition condition, bool isEnabled = true)
         {
             if (condition == null)
                 return;
 
+            IsConditionEnabled = isEnabled;
             ConditionType = condition.Type;
             ConditionValue = condition.Value;
             IsRegex = condition.IsRegex;

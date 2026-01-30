@@ -30,7 +30,13 @@ namespace GestureSign.CorePlugins.SendKeystrokes
 
         public string Description
         {
-            get { return LocalizationProvider.Instance.GetTextValue("CorePlugins.SendKeystrokes.Description"); }
+            get
+            {
+                // 返回实际的按键内容，如果为空则返回默认描述
+                if (string.IsNullOrEmpty(_keystrokes))
+                    return LocalizationProvider.Instance.GetTextValue("CorePlugins.SendKeystrokes.Description");
+                return _keystrokes;
+            }
         }
 
         public bool IsAction

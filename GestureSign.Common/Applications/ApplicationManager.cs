@@ -25,6 +25,10 @@ namespace GestureSign.Common.Applications
         IEnumerable<IApplication> _recognizedApplication;
         private Timer _timer;
         private Point _lastTouchPadGestureMousePosition;
+        private SystemWindow _lastTouchPadGestureWindow;  // 缓存上次触控板手势的目标窗口
+        private IntPtr _lastForegroundWindowHandle;  // 跟踪前台窗口句柄，用于检测应用切换
+        private string _lastForegroundWindowClassName;  // 跟踪前台窗口类名，用于检测同应用内子窗口切换
+        private DateTime _forceUseForegroundUntil;  // 强制使用前台窗口的截止时间
         #endregion
 
         #region Public Instance Properties
@@ -150,6 +154,18 @@ namespace GestureSign.Common.Applications
                 pointCapture.CaptureStarted += new PointsCapturedEventHandler(PointCapture_CaptureStarted);
                 pointCapture.BeforePointsCaptured += new PointsCapturedEventHandler(PointCapture_BeforePointsCaptured);
             }
+        }
+
+        /// <summary>
+        /// 清除触控板手势窗口缓存
+        /// 应在激活窗口、切换应用等操作后调用，以确保下次手势使用正确的目标窗口
+        /// </summary>
+        public void ClearTouchPadGestureWindowCache()
+        {
+            _lastTouchPadGestureWindow = null;
+            // 设置 500ms 内强制使用前台窗口，避免激活后鼠标仍在子窗口上导致使用错误的窗口
+            _forceUseForegroundUntil = DateTime.UtcNow.AddMilliseconds(500);
+            Logging.LogDebug($"[ClearTouchPadGestureWindowCache] Cache cleared, force use foreground until {_forceUseForegroundUntil:HH:mm:ss.fff}");
         }
 
         public void AddApplication(IApplication application)
@@ -386,16 +402,6 @@ namespace GestureSign.Common.Applications
             return CaptureWindow;
         }
 
-        public static string GetNextCommandName(string name, IAction action, int number = 1)
-        {
-            if (action == null) throw new ArgumentNullException(nameof(action));
-
-            var newName = number == 1 ? name : $"{name}({number})";
-            if (action.Commands.Any(a => a.Name == newName))
-                return GetNextCommandName(name, action, ++number);
-            return newName;
-        }
-
         public IApplication AddApplication<TApp>(TApp app, string executablefilePath) where TApp : IApplication
         {
             var versionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(executablefilePath);
@@ -488,20 +494,55 @@ namespace GestureSign.Common.Applications
 
             if (targetMode == WindowTargetMode.ActiveWindow)
             {
-                // 触控板设备：检查鼠标位置是否发生变化
+                // 触控板设备：检查鼠标位置和前台窗口是否发生变化
                 if ((sourceDevice & Devices.TouchPad) != 0)
                 {
                     var currentMousePosition = System.Windows.Forms.Cursor.Position;
+                    var currentForeground = SystemWindow.ForegroundWindow;
+                    var currentForegroundHandle = currentForeground?.HWnd ?? IntPtr.Zero;
+                    var currentForegroundClassName = GetClassNameSafe(currentForeground);
 
-                    // 如果鼠标位置发生变化，使用鼠标位置所在窗口
+                    Logging.LogDebug($"[GetCaptureWindow] Current: Handle=0x{currentForegroundHandle:X}, ClassName={currentForegroundClassName}");
+                    Logging.LogDebug($"[GetCaptureWindow] Last: Handle=0x{_lastForegroundWindowHandle:X}, ClassName={_lastForegroundWindowClassName}");
+                    Logging.LogDebug($"[GetCaptureWindow] CachedWindow: {(_lastTouchPadGestureWindow != null ? $"0x{_lastTouchPadGestureWindow.HWnd:X} ({GetClassNameSafe(_lastTouchPadGestureWindow)})" : "null")}");
+
+                    // 检查是否在强制使用前台窗口的时间窗口内
+                    if (DateTime.UtcNow < _forceUseForegroundUntil)
+                    {
+                        Logging.LogDebug($"[GetCaptureWindow] Force using foreground window (within time window)");
+                        _lastForegroundWindowHandle = currentForegroundHandle;
+                        _lastForegroundWindowClassName = currentForegroundClassName;
+                        _lastTouchPadGestureMousePosition = currentMousePosition;
+                        _lastTouchPadGestureWindow = currentForeground;
+                        return currentForeground ?? GetWindowFromPoint(currentMousePosition);
+                    }
+
+                    // 检查前台窗口是否变化（应用切换或同应用内子窗口切换场景）
+                    // 使用 handle + className 组合判断，以检测同应用内不同 className 的子窗口切换
+                    if (currentForegroundHandle != _lastForegroundWindowHandle ||
+                        currentForegroundClassName != _lastForegroundWindowClassName)
+                    {
+                        Logging.LogDebug($"[GetCaptureWindow] Foreground changed! Clearing cache.");
+                        _lastForegroundWindowHandle = currentForegroundHandle;
+                        _lastForegroundWindowClassName = currentForegroundClassName;
+                        _lastTouchPadGestureWindow = null;  // 清除缓存，使用新的前台窗口
+                    }
+
+                    // 如果鼠标位置发生变化，使用鼠标位置所在窗口（WinUI 子窗口场景）
                     if (currentMousePosition != _lastTouchPadGestureMousePosition)
                     {
                         _lastTouchPadGestureMousePosition = currentMousePosition;
-                        return GetWindowFromPoint(currentMousePosition);
+                        _lastTouchPadGestureWindow = GetWindowFromPoint(currentMousePosition);
+                        Logging.LogDebug($"[GetCaptureWindow] Mouse moved, using window from point: 0x{_lastTouchPadGestureWindow?.HWnd:X} ({GetClassNameSafe(_lastTouchPadGestureWindow)})");
+                        return _lastTouchPadGestureWindow;
                     }
 
-                    // 更新记录位置
-                    _lastTouchPadGestureMousePosition = currentMousePosition;
+                    // 鼠标位置没变，继续使用上次获取的窗口（避免 WinUI 子窗口切换问题）
+                    if (_lastTouchPadGestureWindow != null)
+                    {
+                        Logging.LogDebug($"[GetCaptureWindow] Using cached window: 0x{_lastTouchPadGestureWindow.HWnd:X} ({GetClassNameSafe(_lastTouchPadGestureWindow)})");
+                        return _lastTouchPadGestureWindow;
+                    }
                 }
 
                 var foreground = SystemWindow.ForegroundWindow;
@@ -517,6 +558,22 @@ namespace GestureSign.Common.Applications
             }
 
             return GetWindowFromPoint(point);
+        }
+
+        /// <summary>
+        /// 安全获取窗口类名，窗口句柄无效时返回 null
+        /// </summary>
+        private static string GetClassNameSafe(SystemWindow window)
+        {
+            if (window == null) return null;
+            try
+            {
+                return window.ClassName;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private IApplication[] FindMatchApplications(IEnumerable<IApplication> applications, SystemWindow window, string className, string title, string fileName)
@@ -633,7 +690,6 @@ namespace GestureSign.Common.Applications
                     {
                         CommandSettings = legacyAction.ActionSettings,
                         IsEnabled = legacyAction.IsEnabled,
-                        Name = legacyAction.Name,
                         PluginClass = legacyAction.PluginClass,
                         PluginFilename = legacyAction.PluginFilename
                     });

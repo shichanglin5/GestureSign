@@ -94,24 +94,16 @@ namespace GestureSign.ControlPanel.Dialogs
 
         private bool SaveCommand()
         {
-            string newCommandName = CommandNameTextBox.Text.Trim();
-            if (String.IsNullOrEmpty(newCommandName))
-                return
-                    ShowErrorMessage(
-                        LocalizationProvider.Instance.GetTextValue("CommandDialog.Messages.NoCommandNameTitle"),
-                        LocalizationProvider.Instance.GetTextValue("CommandDialog.Messages.NoCommandName"));
-
-
             // Store new values
-            _currentCommand.Name = newCommandName;
             _currentCommand.PluginClass = _pluginInfo.Class;
             _currentCommand.PluginFilename = _pluginInfo.Filename;
             _currentCommand.CommandSettings = _pluginInfo.Plugin.Serialize();
             _currentCommand.IsEnabled = true;
 
+            // Set action name from plugin description if empty
             if (string.IsNullOrWhiteSpace(_selectedAction.Name))
             {
-                _selectedAction.Name = newCommandName;
+                _selectedAction.Name = _pluginInfo.Plugin.Description ?? _pluginInfo.Plugin.Name;
             }
 
             // Save entire list of applications
@@ -137,16 +129,14 @@ namespace GestureSign.ControlPanel.Dialogs
             // Try to load plugin, and set current plugin to newly selected plugin
             _pluginInfo = selectedPlugin;
 
-            // Set action name
+            // Load action settings
             if (IsPluginMatch(_currentCommand, selectedPlugin.Class, selectedPlugin.Filename))
             {
-                CommandNameTextBox.Text = _currentCommand.Name;
                 // Load action settings or no settings
                 _pluginInfo.Plugin.Deserialize(_currentCommand.CommandSettings);
             }
             else
             {
-                CommandNameTextBox.Text = ApplicationManager.GetNextCommandName(_pluginInfo.Plugin.Name, _selectedAction);
                 _pluginInfo.Plugin.Deserialize("");
             }
             // Does the plugin have a graphical interface
@@ -154,7 +144,7 @@ namespace GestureSign.ControlPanel.Dialogs
                 // Show plugins graphical interface
                 ShowSettings(_pluginInfo);
             else
-                // There is no interface for this plugin, hide settings but leave action name input box
+                // There is no interface for this plugin, hide settings
                 HideSettings();
         }
 

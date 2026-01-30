@@ -70,19 +70,7 @@
             </ComboBox.ItemTemplate>
         </ComboBox>
         <ContentControl x:Name="SettingsContent"
-                        Margin="20,20,20,5" />
-        <TextBlock TextWrapping="Wrap"
-                   Text="{localization:LocalisedText CommandDialog.CommandName}"
-                   FontWeight="Bold"
-                   FontSize="14"
-                   HorizontalAlignment="Left"
-                   Margin="20,20,0,0" />
-        <TextBox x:Name="CommandNameTextBox"
-                 controls:TextBoxHelper.Watermark="{localization:LocalisedText CommandDialog.CommandNameWatermark}"
-                 FontSize="14"
-                 MaxLines="3"
-                 MaxLength="80"
-                 Margin="20,5,20,10" />
+                        Margin="20,20,20,10" />
         <Grid Height="35">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1*" />

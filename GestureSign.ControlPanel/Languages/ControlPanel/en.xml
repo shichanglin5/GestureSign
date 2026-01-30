@@ -75,6 +75,7 @@ Email:ccfyzh@gmail.com
     <MatchUsing>Match Using</MatchUsing>
     <MatchConditions>Match Conditions</MatchConditions>
     <AddCondition>+ Add Condition</AddCondition>
+    <ApplicationPath>Application Path:</ApplicationPath>
     <GetMatchString>Get Match String</GetMatchString>
     <Browse>Browse Start Menu Programs</Browse>
     <UsingRegularExpression>Regex</UsingRegularExpression>

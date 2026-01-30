@@ -9,14 +9,21 @@
              d:DesignWidth="400">
     <Grid>
         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="100" />
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
 
-        <ComboBox x:Name="TypeComboBox"
+        <CheckBox x:Name="EnabledCheckBox"
                   Grid.Column="0"
+                  VerticalAlignment="Center"
+                  Margin="0,0,5,0"
+                  IsChecked="True" />
+
+        <ComboBox x:Name="TypeComboBox"
+                  Grid.Column="1"
                   VerticalAlignment="Center"
                   Margin="0,0,5,0"
                   SelectedIndex="0"
@@ -24,24 +31,23 @@
             <ComboBoxItem Content="{localization:LocalisedText Common.WindowClass}" Tag="ClassName" />
             <ComboBoxItem Content="{localization:LocalisedText Common.WindowTitle}" Tag="Title" />
             <ComboBoxItem Content="{localization:LocalisedText Common.ProcessName}" Tag="ProcessName" />
-            <ComboBoxItem Content="{localization:LocalisedText Common.ProcessPath}" Tag="ProcessPath" />
             <ComboBoxItem Content="{localization:LocalisedText Common.AUMID}" Tag="AUMID" />
         </ComboBox>
 
         <TextBox x:Name="ValueTextBox"
-                 Grid.Column="1"
+                 Grid.Column="2"
                  VerticalAlignment="Center"
                  Margin="0,0,5,0" />
 
         <CheckBox x:Name="RegexCheckBox"
-                  Grid.Column="2"
+                  Grid.Column="3"
                   Content="{localization:LocalisedText ApplicationDialog.UsingRegularExpression}"
                   VerticalAlignment="Center"
                   Margin="0,0,5,0"
                   Visibility="Collapsed" />
 
         <Button x:Name="DeleteButton"
-                Grid.Column="3"
+                Grid.Column="4"
                 Content="×"
                 Width="24"
                 Height="24"

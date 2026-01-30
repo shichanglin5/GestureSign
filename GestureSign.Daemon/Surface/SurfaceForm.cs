@@ -157,9 +157,23 @@ namespace GestureSign.Daemon.Surface
             GestureSign.Common.Log.Logging.LogTrace($"[SurfaceForm] EndDrawing - _isTrainingMode reset to {_isTrainingMode}");
         }
 
+        /// <summary>
+        /// 当手势进行中手指数增加时调用，检查是否需要启用之前被跳过的绘制
+        /// </summary>
+        public void UpdateFingerCount(int fingerCount)
+        {
+            if (!_shouldDraw && _penWidth > 0 && fingerCount >= AppConfig.MinimumFingerCountForVisualFeedback)
+            {
+                _shouldDraw = true;
+                ClearSurfaces();
+                _drawingPen.Color = AppConfig.VisualFeedbackColor;
+                _drawingPen.Width = _penWidth * DpiHelper.GetSystemDpi() / 96f;
+            }
+        }
+
         public void DrawPoints(List<List<Point>> points)
         {
-            if (!_shouldDraw) return; // 如果不应该绘制，直接返回
+            if (!_shouldDraw) return;
 
             if (_penWidth > 0 && !(points.Count == 1 && points[0].Count == 1))
             {

@@ -238,9 +238,8 @@ namespace GestureSign.CorePlugins.HotKey
             if (Settings == null || Settings.KeyCode == null)
                 return LocalizationProvider.Instance.GetTextValue("CorePlugins.HotKey.Description");
 
-            // Create string to store key combination and final output description
+            // Create string to store key combination
             string strKeyCombo = "";
-            string strFormattedOutput = LocalizationProvider.Instance.GetTextValue("CorePlugins.HotKey.SpecificDescription");
 
             // Build output string
             if (Settings.Windows)
@@ -261,8 +260,8 @@ namespace GestureSign.CorePlugins.HotKey
             }
             strKeyCombo = strKeyCombo.TrimEnd(' ', '+');
 
-            // Return final formatted string
-            return String.Format(strFormattedOutput, strKeyCombo);
+            // Return key combo only
+            return strKeyCombo;
         }
 
         private void SendKeysSeparately(HotKeySettings settings)

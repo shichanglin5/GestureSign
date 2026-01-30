@@ -77,7 +77,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var commandInfoProvider = objectDataProvider?.ObjectInstance as CommandInfoProvider;
 
             System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] ========== BEGIN EDIT COMMAND ==========");
-            System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] Selected Command: {selectedCommand.Name}");
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] Selected Command: {selectedCommand.PluginClass}");
             System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] Selected Action: {selectedAction.GestureName}");
             System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] Before Edit - Action order: {string.Join(", ", selectedApp.Actions.Select(a => a.GestureName))}");
             System.Diagnostics.Debug.WriteLine($"[AvailableActions.EditCommand] Before Edit - CommandInfos count: {commandInfoProvider?.CommandInfos.Count ?? 0}");
@@ -229,10 +229,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var ci = lstAvailableActions.SelectedItem as CommandInfo;
             if (ci == null)
             {
-                var newCommand = new Command
-                {
-                    Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
-                };
+                var newCommand = new Command();
                 Dispatcher.Invoke(() =>
                 {
                     lstAvailableActions.SelectedItem = null;
@@ -261,10 +258,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 if (selectedApplication == null) return;
             }
 
-            var newCommand = new Command
-            {
-                Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
-            };
+            var newCommand = new Command();
             Dispatcher.Invoke(() =>
             {
                 lstAvailableActions.SelectedItem = null;
@@ -280,10 +274,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var ci = lstAvailableActions.SelectedItem as CommandInfo;
             if (ci == null) return;
 
-            var newCommand = new Command
-            {
-                Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
-            };
+            var newCommand = new Command();
             lstAvailableActions.SelectedItem = null;
             int commandIndex = ci.Action.Commands.ToList().IndexOf(ci.Command);
             ci.Action.InsertCommand(commandIndex + 1, newCommand);
@@ -1000,23 +991,20 @@ namespace GestureSign.ControlPanel.MainWindowControls
         {
             System.Diagnostics.Debug.WriteLine($"[AvailableActions] InsertCommandAboveMenuItem_Click called");
             var selectedCommand = lstAvailableActions.SelectedItem as CommandInfo;
-            System.Diagnostics.Debug.WriteLine($"[AvailableActions] selectedCommand={(selectedCommand != null ? selectedCommand.Command.Name : "null")}");
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] selectedCommand={(selectedCommand != null ? selectedCommand.CommandName : "null")}");
 
             if (selectedCommand == null) return;
 
-            var newCommand = new Command
-            {
-                Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
-            };
+            var newCommand = new Command();
 
             int commandIndex = selectedCommand.Action.Commands.ToList().IndexOf(selectedCommand.Command);
             System.Diagnostics.Debug.WriteLine($"[AvailableActions] Inserting command at index {commandIndex}");
-            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Commands before insert: {string.Join(", ", selectedCommand.Action.Commands.Select(c => c.Name))}");
+            System.Diagnostics.Debug.WriteLine($"[AvailableActions] Commands before insert: {string.Join(", ", selectedCommand.Action.Commands.Select(c => c.PluginClass))}");
 
             if (commandIndex >= 0)
             {
                 selectedCommand.Action.InsertCommand(commandIndex, newCommand);
-                System.Diagnostics.Debug.WriteLine($"[AvailableActions] Commands after insert: {string.Join(", ", selectedCommand.Action.Commands.Select(c => c.Name))}");
+                System.Diagnostics.Debug.WriteLine($"[AvailableActions] Commands after insert: {string.Join(", ", selectedCommand.Action.Commands.Select(c => c.PluginClass))}");
                 ApplicationManager.Instance.SaveApplications();
             }
             else
@@ -1030,10 +1018,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var selectedCommand = lstAvailableActions.SelectedItem as CommandInfo;
             if (selectedCommand == null) return;
 
-            var newCommand = new Command
-            {
-                Name = LocalizationProvider.Instance.GetTextValue("Action.NewCommand")
-            };
+            var newCommand = new Command();
 
             int commandIndex = selectedCommand.Action.Commands.ToList().IndexOf(selectedCommand.Command);
             if (commandIndex >= 0)

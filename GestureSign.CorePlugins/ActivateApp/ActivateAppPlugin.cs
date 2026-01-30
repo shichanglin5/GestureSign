@@ -89,13 +89,42 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             get
             {
-                if (_settings?.DisplayName == null)
+                if (_settings == null)
                     return LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.Description");
 
-                return string.Format(
-                    LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.SpecificDescription"),
-                    _settings.DisplayName);
+                // Build description with matching info
+                string matchInfo = GetMatchInfoString();
+                string displayName = _settings.DisplayName ?? "Unknown";
+
+                if (string.IsNullOrEmpty(matchInfo))
+                {
+                    return string.Format(
+                        LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.SpecificDescription"),
+                        displayName);
+                }
+
+                return $"{displayName} [{matchInfo}]";
             }
+        }
+
+        /// <summary>
+        /// Get matching info string for description/logging
+        /// </summary>
+        private string GetMatchInfoString()
+        {
+            if (_settings == null)
+                return string.Empty;
+
+            if (_settings.MatchConditions != null && _settings.MatchConditions.Count > 0)
+            {
+                return string.Join(", ", _settings.MatchConditions.Select(c => $"{c.Type}={c.Value}"));
+            }
+            else if (!string.IsNullOrEmpty(_settings.ApplicationPath))
+            {
+                return $"AppPath={_settings.ApplicationPath}";
+            }
+
+            return string.Empty;
         }
 
         public object GUI => _gui ?? (_gui = CreateGUI());
@@ -126,6 +155,10 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         public bool Gestured(PointInfo actionPoint)
         {
+            // 无论后续如何处理，都清除触控板手势窗口缓存
+            // 因为用户执行了激活窗口操作，应使用新的目标窗口
+            ApplicationManager.Instance.ClearTouchPadGestureWindowCache();
+
             try
             {
                 if (_settings == null || !_settings.HasValidConditions)
@@ -137,9 +170,9 @@ namespace GestureSign.CorePlugins.ActivateApp
                 // Get matching windows
                 var appWindows = GetMatchingWindows(_settings);
 
-                // Log matching result
-                var conditionInfo = string.Join(", ", _settings.MatchConditions.Select(c => $"{c.Type}={c.Value}"));
-                Logging.LogDebug($"[ActivateApp] Activating: {_settings.DisplayName}, matched by [{conditionInfo}]: {appWindows.Count} windows found");
+                // Log matching result using GetMatchInfoString
+                var matchInfo = GetMatchInfoString();
+                Logging.LogDebug($"[ActivateApp] Activating: {_settings.DisplayName}, matched by [{matchInfo}]: {appWindows.Count} windows found");
 
                 if (appWindows.Count == 0)
                 {
@@ -255,11 +288,14 @@ namespace GestureSign.CorePlugins.ActivateApp
         }
 
         /// <summary>
-        /// Scan all windows and find matching ones using WindowMatcher
+        /// Scan all windows and find matching ones
+        /// Uses MatchConditions if available, otherwise falls back to ApplicationPath matching
         /// </summary>
         private List<IntPtr> ScanMatchingWindows(ActivateAppSettings settings, bool includeHidden)
         {
             var windows = new List<IntPtr>();
+            bool hasConditions = settings.MatchConditions != null && settings.MatchConditions.Count > 0;
+            bool hasApplicationPath = !string.IsNullOrEmpty(settings.ApplicationPath);
 
             EnumWindows((hWnd, _) =>
             {
@@ -274,10 +310,23 @@ namespace GestureSign.CorePlugins.ActivateApp
                 {
                     var window = new SystemWindow(hWnd);
 
-                    // Use WindowMatcher's unified matching logic
-                    if (WindowMatcher.MatchAllConditions(window, settings.MatchConditions))
+                    if (hasConditions)
                     {
-                        windows.Add(hWnd);
+                        // Use WindowMatcher's unified matching logic for explicit conditions
+                        if (WindowMatcher.MatchAllConditions(window, settings.MatchConditions))
+                        {
+                            windows.Add(hWnd);
+                        }
+                    }
+                    else if (hasApplicationPath)
+                    {
+                        // Fallback: match ProcessPath against ApplicationPath when no conditions specified
+                        var processPath = WindowMatcher.GetProcessPath(hWnd);
+                        if (!string.IsNullOrEmpty(processPath) &&
+                            string.Equals(processPath, settings.ApplicationPath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            windows.Add(hWnd);
+                        }
                     }
                 }
                 catch
@@ -394,21 +443,17 @@ namespace GestureSign.CorePlugins.ActivateApp
         }
 
         /// <summary>
-        /// Try to launch application if ProcessPath condition is present
+        /// Try to launch application using ApplicationPath
         /// </summary>
         private bool TryLaunchApplication(ActivateAppSettings settings)
         {
-            // Find ProcessPath condition
-            var pathCondition = settings.MatchConditions?
-                .FirstOrDefault(c => c.Type == MatchConditionType.ProcessPath);
-
-            if (pathCondition == null || string.IsNullOrEmpty(pathCondition.Value))
+            if (string.IsNullOrEmpty(settings.ApplicationPath))
             {
-                Logging.LogWarning($"[ActivateApp] No ProcessPath condition found, cannot launch application");
+                Logging.LogWarning($"[ActivateApp] No application path, cannot launch");
                 return false;
             }
 
-            string applicationPath = pathCondition.Value;
+            string applicationPath = settings.ApplicationPath;
 
             try
             {

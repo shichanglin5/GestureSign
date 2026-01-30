@@ -79,6 +79,7 @@ QQ交流群：576981420
     <MatchUsing>匹配类型</MatchUsing>
     <MatchConditions>匹配条件</MatchConditions>
     <AddCondition>+ 添加条件</AddCondition>
+    <ApplicationPath>应用程序路径:</ApplicationPath>
     <GetMatchString>捕获目标程序</GetMatchString>
     <Browse>浏览开始菜单程序</Browse>
     <UsingRegularExpression>正则</UsingRegularExpression>

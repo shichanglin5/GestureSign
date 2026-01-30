@@ -28,19 +28,15 @@ namespace GestureSign.ControlPanel.ViewModel
 
         private void Command_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(ICommand.Name))
+            if (e.PropertyName == nameof(ICommand.CommandSettings) ||
+                e.PropertyName == nameof(ICommand.PluginClass) ||
+                e.PropertyName == nameof(ICommand.PluginFilename))
             {
-                CommandName = Command.Name;
-            }
-            else if (e.PropertyName == nameof(ICommand.CommandSettings) ||
-                     e.PropertyName == nameof(ICommand.PluginClass) ||
-                     e.PropertyName == nameof(ICommand.PluginFilename))
-            {
-                UpdateDescription();
+                UpdateDescriptionAndName();
             }
         }
 
-        private void UpdateDescription()
+        private void UpdateDescriptionAndName()
         {
             if (string.IsNullOrEmpty(Command.PluginClass) || string.IsNullOrEmpty(Command.PluginFilename))
             {
@@ -53,6 +49,7 @@ namespace GestureSign.ControlPanel.ViewModel
                     var pluginInfo = PluginManager.Instance.FindPluginByClassAndFilename(
                         Command.PluginClass, Command.PluginFilename);
                     pluginInfo.Plugin.Deserialize(Command.CommandSettings);
+                    CommandName = pluginInfo.Plugin.Name;
                     Description = pluginInfo.Plugin.Description;
                 }
                 catch
@@ -230,7 +227,7 @@ namespace GestureSign.ControlPanel.ViewModel
                 description = string.Format(LocalizationProvider.Instance.GetTextValue("Action.Messages.NoAssociationAction"), command.PluginClass, command.PluginFilename);
             }
 
-            return new CommandInfo(action, command, !string.IsNullOrEmpty(command.Name) ? command.Name : pluginName, description, command.IsEnabled);
+            return new CommandInfo(action, command, pluginName, description, command.IsEnabled);
         }
     }
 }

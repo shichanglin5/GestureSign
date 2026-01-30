@@ -5,15 +5,44 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:localization="clr-namespace:GestureSign.Common.Localization;assembly=GestureSign.Common"
              mc:Ignorable="d"
-             d:DesignHeight="150"
+             d:DesignHeight="200"
              d:DesignWidth="400">
-    <StackPanel>
-        <StackPanel x:Name="ConditionPanel" />
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Application Path -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.ApplicationPath}"
+                       Margin="0,0,0,5" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="ApplicationPathTextBox"
+                         Height="23"
+                         Grid.Column="0" />
+                <Button x:Name="BrowseButton"
+                        Content="..."
+                        Width="30"
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Click="BrowseButton_Click" />
+            </Grid>
+        </StackPanel>
+
+        <!-- Condition List -->
+        <StackPanel x:Name="ConditionPanel" Grid.Row="1" />
 
         <Button x:Name="AddButton"
+                Grid.Row="2"
                 Content="+ Add Condition / 添加条件"
                 HorizontalAlignment="Left"
                 Margin="0,5,0,0"
                 Click="AddButton_Click" />
-    </StackPanel>
+    </Grid>
 </UserControl>

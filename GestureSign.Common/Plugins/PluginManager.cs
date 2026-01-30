@@ -201,7 +201,9 @@ namespace GestureSign.Common.Plugins
                         {
                             var fgWin = SystemWindow.ForegroundWindow;
                             var windowInfo = GetWindowInfo(fgWin);
-                            Logging.LogDebug($"[PluginManager] Executing: Action='{executableAction.Name}', Command='{command.Name}', Plugin={command.PluginClass}, ForegroundWindow=0x{fgWin?.HWnd:X} '{fgWin?.Title}'{windowInfo}");
+                            var pluginName = pluginInfo.Plugin.Name;
+                            var pluginDescription = pluginInfo.Plugin.Description ?? pluginName;
+                            Logging.LogDebug($"[PluginManager] Executing: Action={pluginName} -> {pluginDescription}, ForegroundWindow=0x{fgWin?.HWnd:X} '{fgWin?.Title}'{windowInfo}");
                         }
                         // Execute plugin process
                         pluginInfo.Plugin.Gestured(pointInfo);

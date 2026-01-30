@@ -106,7 +106,7 @@ namespace GestureSign.ControlPanel.ViewModel
                 var movedInfo = CommandInfos.FirstOrDefault(ci => ci.Command == movedCommand);
 
                 System.Diagnostics.Debug.WriteLine(
-                    $"[CommandInfoProvider.CommandCollectionChanged] Move event: {movedInfo?.Command?.Name} from {e.OldStartingIndex} to {e.NewStartingIndex}");
+                    $"[CommandInfoProvider.CommandCollectionChanged] Move event: {movedInfo?.CommandName} from {e.OldStartingIndex} to {e.NewStartingIndex}");
 
                 // Critical: Must sync all commands' Order after move to avoid conflicts
                 // Example: A(0), B(1), C(2) -> move C to 0 -> should be C(0), A(1), B(2)
@@ -118,7 +118,7 @@ namespace GestureSign.ControlPanel.ViewModel
                     DispatcherPriority.Background);
 
                 System.Diagnostics.Debug.WriteLine(
-                    $"[CommandInfoProvider.CommandCollectionChanged] After Move sync: {string.Join(", ", CommandInfos.Where(ci => ci.Action == action).OrderBy(ci => ci.Order).Select(ci => $"{ci.Command.Name}(Order={ci.Order})"))}");
+                    $"[CommandInfoProvider.CommandCollectionChanged] After Move sync: {string.Join(", ", CommandInfos.Where(ci => ci.Action == action).OrderBy(ci => ci.Order).Select(ci => $"{ci.CommandName}(Order={ci.Order})"))}");
                 System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.CommandCollectionChanged] ========== EVENT END (Move) ==========");
                 return; // Skip Add/Remove handling and avoid double sync
             }
@@ -129,7 +129,7 @@ namespace GestureSign.ControlPanel.ViewModel
                 foreach (var oldCommand in e.OldItems)
                 {
                     var oldInfo = CommandInfos.FirstOrDefault(ci => ci.Command == oldCommand);
-                    System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.CommandCollectionChanged] Removing CommandInfo: {oldInfo?.Command?.Name} (Order={oldInfo?.Order})");
+                    System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.CommandCollectionChanged] Removing CommandInfo: {oldInfo?.CommandName} (Order={oldInfo?.Order})");
                     CommandInfos.Remove(oldInfo);
                     System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.CommandCollectionChanged] CommandInfos count after remove: {CommandInfos.Count}");
                 }
@@ -161,7 +161,7 @@ namespace GestureSign.ControlPanel.ViewModel
                     newInfo.PatternCount = patternCount;
 
                     // 注意：这里不设置 Order，由 SyncOrderForAction 统一设置
-                    System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.CommandCollectionChanged] Adding CommandInfo: {newInfo.Command.Name}");
+                    System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.CommandCollectionChanged] Adding CommandInfo: {newInfo.CommandName}");
 
                     // 总是 Add 到末尾，让 ListCollectionView 自动排序
                     CommandInfos.Add(newInfo);
@@ -179,7 +179,7 @@ namespace GestureSign.ControlPanel.ViewModel
 
             _listBox.Dispatcher.InvokeAsync(() => _listBox.ScrollIntoView(_listBox.SelectedItem), DispatcherPriority.Background);
 
-            System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.CommandCollectionChanged] After sync - Command order: {string.Join(", ", CommandInfos.Where(ci => ci.Action == action).OrderBy(ci => ci.Order).Select(ci => $"{ci.Command.Name}(Order={ci.Order})"))}");
+            System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.CommandCollectionChanged] After sync - Command order: {string.Join(", ", CommandInfos.Where(ci => ci.Action == action).OrderBy(ci => ci.Order).Select(ci => $"{ci.CommandName}(Order={ci.Order})"))}");
             System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.CommandCollectionChanged] CommandInfos count after: {CommandInfos.Count}");
             System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.CommandCollectionChanged] ========== EVENT END ==========");
         }
@@ -264,7 +264,7 @@ namespace GestureSign.ControlPanel.ViewModel
 
                         // Add 到末尾，让 ListCollectionView 排序
                         CommandInfos.Add(newInfo);
-                        System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider] Added command: {newInfo.Command.Name}, Order={newInfo.Order}");
+                        System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider] Added command: {newInfo.CommandName}, Order={newInfo.Order}");
 
                         _listBox.SelectedItems.Add(newInfo);
                     }
@@ -296,7 +296,7 @@ namespace GestureSign.ControlPanel.ViewModel
             var allCommands = action.Commands.ToList();
 
             System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.SyncOrderForAction] actionIndex={actionIndex}, orderBase={orderBase}, commands count={allCommands.Count}");
-            System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.SyncOrderForAction] Commands in action.Commands: {string.Join(", ", allCommands.Select(c => ((ICommand)c).Name))}");
+            System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.SyncOrderForAction] Commands in action.Commands: {string.Join(", ", allCommands.Select(c => c.PluginClass))}");
 
             // 使用 DeferRefresh 批量更新 Order，避免每次 PropertyChanged 都触发 Live Sorting
             var lcv = System.Windows.Data.CollectionViewSource.GetDefaultView(CommandInfos) as System.Windows.Data.ListCollectionView;
@@ -315,7 +315,7 @@ namespace GestureSign.ControlPanel.ViewModel
 
                         if (oldOrder != newOrder)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.SyncOrderForAction] Updated {cmdInfo.Command.Name}: Order {oldOrder} -> {newOrder}");
+                            System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.SyncOrderForAction] Updated {cmdInfo.CommandName}: Order {oldOrder} -> {newOrder}");
                         }
                     }
                     else
@@ -326,7 +326,7 @@ namespace GestureSign.ControlPanel.ViewModel
             } // DeferRefresh Dispose 时一次性更新视图，避免多次重新排序
 
             System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.SyncOrderForAction] DeferRefresh disposed, view should now update");
-            System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.SyncOrderForAction] Final Order values: {string.Join(", ", CommandInfos.Where(ci => ci.Action == action).OrderBy(ci => ci.Order).Select(ci => $"{ci.Command.Name}({ci.Order})"))}");
+            System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.SyncOrderForAction] Final Order values: {string.Join(", ", CommandInfos.Where(ci => ci.Action == action).OrderBy(ci => ci.Order).Select(ci => $"{ci.CommandName}({ci.Order})"))}");
             System.Diagnostics.Debug.WriteLine($"[CommandInfoProvider.SyncOrderForAction] ===== END SYNC =====");
         }
 

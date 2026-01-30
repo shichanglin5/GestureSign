@@ -6,25 +6,47 @@
              xmlns:localization="clr-namespace:GestureSign.Common.Localization;assembly=GestureSign.Common"
              xmlns:local="clr-namespace:GestureSign.ControlPanel.UserControls"
              mc:Ignorable="d"
-             d:DesignHeight="150"
+             d:DesignHeight="200"
              d:DesignWidth="400">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ScrollViewer Grid.Row="0"
+        <!-- Application Path -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="{localization:LocalisedText ApplicationDialog.ApplicationPath}"
+                       Margin="0,0,0,5" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="ApplicationPathTextBox"
+                         Height="23"
+                         Grid.Column="0" />
+                <Button x:Name="BrowseButton"
+                        Content="..."
+                        Width="30"
+                        Grid.Column="1"
+                        Margin="5,0,0,0"
+                        Click="BrowseButton_Click" />
+            </Grid>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
                       MaxHeight="120">
             <StackPanel x:Name="ConditionPanel" />
         </ScrollViewer>
 
         <Button x:Name="AddButton"
-                Grid.Row="1"
+                Grid.Row="2"
                 Content="{localization:LocalisedText ApplicationDialog.AddCondition}"
                 HorizontalAlignment="Left"
                 Margin="0,5,0,0"

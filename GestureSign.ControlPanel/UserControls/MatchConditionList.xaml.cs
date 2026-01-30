@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using GestureSign.Common.Applications;
 using GestureSign.Common.UI;
+using Microsoft.Win32;
 
 namespace GestureSign.ControlPanel.UserControls
 {
@@ -20,6 +21,15 @@ namespace GestureSign.ControlPanel.UserControls
         {
             get { return (bool)GetValue(ShowCheckBoxProperty); }
             set { SetValue(ShowCheckBoxProperty, value); }
+        }
+
+        /// <summary>
+        /// 应用程序路径
+        /// </summary>
+        public string ApplicationPath
+        {
+            get => ApplicationPathTextBox.Text.Trim();
+            set => ApplicationPathTextBox.Text = value ?? string.Empty;
         }
 
         public MatchConditionList()
@@ -72,6 +82,12 @@ namespace GestureSign.ControlPanel.UserControls
         public void PopulateFromWindowInfo(WindowMatchInfo info)
         {
             ConditionPanel.Children.Clear();
+
+            // 自动填充应用程序路径
+            if (!string.IsNullOrEmpty(info.ProcessPath))
+            {
+                ApplicationPathTextBox.Text = info.ProcessPath;
+            }
 
             if (!string.IsNullOrEmpty(info.ClassName))
             {
@@ -156,6 +172,18 @@ namespace GestureSign.ControlPanel.UserControls
         private void AddButton_Click(object sender, RoutedEventArgs e)
         {
             AddConditionItem();
+        }
+
+        private void BrowseButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Filter = "Executable files (*.exe)|*.exe|All files (*.*)|*.*"
+            };
+            if (dialog.ShowDialog() == true)
+            {
+                ApplicationPathTextBox.Text = dialog.FileName;
+            }
         }
     }
 }

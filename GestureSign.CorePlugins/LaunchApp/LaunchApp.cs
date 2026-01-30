@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using GestureSign.Common.Applications;
 using GestureSign.Common.Localization;
 using GestureSign.Common.Plugins;
 using System.Runtime.InteropServices;
@@ -80,6 +81,7 @@ namespace GestureSign.CorePlugins.LaunchApp
             {
                 uint pid;
                 appActiveManager.ActivateApplication(AppInfo.Key, null, ActivateOptions.None, out pid);
+                ApplicationManager.Instance.ClearTouchPadGestureWindowCache();
             }
             catch
             {

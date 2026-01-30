@@ -212,7 +212,8 @@ namespace GestureSign.Daemon.Input
             CaptureCanceled += (o, e) => { _surfaceForm.EndDrawing(); };
             PointCaptured += (o, e) =>
             {
-                if (Mode != CaptureMode.UserDisabled && State == CaptureState.Capturing)
+                // 允许 CapturingInvalid 状态下也绘制轨迹，避免手势轨迹不显示的问题
+                if (Mode != CaptureMode.UserDisabled && (State == CaptureState.Capturing || State == CaptureState.CapturingInvalid))
                 {
                     _surfaceForm.DrawPoints(e.Points);
                 }
@@ -409,7 +410,14 @@ namespace GestureSign.Daemon.Input
                 // This handles cases where finger count changes mid-gesture (e.g., 2 → 3 → 4 fingers)
                 if (State == CaptureState.Capturing || State == CaptureState.CapturingInvalid)
                 {
+                    var oldFingerCount = _totalFingerCount;
                     _totalFingerCount = Math.Max(_totalFingerCount, e.TotalFingerCount);
+
+                    // 如果手指数增加，通知 SurfaceForm 更新（可能需要启用之前被跳过的绘制）
+                    if (_totalFingerCount > oldFingerCount)
+                    {
+                        _surfaceForm.UpdateFingerCount(_totalFingerCount);
+                    }
                     return;
                 }
 
@@ -905,7 +913,6 @@ namespace GestureSign.Daemon.Input
 
                         if (State == CaptureState.CapturingInvalid)
                         {
-                            // Logging.LogDebug($"[PointCapture] State changed: CapturingInvalid → Capturing (distance={distance:F1}, threshold={threshold:F1})");
                             State = CaptureState.Capturing;
                         }
                     }

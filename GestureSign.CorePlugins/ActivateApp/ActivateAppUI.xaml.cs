@@ -38,6 +38,9 @@ namespace GestureSign.CorePlugins.ActivateApp
                 // Get display name
                 _settings.DisplayName = DisplayNameTextBox.Text.Trim();
 
+                // Get application path
+                _settings.ApplicationPath = MatchConditionList.ApplicationPath;
+
                 // Get matching conditions
                 _settings.MatchConditions = MatchConditionList.GetConditions();
 
@@ -63,6 +66,9 @@ namespace GestureSign.CorePlugins.ActivateApp
                 // Set display name
                 DisplayNameTextBox.Text = _settings.DisplayName ?? string.Empty;
 
+                // Set application path
+                MatchConditionList.ApplicationPath = _settings.ApplicationPath ?? string.Empty;
+
                 // Set matching conditions
                 MatchConditionList.SetConditions(_settings.MatchConditions);
 
@@ -72,17 +78,10 @@ namespace GestureSign.CorePlugins.ActivateApp
                 // Set minimize if activated checkbox
                 MinimizeIfActivatedCheckBox.IsChecked = _settings.MinimizeIfActivated;
 
-                // Set default display name if empty but has ProcessPath condition
-                if (string.IsNullOrEmpty(DisplayNameTextBox.Text) && _settings.MatchConditions != null)
+                // Set default display name if empty but has ApplicationPath
+                if (string.IsNullOrEmpty(DisplayNameTextBox.Text) && !string.IsNullOrEmpty(_settings.ApplicationPath))
                 {
-                    foreach (var condition in _settings.MatchConditions)
-                    {
-                        if (condition.Type == MatchConditionType.ProcessPath && !string.IsNullOrEmpty(condition.Value))
-                        {
-                            DisplayNameTextBox.Text = Path.GetFileNameWithoutExtension(condition.Value);
-                            break;
-                        }
-                    }
+                    DisplayNameTextBox.Text = Path.GetFileNameWithoutExtension(_settings.ApplicationPath);
                 }
             }
         }
@@ -105,20 +104,39 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             try
             {
-                var dialog = new WindowSelectorDialog
+                Logging.LogDebug("[ActivateAppUI] ShowWindowSelectorDialog called");
+
+                var ownerWindow = Window.GetWindow(this);
+                Logging.LogDebug($"[ActivateAppUI] Owner window: {(ownerWindow != null ? ownerWindow.GetType().Name : "null")}");
+
+                var dialog = new WindowSelectorDialog();
+
+                // 只有当 Owner 窗口有效时才设置，否则使用 CenterScreen
+                if (ownerWindow != null && ownerWindow.IsLoaded)
                 {
-                    Owner = Window.GetWindow(this)
-                };
+                    dialog.Owner = ownerWindow;
+                }
+                else
+                {
+                    dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+
+                Logging.LogDebug("[ActivateAppUI] Showing dialog...");
 
                 if (dialog.ShowDialog() == true && dialog.SelectedWindow != null)
                 {
                     var windowInfo = dialog.SelectedWindow;
+                    Logging.LogDebug($"[ActivateAppUI] Dialog result: true, selected window: {windowInfo.Title}");
                     PopulateFromWindowInfo(windowInfo);
+                }
+                else
+                {
+                    Logging.LogDebug("[ActivateAppUI] Dialog result: false or no selection");
                 }
             }
             catch (Exception ex)
             {
-                Logging.LogError($"[ActivateAppUI] Error opening window selection dialog: {ex.Message}");
+                Logging.LogError($"[ActivateAppUI] Error opening window selection dialog: {ex.Message}\n{ex.StackTrace}");
                 MessageBox.Show($"Error opening window selection: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
