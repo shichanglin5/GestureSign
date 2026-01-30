@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using GestureSign.Common.Applications;
 using Newtonsoft.Json;
 
@@ -21,6 +22,11 @@ namespace GestureSign.CorePlugins.ActivateApp
         /// Application path for launching when no matching window found
         /// </summary>
         public string ApplicationPath { get; set; }
+
+        /// <summary>
+        /// Command line arguments for launching the application
+        /// </summary>
+        public string ApplicationArguments { get; set; }
 
         /// <summary>
         /// Matching conditions list (ClassName, Title, ProcessName, ProcessPath, AUMID)
@@ -62,6 +68,13 @@ namespace GestureSign.CorePlugins.ActivateApp
         public bool HasValidConditions =>
             (MatchConditions != null && MatchConditions.Count > 0) ||
             !string.IsNullOrEmpty(ApplicationPath);
+
+        /// <summary>
+        /// Get AUMID from MatchConditions (for PWA/UWP app launching)
+        /// </summary>
+        [JsonIgnore]
+        public string AUMID =>
+            MatchConditions?.FirstOrDefault(c => c.Type == MatchConditionType.AUMID)?.Value;
 
         /// <summary>
         /// Generate cache key from matching conditions and ApplicationPath

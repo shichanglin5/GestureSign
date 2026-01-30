@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using GestureSign.Common.Applications;
@@ -13,6 +14,8 @@ namespace GestureSign.CorePlugins.ActivateApp
     /// </summary>
     public partial class MatchConditionListControl : UserControl
     {
+        private WindowMatchInfo _currentWindowInfo;
+
         public MatchConditionListControl()
         {
             InitializeComponent();
@@ -25,6 +28,15 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             get => ApplicationPathTextBox.Text.Trim();
             set => ApplicationPathTextBox.Text = value ?? string.Empty;
+        }
+
+        /// <summary>
+        /// 应用程序参数
+        /// </summary>
+        public string ApplicationArguments
+        {
+            get => ApplicationArgumentsTextBox.Text.Trim();
+            set => ApplicationArgumentsTextBox.Text = value ?? string.Empty;
         }
 
         /// <summary>
@@ -69,12 +81,27 @@ namespace GestureSign.CorePlugins.ActivateApp
         public void PopulateFromWindowInfo(WindowMatchInfo info)
         {
             ConditionPanel.Children.Clear();
+            _currentWindowInfo = info;
 
             // 自动填充应用程序路径
             if (!string.IsNullOrEmpty(info.ProcessPath))
             {
                 ApplicationPathTextBox.Text = info.ProcessPath;
             }
+
+            // 自动填充应用程序参数（从命令行提取）
+            var arguments = info.GetArguments();
+            if (!string.IsNullOrEmpty(arguments))
+            {
+                ApplicationArgumentsTextBox.Text = arguments;
+            }
+            else
+            {
+                ApplicationArgumentsTextBox.Text = string.Empty;
+            }
+
+            // 填充窗口详情
+            PopulateWindowDetails(info);
 
             // 添加 ClassName（默认不启用）
             if (!string.IsNullOrEmpty(info.ClassName))
@@ -164,6 +191,44 @@ namespace GestureSign.CorePlugins.ActivateApp
             {
                 ApplicationPathTextBox.Text = dialog.FileName;
             }
+        }
+
+        /// <summary>
+        /// 填充窗口详情到 DataGrid
+        /// </summary>
+        private void PopulateWindowDetails(WindowMatchInfo info)
+        {
+            var details = new List<KeyValuePair<string, string>>
+            {
+                new("Title", info.Title ?? ""),
+                new("ClassName", info.ClassName ?? ""),
+                new("ProcessName", info.ProcessName ?? ""),
+                new("ProcessPath", info.ProcessPath ?? ""),
+                new("AUMID", info.AUMID ?? ""),
+                new("CommandLine", info.CommandLine ?? ""),
+                new("Handle", $"0x{info.Handle:X}"),
+                new("ProcessId", info.ProcessId.ToString())
+            };
+
+            WindowDetailsDataGrid.ItemsSource = details;
+            WindowDetailsExpander.Visibility = Visibility.Visible;
+        }
+
+        private void CopyDetailsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentWindowInfo == null) return;
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"Title: {_currentWindowInfo.Title}");
+            sb.AppendLine($"ClassName: {_currentWindowInfo.ClassName}");
+            sb.AppendLine($"ProcessName: {_currentWindowInfo.ProcessName}");
+            sb.AppendLine($"ProcessPath: {_currentWindowInfo.ProcessPath}");
+            sb.AppendLine($"AUMID: {_currentWindowInfo.AUMID}");
+            sb.AppendLine($"CommandLine: {_currentWindowInfo.CommandLine}");
+            sb.AppendLine($"Handle: 0x{_currentWindowInfo.Handle:X}");
+            sb.AppendLine($"ProcessId: {_currentWindowInfo.ProcessId}");
+
+            Clipboard.SetText(sb.ToString());
         }
     }
 }

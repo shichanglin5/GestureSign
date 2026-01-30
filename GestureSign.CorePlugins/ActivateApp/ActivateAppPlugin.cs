@@ -443,13 +443,21 @@ namespace GestureSign.CorePlugins.ActivateApp
         }
 
         /// <summary>
-        /// Try to launch application using ApplicationPath
+        /// Try to launch application using ApplicationPath and ApplicationArguments
+        /// For PWA/UWP apps, use AUMID to launch via shell:AppsFolder
         /// </summary>
         private bool TryLaunchApplication(ActivateAppSettings settings)
         {
+            // 优先尝试通过 AUMID 启动（PWA/UWP 应用）
+            if (!string.IsNullOrEmpty(settings.AUMID))
+            {
+                return TryLaunchByAUMID(settings.AUMID);
+            }
+
+            // 回退到传统的 exe 路径启动
             if (string.IsNullOrEmpty(settings.ApplicationPath))
             {
-                Logging.LogWarning($"[ActivateApp] No application path, cannot launch");
+                Logging.LogWarning($"[ActivateApp] No application path or AUMID, cannot launch");
                 return false;
             }
 
@@ -463,11 +471,12 @@ namespace GestureSign.CorePlugins.ActivateApp
                     return false;
                 }
 
-                Logging.LogDebug($"[ActivateApp] Launching application: {applicationPath}");
+                Logging.LogDebug($"[ActivateApp] Launching application: {applicationPath} {settings.ApplicationArguments}");
 
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = applicationPath,
+                    Arguments = settings.ApplicationArguments ?? string.Empty,
                     UseShellExecute = true
                 };
 
@@ -477,6 +486,32 @@ namespace GestureSign.CorePlugins.ActivateApp
             catch (Exception ex)
             {
                 Logging.LogError($"[ActivateApp] Failed to launch application: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Launch PWA/UWP application by AUMID using shell:AppsFolder protocol
+        /// </summary>
+        private bool TryLaunchByAUMID(string aumid)
+        {
+            try
+            {
+                Logging.LogDebug($"[ActivateApp] Launching app by AUMID: {aumid}");
+
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"shell:AppsFolder\\{aumid}",
+                    UseShellExecute = false
+                };
+
+                Process.Start(startInfo);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logging.LogError($"[ActivateApp] Failed to launch app by AUMID: {ex.Message}");
                 return false;
             }
         }

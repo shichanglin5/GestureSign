@@ -41,6 +41,9 @@ namespace GestureSign.CorePlugins.ActivateApp
                 // Get application path
                 _settings.ApplicationPath = MatchConditionList.ApplicationPath;
 
+                // Get application arguments
+                _settings.ApplicationArguments = MatchConditionList.ApplicationArguments;
+
                 // Get matching conditions
                 _settings.MatchConditions = MatchConditionList.GetConditions();
 
@@ -69,6 +72,9 @@ namespace GestureSign.CorePlugins.ActivateApp
                 // Set application path
                 MatchConditionList.ApplicationPath = _settings.ApplicationPath ?? string.Empty;
 
+                // Set application arguments
+                MatchConditionList.ApplicationArguments = _settings.ApplicationArguments ?? string.Empty;
+
                 // Set matching conditions
                 MatchConditionList.SetConditions(_settings.MatchConditions);
 
@@ -89,11 +95,6 @@ namespace GestureSign.CorePlugins.ActivateApp
         #endregion
 
         #region Event Handlers
-
-        private void SelectWindowButton_Click(object sender, RoutedEventArgs e)
-        {
-            ShowWindowSelectorDialog();
-        }
 
         private void CaptureCrosshair_CrosshairDragged(object sender, MouseButtonEventArgs e)
         {

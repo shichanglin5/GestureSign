@@ -10,36 +10,90 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Application Path -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,10">
-            <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.ApplicationPath}"
-                       Margin="0,0,0,5" />
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBox x:Name="ApplicationPathTextBox"
-                         Height="23"
-                         Grid.Column="0" />
-                <Button x:Name="BrowseButton"
-                        Content="..."
-                        Width="30"
-                        Grid.Column="1"
-                        Margin="5,0,0,0"
-                        Click="BrowseButton_Click" />
+        <!-- Application Path and Arguments -->
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="80" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Path Row -->
+            <TextBlock Grid.Row="0" Grid.Column="0"
+                       Text="{localization:LocalisedText CorePlugins.ActivateApp.ApplicationPath}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,10,5" />
+            <TextBox x:Name="ApplicationPathTextBox"
+                     Grid.Row="0" Grid.Column="1"
+                     Height="23"
+                     Margin="0,0,0,5" />
+            <Button x:Name="BrowseButton"
+                    Grid.Row="0" Grid.Column="2"
+                    Content="..."
+                    Width="30"
+                    Margin="5,0,0,5"
+                    Click="BrowseButton_Click" />
+
+            <!-- Arguments Row -->
+            <TextBlock Grid.Row="1" Grid.Column="0"
+                       Text="{localization:LocalisedText CorePlugins.ActivateApp.ApplicationArguments}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,10,0" />
+            <TextBox x:Name="ApplicationArgumentsTextBox"
+                     Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                     Height="23" />
+        </Grid>
+
+        <!-- Window Details Expander -->
+        <Expander x:Name="WindowDetailsExpander"
+                  Grid.Row="1"
+                  Header="Window Details / 窗口详情"
+                  IsExpanded="False"
+                  Visibility="Collapsed"
+                  Margin="0,0,0,10">
+            <Grid Margin="5">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" MaxHeight="150" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <DataGrid x:Name="WindowDetailsDataGrid"
+                          Grid.Row="0"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="None"
+                          GridLinesVisibility="Horizontal"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
+                          VerticalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Property" Binding="{Binding Key}" Width="100" />
+                        <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+                <Button Grid.Row="1"
+                        Content="Copy All / 复制全部"
+                        HorizontalAlignment="Left"
+                        Margin="0,5,0,0"
+                        Click="CopyDetailsButton_Click" />
             </Grid>
-        </StackPanel>
+        </Expander>
 
         <!-- Condition List -->
-        <StackPanel x:Name="ConditionPanel" Grid.Row="1" />
+        <StackPanel x:Name="ConditionPanel" Grid.Row="2" />
 
         <Button x:Name="AddButton"
-                Grid.Row="2"
+                Grid.Row="3"
                 Content="+ Add Condition / 添加条件"
                 HorizontalAlignment="Left"
                 Margin="0,5,0,0"

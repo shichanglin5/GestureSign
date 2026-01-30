@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Management;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -115,6 +116,13 @@ namespace GestureSign.Common.UI
             if (WindowListView.SelectedItem is WindowMatchInfo windowInfo)
             {
                 _selectedWindow = windowInfo;
+
+                // 延迟获取命令行
+                if (string.IsNullOrEmpty(_selectedWindow.CommandLine) && _selectedWindow.ProcessId > 0)
+                {
+                    _selectedWindow.CommandLine = GetProcessCommandLine(_selectedWindow.ProcessId);
+                }
+
                 DialogResult = true;
                 Close();
             }
@@ -185,6 +193,13 @@ namespace GestureSign.Common.UI
                 {
                     _selectedWindow.AUMID = WindowMatcher.GetWindowAUMID(_selectedWindow.Handle);
                 }
+
+                // 延迟获取命令行（避免在加载窗口列表时进行 WMI 查询）
+                if (string.IsNullOrEmpty(_selectedWindow.CommandLine) && _selectedWindow.ProcessId > 0)
+                {
+                    _selectedWindow.CommandLine = GetProcessCommandLine(_selectedWindow.ProcessId);
+                }
+
                 DialogResult = true;
             }
             else
@@ -378,6 +393,7 @@ namespace GestureSign.Common.UI
                 string processPath = WindowMatcher.GetProcessPath(hWnd, out string processName);
                 string aumid = WindowMatcher.GetWindowAUMID(hWnd);
 
+                // 注意：CommandLine 延迟加载，避免 WMI 查询影响性能
                 return new WindowMatchInfo
                 {
                     Handle = hWnd,
@@ -386,6 +402,7 @@ namespace GestureSign.Common.UI
                     ProcessName = processName ?? process.ProcessName,
                     ProcessPath = processPath ?? string.Empty,
                     AUMID = aumid,
+                    ProcessId = pid,
                     Icon = iconSource
                 };
             }
@@ -394,6 +411,31 @@ namespace GestureSign.Common.UI
                 Logging.LogTrace($"[WindowSelectorDialog] Failed to get window info: {ex.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// 通过 WMI 获取进程的命令行参数
+        /// </summary>
+        private string GetProcessCommandLine(int processId)
+        {
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(
+                    $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {processId}");
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    var cmdLine = obj["CommandLine"]?.ToString();
+                    if (!string.IsNullOrEmpty(cmdLine))
+                    {
+                        return cmdLine;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.LogTrace($"[WindowSelectorDialog] Failed to get command line for PID {processId}: {ex.Message}");
+            }
+            return string.Empty;
         }
 
         private void UpdateWindowInfoDisplay(WindowMatchInfo info)
