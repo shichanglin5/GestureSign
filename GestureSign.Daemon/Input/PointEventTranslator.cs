@@ -7,6 +7,10 @@ namespace GestureSign.Daemon.Input
 {
     public class PointEventTranslator
     {
+        /// <summary>
+        /// 上一次事件的触点数量，用于判断事件类型（PointDown/PointMove/PointUp）
+        /// 通过比较当前触点数和上次触点数来确定是新增、移动还是抬起
+        /// </summary>
         private int _lastPointsCount;
 
         internal Devices SourceDevice { get; private set; }

@@ -45,10 +45,19 @@ namespace GestureSign.Daemon.Input
         SynchronizationContext _currentContext;
 
         private Dictionary<int, List<Point>> _pointsCaptured;
+        /// <summary>
+        /// 当前捕获的总手指数，在手势捕获开始后更新，用于手势匹配和轨迹绘制判断
+        /// </summary>
         private int _totalFingerCount;
         private HashSet<int> _featureFingerIds;
-        private List<InputPoint> _pendingFirstPoints; // Collect fingers during multi-finger delay
-        private int _pendingTotalFingerCount; // Total finger count for pending points
+        /// <summary>
+        /// 多手指延迟期间收集的触点，等待延迟结束后一起处理
+        /// </summary>
+        private List<InputPoint> _pendingFirstPoints;
+        /// <summary>
+        /// 多手指延迟期间的总手指数，用于延迟期间追踪手指数变化
+        /// </summary>
+        private int _pendingTotalFingerCount;
         // Create variable to hold the only allowed instance of this class
         static readonly PointCapture _Instance = new PointCapture();
 
@@ -881,6 +890,21 @@ namespace GestureSign.Daemon.Input
         //    OnCaptureCanceled(new PointsCapturedEventArgs(new List<List<Point>>(_pointsCaptured.Values)));
         //}
 
+        /// <summary>
+        /// 将触控板坐标转换为屏幕坐标
+        /// 触控板手势以鼠标当前位置为起点，触控板上的相对移动映射到屏幕坐标
+        /// </summary>
+        private Point TranslateTouchPadPoint(Point touchPadPoint)
+        {
+            if (SourceDevice != Devices.TouchPad)
+                return touchPadPoint;
+
+            return new Point(
+                _touchPadStartPoint.X + (touchPadPoint.X - _touchPadOriginPoint.X),
+                _touchPadStartPoint.Y + (touchPadPoint.Y - _touchPadOriginPoint.Y)
+            );
+        }
+
         private void AddPoint(List<InputPoint> point)
         {
             bool getNewPoint = false;
@@ -892,15 +916,7 @@ namespace GestureSign.Daemon.Input
                 // Don't accept point if it's within specified distance of last point unless it's the first point
                 if (_pointsCaptured.TryGetValue(p.ContactIdentifier, out List<Point> stroke))
                 {
-                    // 触控板设备：将坐标转换为以鼠标位置为起点的屏幕坐标
-                    Point actualPoint = p.Point;
-                    if (SourceDevice == Devices.TouchPad)
-                    {
-                        actualPoint = new Point(
-                            _touchPadStartPoint.X + (p.Point.X - _touchPadOriginPoint.X),
-                            _touchPadStartPoint.Y + (p.Point.Y - _touchPadOriginPoint.Y)
-                        );
-                    }
+                    Point actualPoint = TranslateTouchPadPoint(p.Point);
 
                     if (stroke.Count != 0)
                     {
