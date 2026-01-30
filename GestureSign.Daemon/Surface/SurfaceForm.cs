@@ -441,9 +441,13 @@ namespace GestureSign.Daemon.Surface
                 {
                     var g = _bitmap.BeginDraw();
 
-                    _graphicsPath.Widen(_dirtyMarkerPen);
-                    g.SetClip(_graphicsPath);
-                    g.Clear(Color.Transparent);
+                    // 只有当路径有点时才进行 Widen 和清除操作
+                    if (_graphicsPath.PointCount > 0)
+                    {
+                        _graphicsPath.Widen(_dirtyMarkerPen);
+                        g.SetClip(_graphicsPath);
+                        g.Clear(Color.Transparent);
+                    }
 
                     // Also clear text area if it was drawn (using bitmap coordinates)
                     if (!_lastTextRect.IsEmpty)
@@ -550,10 +554,20 @@ namespace GestureSign.Daemon.Surface
 
         private void UpdateDraw()
         {
+            // 确保脏路径有有效的点
+            if (_dirtyGraphicsPath.PointCount == 0) return;
+
             var pathDirty = Rectangle.Ceiling(_dirtyGraphicsPath.GetBounds());
+
+            // 确保脏矩形有有效的尺寸
+            if (pathDirty.Width <= 0 || pathDirty.Height <= 0) return;
+
             pathDirty.Offset(Bounds.Location);
             pathDirty.Intersect(Bounds);
             pathDirty.Offset(-Bounds.X, -Bounds.Y); //挪回来变为基于窗口的坐标
+
+            // 再次检查交集后的矩形是否有效
+            if (pathDirty.Width <= 0 || pathDirty.Height <= 0) return;
 
             SetDiBitmap(_bitmap, /*_pathDirtyRect*/pathDirty, (byte)(AppConfig.Opacity * 0xFF));
         }
