@@ -138,7 +138,6 @@ namespace GestureSign.CorePlugins
                 {
                     ShowWindow(currentWindow, SW_RESTORE);
                     SetForegroundWindow(currentWindow);
-                    ApplicationManager.Instance.ClearTouchPadGestureWindowCache();
                     return true;
                 }
 
@@ -160,7 +159,6 @@ namespace GestureSign.CorePlugins
                     ShowWindow(nextWindow, SW_RESTORE);
                 }
                 bool result = SetForegroundWindow(nextWindow);
-                ApplicationManager.Instance.ClearTouchPadGestureWindowCache();
                 return true;
             }
             catch (Exception ex)

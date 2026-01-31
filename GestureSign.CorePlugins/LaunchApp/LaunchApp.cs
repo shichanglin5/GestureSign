@@ -81,7 +81,6 @@ namespace GestureSign.CorePlugins.LaunchApp
             {
                 uint pid;
                 appActiveManager.ActivateApplication(AppInfo.Key, null, ActivateOptions.None, out pid);
-                ApplicationManager.Instance.ClearTouchPadGestureWindowCache();
             }
             catch
             {

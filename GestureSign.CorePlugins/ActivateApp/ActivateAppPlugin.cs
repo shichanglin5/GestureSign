@@ -155,10 +155,6 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         public bool Gestured(PointInfo actionPoint)
         {
-            // 无论后续如何处理，都清除触控板手势窗口缓存
-            // 因为用户执行了激活窗口操作，应使用新的目标窗口
-            ApplicationManager.Instance.ClearTouchPadGestureWindowCache();
-
             try
             {
                 if (_settings == null || !_settings.HasValidConditions)
@@ -429,6 +425,18 @@ namespace GestureSign.CorePlugins.ActivateApp
 
             // Activate the target window
             var window = new SystemWindow(targetWindow);
+            bool isVisible = IsWindowVisible(targetWindow);
+
+            // Handle hidden window (tray app)
+            if (!isVisible)
+            {
+                Logging.LogDebug($"[ActivateApp] Showing hidden window: 0x{targetWindow:X} '{window.Title}'");
+                ShowWindow(targetWindow, SW_SHOW);
+                window.RestoreWindow();
+                SystemWindow.ForegroundWindow = window;
+                _lastActivatedWindows[appKey] = targetWindow;
+                return true;
+            }
 
             if (window.WindowState == FormWindowState.Minimized)
             {
