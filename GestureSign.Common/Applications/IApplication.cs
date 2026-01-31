@@ -18,9 +18,9 @@ namespace GestureSign.Common.Applications
         string Group { get; set; }
 
         /// <summary>
-        /// 是否启用优先级窗口检测（触摸板 ActiveWindow 模式下）
+        /// 鼠标位置窗口检测模式（触摸板 ActiveWindow 模式下）
         /// </summary>
-        bool DetectPriorityWindowByMousePosition { get; set; }
+        MouseWindowDetectionMode MouseWindowDetection { get; set; }
 
         /// <summary>
         /// 优先级窗口列表

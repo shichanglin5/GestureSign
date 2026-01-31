@@ -119,16 +119,17 @@ namespace GestureSign.ControlPanel.Dialogs
 
         private void InitializePriorityWindowsSettings()
         {
-            // 只对 UserApp 和 GlobalApp 显示优先级窗口设置
-            bool showPriorityWindows = _currentApplication is UserApp || _currentApplication is GlobalApp;
-            DetectPriorityWindowToggle.Visibility = showPriorityWindows ? Visibility.Visible : Visibility.Collapsed;
-            PriorityWindowsPanel.Visibility = showPriorityWindows ? Visibility.Visible : Visibility.Collapsed;
+            // 只对 UserApp 和 GlobalApp 显示相关设置
+            bool showSettings = _currentApplication is UserApp || _currentApplication is GlobalApp;
+            MouseWindowDetectionTextBlock.Visibility = showSettings ? Visibility.Visible : Visibility.Collapsed;
+            MouseWindowDetectionComboBox.Visibility = showSettings ? Visibility.Visible : Visibility.Collapsed;
+            PriorityWindowsPanel.Visibility = showSettings ? Visibility.Visible : Visibility.Collapsed;
 
-            if (!showPriorityWindows)
+            if (!showSettings)
                 return;
 
-            // 加载现有设置
-            DetectPriorityWindowToggle.IsOn = _currentApplication.DetectPriorityWindowByMousePosition;
+            // 初始化鼠标位置检测 ComboBox
+            InitializeMouseWindowDetectionComboBox();
 
             // 加载优先级窗口列表
             _priorityWindows.Clear();
@@ -140,15 +141,32 @@ namespace GestureSign.ControlPanel.Dialogs
                 }
             }
             PriorityWindowsItemsControl.ItemsSource = _priorityWindows;
-
-            // 绑定 PriorityWindowsPanel 的可见性到 Toggle 状态
-            UpdatePriorityWindowsPanelVisibility();
-            DetectPriorityWindowToggle.Toggled += (s, e) => UpdatePriorityWindowsPanelVisibility();
         }
 
-        private void UpdatePriorityWindowsPanelVisibility()
+        private void InitializeMouseWindowDetectionComboBox()
         {
-            PriorityWindowsPanel.Visibility = DetectPriorityWindowToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+            var items = new List<KeyValuePair<MouseWindowDetectionMode, string>>();
+
+            // GlobalApp 不显示 Default 选项
+            if (!(_currentApplication is GlobalApp))
+            {
+                items.Add(new KeyValuePair<MouseWindowDetectionMode, string>(
+                    MouseWindowDetectionMode.Default,
+                    LocalizationProvider.Instance.GetTextValue("Common.Default")));
+            }
+
+            items.Add(new KeyValuePair<MouseWindowDetectionMode, string>(
+                MouseWindowDetectionMode.Enabled,
+                LocalizationProvider.Instance.GetTextValue("Common.Enabled")));
+
+            items.Add(new KeyValuePair<MouseWindowDetectionMode, string>(
+                MouseWindowDetectionMode.Disabled,
+                LocalizationProvider.Instance.GetTextValue("Common.Disabled")));
+
+            MouseWindowDetectionComboBox.ItemsSource = items;
+            MouseWindowDetectionComboBox.DisplayMemberPath = "Value";
+            MouseWindowDetectionComboBox.SelectedValuePath = "Key";
+            MouseWindowDetectionComboBox.SelectedValue = _currentApplication.MouseWindowDetection;
         }
 
         private void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -454,7 +472,7 @@ namespace GestureSign.ControlPanel.Dialogs
                             Name = name,
                             Group = groupName,
                             MatchConditions = conditions,
-                            DetectPriorityWindowByMousePosition = DetectPriorityWindowToggle.IsOn,
+                            MouseWindowDetection = (MouseWindowDetectionMode)MouseWindowDetectionComboBox.SelectedValue,
                             PriorityWindows = GetPriorityWindowsFromUI()
                         };
 
@@ -577,14 +595,14 @@ namespace GestureSign.ControlPanel.Dialogs
         /// </summary>
         private bool SavePriorityWindowsSettings(IApplication app)
         {
-            bool detectEnabled = DetectPriorityWindowToggle.IsOn;
+            var mouseDetectionMode = (MouseWindowDetectionMode)MouseWindowDetectionComboBox.SelectedValue;
             var priorityWindows = GetPriorityWindowsFromUI();
 
             bool hasChanges = false;
 
-            if (app.DetectPriorityWindowByMousePosition != detectEnabled)
+            if (app.MouseWindowDetection != mouseDetectionMode)
             {
-                app.DetectPriorityWindowByMousePosition = detectEnabled;
+                app.MouseWindowDetection = mouseDetectionMode;
                 hasChanges = true;
             }
 

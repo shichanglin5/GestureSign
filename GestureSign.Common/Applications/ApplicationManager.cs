@@ -24,6 +24,7 @@ namespace GestureSign.Common.Applications
         private List<IApplication> _applications;
         IEnumerable<IApplication> _recognizedApplication;
         private Timer _timer;
+        private Point _lastTouchPadGestureMousePosition;
         #endregion
 
         #region Public Instance Properties
@@ -68,18 +69,8 @@ namespace GestureSign.Common.Applications
             var pointCapture = (IPointCapture)sender;
             if (pointCapture.Mode == CaptureMode.Training) return;
 
-            if (VersionHelper.IsWindows8OrGreater() && !VersionHelper.IsWindows10OrGreater())
-            {
-                IntPtr hwndCharmBar = FindWindow("NativeHWNDHost", "Charm Bar");
-                var window = SystemWindow.FromPointEx(SystemWindow.DesktopWindow.Rectangle.Right - 1, 1, true, true);
-
-                if (window != null && window.HWnd.Equals(hwndCharmBar))
-                {
-                    e.Cancel = false;
-                    e.BlockTouchInputThreshold = 0;
-                    return;
-                }
-            }
+            // 单指手势不需要识别，直接跳过
+            if (e.FingerCount < 2) return;
 
             CaptureWindow = GetCaptureWindowByTargetMode(pointCapture.SourceDevice, e.FirstCapturedPoints.FirstOrDefault());
             _recognizedApplication = GetApplicationFromWindow(CaptureWindow);
@@ -479,14 +470,23 @@ namespace GestureSign.Common.Applications
             {
                 var foreground = SystemWindow.ForegroundWindow;
 
-                // 触控板设备：尝试优先级窗口匹配
+                // 触控板设备：尝试鼠标位置检测或优先级窗口匹配
                 if ((sourceDevice & Devices.TouchPad) != 0)
                 {
+                    // 功能1：鼠标移动检测（独立功能）
+                    var mouseDetectedWindow = TryGetMousePositionWindow(foreground);
+                    if (mouseDetectedWindow != null)
+                    {
+                        return mouseDetectedWindow;
+                    }
+
+                    // 功能2：优先级窗口匹配（独立功能）
                     var priorityWindow = TryGetPriorityMatchedWindow(foreground);
                     if (priorityWindow != null)
                     {
                         return priorityWindow;
                     }
+
                     return foreground ?? GetWindowFromPoint(System.Windows.Forms.Cursor.Position);
                 }
 
@@ -502,7 +502,57 @@ namespace GestureSign.Common.Applications
         }
 
         /// <summary>
-        /// 尝试获取匹配优先级窗口的目标窗口
+        /// 尝试获取鼠标位置的目标窗口（鼠标移动检测功能）
+        /// 如果启用且鼠标位置变化，直接返回鼠标窗口
+        /// </summary>
+        private SystemWindow TryGetMousePositionWindow(SystemWindow foregroundWindow)
+        {
+            // 1. 获取前台窗口对应的应用
+            var foregroundApps = GetApplicationFromWindow(foregroundWindow, true);
+            var foregroundApp = foregroundApps.FirstOrDefault();
+            var globalApp = GetGlobalApplication();
+
+            // 2. 确定检测模式（应用级别覆盖全局级别）
+            var mode = MouseWindowDetectionMode.Disabled;
+            if (foregroundApp != null && foregroundApp.MouseWindowDetection != MouseWindowDetectionMode.Default)
+            {
+                mode = foregroundApp.MouseWindowDetection;
+            }
+            else
+            {
+                mode = globalApp.MouseWindowDetection;
+            }
+
+            // 3. 如果禁用，直接返回 null
+            if (mode == MouseWindowDetectionMode.Disabled)
+            {
+                return null;
+            }
+
+            // 4. 获取鼠标位置
+            var currentMousePosition = System.Windows.Forms.Cursor.Position;
+
+            // 5. 检查鼠标位置是否变化
+            if (currentMousePosition != _lastTouchPadGestureMousePosition)
+            {
+                _lastTouchPadGestureMousePosition = currentMousePosition;
+
+                // 获取鼠标所在窗口并直接返回
+                var mouseWindow = GetWindowFromPoint(currentMousePosition);
+                if (mouseWindow != null && mouseWindow.IsValid())
+                {
+                    Logging.LogDebug($"[ApplicationManager] MouseWindowDetection: Mouse moved, using mouse window 0x{mouseWindow.HWnd:X} '{mouseWindow.Title}'");
+                    return mouseWindow;
+                }
+            }
+
+            // 更新记录位置
+            _lastTouchPadGestureMousePosition = currentMousePosition;
+            return null;
+        }
+
+        /// <summary>
+        /// 尝试获取匹配优先级窗口的目标窗口（优先级窗口功能）
         /// </summary>
         private SystemWindow TryGetPriorityMatchedWindow(SystemWindow foregroundWindow)
         {
@@ -512,18 +562,12 @@ namespace GestureSign.Common.Applications
 
             var globalApp = GetGlobalApplication();
 
-            // 2. 检查是否需要进行优先级窗口匹配
-            bool appEnabled = foregroundApp != null
-                && foregroundApp.DetectPriorityWindowByMousePosition
-                && foregroundApp.PriorityWindows != null
-                && foregroundApp.PriorityWindows.Count > 0;
+            // 2. 检查是否配置了优先级窗口
+            bool appHasPriorityWindows = foregroundApp?.PriorityWindows?.Count > 0;
+            bool globalHasPriorityWindows = globalApp.PriorityWindows?.Count > 0;
 
-            bool globalEnabled = globalApp.DetectPriorityWindowByMousePosition
-                && globalApp.PriorityWindows != null
-                && globalApp.PriorityWindows.Count > 0;
-
-            // 3. 如果都没启用或都没配置，直接返回 null
-            if (!appEnabled && !globalEnabled)
+            // 3. 如果都没配置，直接返回 null
+            if (!appHasPriorityWindows && !globalHasPriorityWindows)
             {
                 return null;
             }
@@ -538,8 +582,8 @@ namespace GestureSign.Common.Applications
             // 5. 创建窗口信息缓存对象（按需获取属性）
             var windowInfo = new WindowInfoCache(mouseWindow);
 
-            // 6. 先匹配应用级别的优先级窗口（如果启用）
-            if (appEnabled)
+            // 6. 先匹配应用级别的优先级窗口
+            if (appHasPriorityWindows)
             {
                 foreach (var priorityConditions in foregroundApp.PriorityWindows)
                 {
@@ -551,8 +595,8 @@ namespace GestureSign.Common.Applications
                 }
             }
 
-            // 7. 再匹配全局优先级窗口（如果启用）
-            if (globalEnabled)
+            // 7. 再匹配全局优先级窗口
+            if (globalHasPriorityWindows)
             {
                 foreach (var priorityConditions in globalApp.PriorityWindows)
                 {

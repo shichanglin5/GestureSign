@@ -160,13 +160,18 @@
                         IsSnapToTickEnabled="True"
                         IsMoveToPointEnabled="True"
                         Value="2" />
-                <!-- 高级设置 -->
-                <controls:ToggleSwitch x:Name="DetectPriorityWindowToggle"
-                                       Header="{localization:LocalisedText ApplicationDialog.AdvancedSettings}"
-                                       OnContent="{localization:LocalisedText Common.On}"
-                                       OffContent="{localization:LocalisedText Common.Off}"
-                                       FontSize="14"
-                                       Margin="10,15,0,0" />
+                <!-- 鼠标位置检测模式 -->
+                <TextBlock x:Name="MouseWindowDetectionTextBlock"
+                           Text="{localization:LocalisedText ApplicationDialog.MouseWindowDetection}"
+                           FontSize="14"
+                           FontWeight="Bold"
+                           Margin="10,15,0,0" />
+                <ComboBox x:Name="MouseWindowDetectionComboBox"
+                          FontSize="14"
+                          Margin="10,5,10,0"
+                          Width="200"
+                          HorizontalAlignment="Left" />
+                <!-- 优先级窗口设置 -->
                 <StackPanel x:Name="PriorityWindowsPanel"
                             Margin="10,10,10,0">
                     <TextBlock Text="{localization:LocalisedText ApplicationDialog.PriorityWindows}"

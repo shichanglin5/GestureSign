@@ -30,10 +30,10 @@ namespace GestureSign.Common.Applications
         public virtual string Group { get; set; }
 
         /// <summary>
-        /// 是否启用优先级窗口检测（触摸板 ActiveWindow 模式下）
+        /// 鼠标位置窗口检测模式（触摸板 ActiveWindow 模式下）
         /// </summary>
-        [DefaultValue(false)]
-        public virtual bool DetectPriorityWindowByMousePosition { get; set; } = false;
+        [DefaultValue(MouseWindowDetectionMode.Disabled)]
+        public virtual MouseWindowDetectionMode MouseWindowDetection { get; set; } = MouseWindowDetectionMode.Disabled;
 
         /// <summary>
         /// 优先级窗口列表
