@@ -17,6 +17,18 @@ namespace GestureSign.Common.Applications
 
         string Group { get; set; }
 
+        /// <summary>
+        /// 是否启用优先级窗口检测（触摸板 ActiveWindow 模式下）
+        /// </summary>
+        bool DetectPriorityWindowByMousePosition { get; set; }
+
+        /// <summary>
+        /// 优先级窗口列表
+        /// 外层 List：多个优先级窗口（OR 关系，按顺序匹配）
+        /// 内层 List：每个优先级窗口的匹配条件（AND 关系，全部满足才匹配）
+        /// </summary>
+        List<List<MatchCondition>> PriorityWindows { get; set; }
+
         void AddAction(IAction Action);
         void Insert(int index, IAction action);
         void RemoveAction(IAction Action);

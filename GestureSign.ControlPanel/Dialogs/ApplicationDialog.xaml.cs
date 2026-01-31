@@ -3,11 +3,13 @@ using GestureSign.Common.Configuration;
 using GestureSign.Common.Localization;
 using GestureSign.Common.UI;
 using GestureSign.ControlPanel.Common;
+using GestureSign.ControlPanel.UserControls;
 using MahApps.Metro.Controls.Dialogs;
 using ManagedWinapi.Windows;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -25,6 +27,7 @@ namespace GestureSign.ControlPanel.Dialogs
     {
         private bool _newApplication;
         private IApplication _currentApplication;
+        private readonly ObservableCollection<List<MatchCondition>> _priorityWindows = new ObservableCollection<List<MatchCondition>>();
 
         public ApplicationListViewItem ApplicationListViewItem
         {
@@ -109,6 +112,43 @@ namespace GestureSign.ControlPanel.Dialogs
 
             BlockTouchInputSlider.Visibility = BlockTouchInputInfoTextBlock.Visibility = BlockTouchInputTextBlock.Visibility =
                     AppConfig.UiAccess && isUserApp ? Visibility.Visible : Visibility.Collapsed;
+
+            // 初始化优先级窗口设置
+            InitializePriorityWindowsSettings();
+        }
+
+        private void InitializePriorityWindowsSettings()
+        {
+            // 只对 UserApp 和 GlobalApp 显示优先级窗口设置
+            bool showPriorityWindows = _currentApplication is UserApp || _currentApplication is GlobalApp;
+            DetectPriorityWindowToggle.Visibility = showPriorityWindows ? Visibility.Visible : Visibility.Collapsed;
+            PriorityWindowsPanel.Visibility = showPriorityWindows ? Visibility.Visible : Visibility.Collapsed;
+
+            if (!showPriorityWindows)
+                return;
+
+            // 加载现有设置
+            DetectPriorityWindowToggle.IsOn = _currentApplication.DetectPriorityWindowByMousePosition;
+
+            // 加载优先级窗口列表
+            _priorityWindows.Clear();
+            if (_currentApplication.PriorityWindows != null)
+            {
+                foreach (var window in _currentApplication.PriorityWindows)
+                {
+                    _priorityWindows.Add(new List<MatchCondition>(window));
+                }
+            }
+            PriorityWindowsItemsControl.ItemsSource = _priorityWindows;
+
+            // 绑定 PriorityWindowsPanel 的可见性到 Toggle 状态
+            UpdatePriorityWindowsPanelVisibility();
+            DetectPriorityWindowToggle.Toggled += (s, e) => UpdatePriorityWindowsPanelVisibility();
+        }
+
+        private void UpdatePriorityWindowsPanelVisibility()
+        {
+            PriorityWindowsPanel.Visibility = DetectPriorityWindowToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -222,6 +262,63 @@ namespace GestureSign.ControlPanel.Dialogs
                 (int)e.NewValue);
         }
 
+        private void AddPriorityWindow_Click(object sender, RoutedEventArgs e)
+        {
+            // 添加一个空的优先级窗口条件组
+            _priorityWindows.Add(new List<MatchCondition>());
+        }
+
+        private void RemovePriorityWindow_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.DataContext is List<MatchCondition> conditions)
+            {
+                _priorityWindows.Remove(conditions);
+            }
+        }
+
+        private void PriorityWindowCrosshair_CrosshairDragged(object sender, MouseButtonEventArgs e)
+        {
+            // 弹出窗口选择对话框
+            var dialog = new WindowSelectorDialog { Owner = this };
+            if (dialog.ShowDialog() == true && dialog.SelectedWindow != null)
+            {
+                var info = dialog.SelectedWindow;
+                // 创建新的优先级窗口条件
+                var conditions = new List<MatchCondition>();
+
+                if (!string.IsNullOrEmpty(info.ClassName))
+                {
+                    conditions.Add(new MatchCondition
+                    {
+                        Type = MatchConditionType.ClassName,
+                        Value = info.ClassName
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(info.FileName))
+                {
+                    conditions.Add(new MatchCondition
+                    {
+                        Type = MatchConditionType.ProcessName,
+                        Value = info.FileName
+                    });
+                }
+
+                if (conditions.Count > 0)
+                {
+                    _priorityWindows.Add(conditions);
+                }
+            }
+        }
+
+        private void PriorityWindowMatchConditionList_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is MatchConditionList matchConditionList && matchConditionList.Tag is List<MatchCondition> conditions)
+            {
+                matchConditionList.SetConditions(conditions);
+            }
+        }
+
         protected override void OnDrop(DragEventArgs e)
         {
             base.OnDrop(e);
@@ -306,9 +403,22 @@ namespace GestureSign.ControlPanel.Dialogs
             {
                 GlobalApp globalApp = (GlobalApp)_currentApplication;
                 int newValue = (int)LimitNumberOfFingersSlider.Value;
+                bool hasChanges = false;
+
                 if (newValue != globalApp.LimitNumberOfFingers)
                 {
                     globalApp.LimitNumberOfFingers = newValue;
+                    hasChanges = true;
+                }
+
+                // 保存优先级窗口设置
+                if (SavePriorityWindowsSettings(globalApp))
+                {
+                    hasChanges = true;
+                }
+
+                if (hasChanges)
+                {
                     ApplicationManager.Instance.SaveApplications();
                 }
                 return true;
@@ -343,7 +453,9 @@ namespace GestureSign.ControlPanel.Dialogs
                             LimitNumberOfFingers = (int)LimitNumberOfFingersSlider.Value,
                             Name = name,
                             Group = groupName,
-                            MatchConditions = conditions
+                            MatchConditions = conditions,
+                            DetectPriorityWindowByMousePosition = DetectPriorityWindowToggle.IsOn,
+                            PriorityWindows = GetPriorityWindowsFromUI()
                         };
 
                         if (_newApplication)
@@ -423,6 +535,110 @@ namespace GestureSign.ControlPanel.Dialogs
             }
             ApplicationManager.Instance.SaveApplications();
             return true;
+        }
+
+        /// <summary>
+        /// 从 UI 获取优先级窗口配置
+        /// </summary>
+        private List<List<MatchCondition>> GetPriorityWindowsFromUI()
+        {
+            var result = new List<List<MatchCondition>>();
+
+            // 遍历 ItemsControl 中的每个优先级窗口
+            foreach (var item in PriorityWindowsItemsControl.Items)
+            {
+                if (item is List<MatchCondition> conditionsList)
+                {
+                    // 获取对应的 MatchConditionList 控件
+                    var container = PriorityWindowsItemsControl.ItemContainerGenerator.ContainerFromItem(item) as FrameworkElement;
+                    var matchConditionList = FindVisualChild<MatchConditionList>(container);
+
+                    if (matchConditionList != null)
+                    {
+                        var conditions = matchConditionList.GetConditions();
+                        if (conditions != null && conditions.Count > 0)
+                        {
+                            result.Add(conditions);
+                        }
+                    }
+                    else if (conditionsList.Count > 0)
+                    {
+                        // 如果找不到控件，使用原始数据
+                        result.Add(new List<MatchCondition>(conditionsList));
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 保存优先级窗口设置到应用
+        /// </summary>
+        private bool SavePriorityWindowsSettings(IApplication app)
+        {
+            bool detectEnabled = DetectPriorityWindowToggle.IsOn;
+            var priorityWindows = GetPriorityWindowsFromUI();
+
+            bool hasChanges = false;
+
+            if (app.DetectPriorityWindowByMousePosition != detectEnabled)
+            {
+                app.DetectPriorityWindowByMousePosition = detectEnabled;
+                hasChanges = true;
+            }
+
+            // 简单比较优先级窗口列表是否有变化
+            if (!ArePriorityWindowsEqual(app.PriorityWindows, priorityWindows))
+            {
+                app.PriorityWindows = priorityWindows;
+                hasChanges = true;
+            }
+
+            return hasChanges;
+        }
+
+        /// <summary>
+        /// 比较两个优先级窗口列表是否相等
+        /// </summary>
+        private static bool ArePriorityWindowsEqual(List<List<MatchCondition>> list1, List<List<MatchCondition>> list2)
+        {
+            if (list1 == null && list2 == null) return true;
+            if (list1 == null || list2 == null) return false;
+            if (list1.Count != list2.Count) return false;
+
+            for (int i = 0; i < list1.Count; i++)
+            {
+                if (list1[i].Count != list2[i].Count) return false;
+                for (int j = 0; j < list1[i].Count; j++)
+                {
+                    var c1 = list1[i][j];
+                    var c2 = list2[i][j];
+                    if (c1.Type != c2.Type || c1.Value != c2.Value || c1.IsRegex != c2.IsRegex)
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 递归查找可视化子元素
+        /// </summary>
+        private static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            if (parent == null) return null;
+
+            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+                if (child is T result)
+                    return result;
+
+                var found = FindVisualChild<T>(child);
+                if (found != null)
+                    return found;
+            }
+            return null;
         }
 
         #endregion

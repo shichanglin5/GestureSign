@@ -29,6 +29,20 @@ namespace GestureSign.Common.Applications
         [DefaultValue("")]
         public virtual string Group { get; set; }
 
+        /// <summary>
+        /// 是否启用优先级窗口检测（触摸板 ActiveWindow 模式下）
+        /// </summary>
+        [DefaultValue(false)]
+        public virtual bool DetectPriorityWindowByMousePosition { get; set; } = false;
+
+        /// <summary>
+        /// 优先级窗口列表
+        /// 外层 List：多个优先级窗口（OR 关系，按顺序匹配）
+        /// 内层 List：每个优先级窗口的匹配条件（AND 关系，全部满足才匹配）
+        /// </summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public virtual List<List<MatchCondition>> PriorityWindows { get; set; } = new List<List<MatchCondition>>();
+
         [JsonProperty(ItemTypeNameHandling = TypeNameHandling.None)]
         public virtual IEnumerable<IAction> Actions
         {

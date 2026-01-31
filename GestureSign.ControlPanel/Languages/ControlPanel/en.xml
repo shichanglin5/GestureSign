@@ -36,6 +36,9 @@ This may lead to function failure(e.g. Start application at Windows startup).
     <Reset>Reset</Reset>
     <AUMID>App ID</AUMID>
     <ClassAndPath>Class+Path</ClassAndPath>
+    <Add>Add</Add>
+    <On>On</On>
+    <Off>Off</Off>
   </Common>
   <About>
     <Header>About</Header>
@@ -90,6 +93,9 @@ Email:ccfyzh@gmail.com
     <LimitNumberOfFingersInfo>At least {0} fingers</LimitNumberOfFingersInfo>
     <ProcessPath>Process Path</ProcessPath>
     <ProcessPathWatermark>Full process path for precise matching</ProcessPathWatermark>
+    <AdvancedSettings>Detect Priority Window by Mouse Position</AdvancedSettings>
+    <PriorityWindows>Priority Windows</PriorityWindows>
+    <PriorityWindowsDescription>When enabled, if the mouse is over a window matching these conditions, that window will be used as the gesture target instead of the active window. Each priority window can have multiple conditions (all must match). Priority windows are matched in order from top to bottom.</PriorityWindowsDescription>
     <Messages>
       <EmptyStringTitle>No Match String</EmptyStringTitle>
       <EmptyString>Please provide Match String for the application</EmptyString>

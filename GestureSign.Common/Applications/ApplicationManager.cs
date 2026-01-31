@@ -24,7 +24,6 @@ namespace GestureSign.Common.Applications
         private List<IApplication> _applications;
         IEnumerable<IApplication> _recognizedApplication;
         private Timer _timer;
-        private Point _lastTouchPadGestureMousePosition;  // 记录上次触摸板手势的鼠标位置
         #endregion
 
         #region Public Instance Properties
@@ -478,20 +477,20 @@ namespace GestureSign.Common.Applications
 
             if (targetMode == WindowTargetMode.ActiveWindow)
             {
-                // 触控板设备：鼠标位置变化时使用鼠标所在窗口，否则使用前台窗口
+                var foreground = SystemWindow.ForegroundWindow;
+
+                // 触控板设备：尝试优先级窗口匹配
                 if ((sourceDevice & Devices.TouchPad) != 0)
                 {
-                    var currentMousePosition = System.Windows.Forms.Cursor.Position;
-                    if (currentMousePosition != _lastTouchPadGestureMousePosition)
+                    var priorityWindow = TryGetPriorityMatchedWindow(foreground);
+                    if (priorityWindow != null)
                     {
-                        _lastTouchPadGestureMousePosition = currentMousePosition;
-                        return GetWindowFromPoint(currentMousePosition);
+                        return priorityWindow;
                     }
-                    return SystemWindow.ForegroundWindow ?? GetWindowFromPoint(currentMousePosition);
+                    return foreground ?? GetWindowFromPoint(System.Windows.Forms.Cursor.Position);
                 }
 
                 // 触摸屏设备：固定使用前台窗口，如果最小化则使用触摸点
-                var foreground = SystemWindow.ForegroundWindow;
                 if (foreground != null && foreground.WindowState == System.Windows.Forms.FormWindowState.Minimized)
                 {
                     return GetWindowFromPoint(point);
@@ -500,6 +499,219 @@ namespace GestureSign.Common.Applications
             }
 
             return GetWindowFromPoint(point);
+        }
+
+        /// <summary>
+        /// 尝试获取匹配优先级窗口的目标窗口
+        /// </summary>
+        private SystemWindow TryGetPriorityMatchedWindow(SystemWindow foregroundWindow)
+        {
+            // 1. 获取前台窗口对应的应用（取第一个匹配的）
+            var foregroundApps = GetApplicationFromWindow(foregroundWindow, true);
+            var foregroundApp = foregroundApps.FirstOrDefault();
+
+            var globalApp = GetGlobalApplication();
+
+            // 2. 检查是否需要进行优先级窗口匹配
+            bool appEnabled = foregroundApp != null
+                && foregroundApp.DetectPriorityWindowByMousePosition
+                && foregroundApp.PriorityWindows != null
+                && foregroundApp.PriorityWindows.Count > 0;
+
+            bool globalEnabled = globalApp.DetectPriorityWindowByMousePosition
+                && globalApp.PriorityWindows != null
+                && globalApp.PriorityWindows.Count > 0;
+
+            // 3. 如果都没启用或都没配置，直接返回 null
+            if (!appEnabled && !globalEnabled)
+            {
+                return null;
+            }
+
+            // 4. 获取鼠标所在窗口
+            var mouseWindow = GetWindowFromPoint(System.Windows.Forms.Cursor.Position);
+            if (mouseWindow == null)
+            {
+                return null;
+            }
+
+            // 5. 创建窗口信息缓存对象（按需获取属性）
+            var windowInfo = new WindowInfoCache(mouseWindow);
+
+            // 6. 先匹配应用级别的优先级窗口（如果启用）
+            if (appEnabled)
+            {
+                foreach (var priorityConditions in foregroundApp.PriorityWindows)
+                {
+                    if (MatchAllConditions(windowInfo, priorityConditions))
+                    {
+                        LogPriorityWindowMatch(mouseWindow, windowInfo, foregroundWindow, priorityConditions, foregroundApp.Name);
+                        return mouseWindow;
+                    }
+                }
+            }
+
+            // 7. 再匹配全局优先级窗口（如果启用）
+            if (globalEnabled)
+            {
+                foreach (var priorityConditions in globalApp.PriorityWindows)
+                {
+                    if (MatchAllConditions(windowInfo, priorityConditions))
+                    {
+                        LogPriorityWindowMatch(mouseWindow, windowInfo, foregroundWindow, priorityConditions, "Global");
+                        return mouseWindow;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 匹配一组条件（AND 逻辑：全部条件都要满足）
+        /// </summary>
+        private bool MatchAllConditions(WindowInfoCache windowInfo, List<MatchCondition> conditions)
+        {
+            if (conditions == null || conditions.Count == 0)
+            {
+                return false;  // 空条件不匹配
+            }
+
+            foreach (var condition in conditions)
+            {
+                // 跳过未配置的条件（Value 为空）
+                if (string.IsNullOrEmpty(condition.Value))
+                {
+                    continue;
+                }
+
+                if (!MatchSingleCondition(windowInfo, condition))
+                {
+                    return false;  // 任一条件不匹配，整体失败
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 匹配单个条件（按需获取窗口属性）
+        /// </summary>
+        private bool MatchSingleCondition(WindowInfoCache windowInfo, MatchCondition condition)
+        {
+            return condition.Type switch
+            {
+                MatchConditionType.ClassName =>
+                    MatchValue(windowInfo.GetClassName(), condition.Value, condition.IsRegex),
+                MatchConditionType.Title =>
+                    MatchValue(windowInfo.GetTitle(), condition.Value, condition.IsRegex),
+                MatchConditionType.ProcessName =>
+                    MatchProcessName(windowInfo.GetProcessName(), condition.Value),
+                MatchConditionType.ProcessPath =>
+                    MatchProcessPath(windowInfo.GetProcessPath(), condition.Value),
+                MatchConditionType.AUMID =>
+                    MatchValue(windowInfo.GetAUMID(), condition.Value, false),
+                _ => false
+            };
+        }
+
+        /// <summary>
+        /// 匹配字符串值
+        /// </summary>
+        private bool MatchValue(string actualValue, string expectedValue, bool isRegex)
+        {
+            if (string.IsNullOrEmpty(actualValue))
+                return false;
+
+            if (isRegex)
+            {
+                try
+                {
+                    return Regex.IsMatch(actualValue, expectedValue, RegexOptions.IgnoreCase);
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+
+            return string.Equals(actualValue, expectedValue, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 匹配进程名（自动处理 .exe 后缀）
+        /// </summary>
+        private bool MatchProcessName(string actualProcessName, string expectedProcessName)
+        {
+            if (string.IsNullOrEmpty(actualProcessName))
+                return false;
+
+            var expected = expectedProcessName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                ? Path.GetFileNameWithoutExtension(expectedProcessName)
+                : expectedProcessName;
+
+            return string.Equals(actualProcessName, expected, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 匹配进程路径
+        /// </summary>
+        private bool MatchProcessPath(string actualProcessPath, string expectedProcessPath)
+        {
+            if (string.IsNullOrEmpty(actualProcessPath))
+                return false;
+
+            return string.Equals(actualProcessPath, expectedProcessPath, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 记录优先级窗口匹配成功的日志
+        /// </summary>
+        private static void LogPriorityWindowMatch(SystemWindow priorityWindow, WindowInfoCache priorityWindowInfo, SystemWindow foregroundWindow, List<MatchCondition> conditions, string appName)
+        {
+            try
+            {
+                var conditionsStr = string.Join(" && ", conditions
+                    .Where(c => !string.IsNullOrEmpty(c.Value))
+                    .Select(c => $"{c.Type}={c.Value}"));
+
+                // 只打印匹配条件中涉及的属性（这些属性在匹配时已被缓存，无额外开销）
+                var priorityInfoParts = new List<string>();
+                var usedTypes = conditions
+                    .Where(c => !string.IsNullOrEmpty(c.Value))
+                    .Select(c => c.Type)
+                    .Distinct();
+
+                foreach (var type in usedTypes)
+                {
+                    switch (type)
+                    {
+                        case MatchConditionType.ClassName:
+                            priorityInfoParts.Add($"class={priorityWindowInfo.GetClassName()}");
+                            break;
+                        case MatchConditionType.Title:
+                            priorityInfoParts.Add($"title={priorityWindowInfo.GetTitle()}");
+                            break;
+                        case MatchConditionType.ProcessName:
+                            priorityInfoParts.Add($"processName={priorityWindowInfo.GetProcessName()}");
+                            break;
+                        case MatchConditionType.ProcessPath:
+                            priorityInfoParts.Add($"processPath={priorityWindowInfo.GetProcessPath()}");
+                            break;
+                        case MatchConditionType.AUMID:
+                            priorityInfoParts.Add($"aumid={priorityWindowInfo.GetAUMID() ?? "null"}");
+                            break;
+                    }
+                }
+
+                var priorityInfo = priorityInfoParts.Count > 0 ? $" ({string.Join(", ", priorityInfoParts)})" : "";
+
+                Logging.LogDebug($"[ApplicationManager] PriorityWindow matched ({appName}): [{conditionsStr}] -> 0x{priorityWindow?.HWnd:X} '{priorityWindow?.Title}'{priorityInfo}, ForegroundWindow=0x{foregroundWindow?.HWnd:X} '{foregroundWindow?.Title}'");
+            }
+            catch
+            {
+                // 日志记录失败不影响功能
+            }
         }
 
         private IApplication[] FindMatchApplications(IEnumerable<IApplication> applications, SystemWindow window, string className, string title, string fileName)

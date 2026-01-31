@@ -38,6 +38,9 @@
     <Reset>重置</Reset>
     <AUMID>应用ID</AUMID>
     <ClassAndPath>类名+路径</ClassAndPath>
+    <Add>添加</Add>
+    <On>开</On>
+    <Off>关</Off>
   </Common>
   <About>
     <Header>关于</Header>
@@ -94,6 +97,9 @@ QQ交流群：576981420
     <LimitNumberOfFingersInfo>至少 {0} 根手指</LimitNumberOfFingersInfo>
     <ProcessPath>进程路径</ProcessPath>
     <ProcessPathWatermark>完整进程路径（用于精确匹配）</ProcessPathWatermark>
+    <AdvancedSettings>以鼠标位置检测优先级窗口</AdvancedSettings>
+    <PriorityWindows>优先级窗口</PriorityWindows>
+    <PriorityWindowsDescription>启用后，如果鼠标所在窗口匹配以下条件，则以该窗口作为手势目标窗口，而非当前激活的窗口。每个优先级窗口可配置多个条件（需全部满足）。优先级窗口按从上到下的顺序匹配。</PriorityWindowsDescription>
     <Messages>
       <EmptyStringTitle>字段为空</EmptyStringTitle>
       <EmptyString>匹配字段不能为空，请重新输入匹配字段</EmptyString>
