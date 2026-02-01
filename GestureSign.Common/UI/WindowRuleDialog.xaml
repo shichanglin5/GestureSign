@@ -1,0 +1,100 @@
+<controls:MetroWindow x:Class="GestureSign.Common.UI.WindowRuleDialog"
+                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                      xmlns:controls="http://metro.mahapps.com/winfx/xaml/controls"
+                      xmlns:localization="clr-namespace:GestureSign.Common.Localization"
+                      xmlns:ui="clr-namespace:GestureSign.Common.UI"
+                      mc:Ignorable="d"
+                      Title="{localization:LocalisedText WindowRuleDialog.Title}"
+                      Width="450"
+                      Height="400"
+                      BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
+                      BorderThickness="1"
+                      ResizeMode="NoResize"
+                      ShowInTaskbar="False"
+                      WindowStartupLocation="CenterOwner">
+    <controls:MetroWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </controls:MetroWindow.Resources>
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Rule Name (optional, controlled by ShowRuleName) -->
+        <StackPanel x:Name="RuleNamePanel"
+                    Grid.Row="0"
+                    Margin="0,0,0,10"
+                    Visibility="{Binding ShowRuleName, RelativeSource={RelativeSource AncestorType=controls:MetroWindow}, Converter={StaticResource BoolToVisibilityConverter}}">
+            <TextBlock Text="{localization:LocalisedText WindowRuleDialog.RuleName}"
+                       FontWeight="Bold"
+                       Margin="0,0,0,5" />
+            <TextBox x:Name="RuleNameTextBox"
+                     Height="26"
+                     controls:TextBoxHelper.Watermark="{localization:LocalisedText WindowRuleDialog.RuleNameWatermark}"
+                     VerticalContentAlignment="Center" />
+        </StackPanel>
+
+        <!-- Match Conditions Label -->
+        <TextBlock Grid.Row="1"
+                   Text="{localization:LocalisedText WindowRuleDialog.MatchConditions}"
+                   FontWeight="Bold"
+                   Margin="0,0,0,5" />
+
+        <!-- Match Conditions List -->
+        <ui:MatchConditionList x:Name="ConditionList"
+                               Grid.Row="2"
+                               ShowCheckBox="True" />
+
+        <!-- Crosshair -->
+        <StackPanel Grid.Row="3"
+                    Orientation="Horizontal"
+                    Margin="0,10,0,10">
+            <ui:Crosshair x:Name="RuleCrosshair"
+                          Height="36"
+                          Width="36"
+                          CrosshairDragged="RuleCrosshair_Dragged"
+                          ToolTip="{localization:LocalisedText CorePlugins.ActivateApp.DragToCapture}" />
+            <TextBlock Text="{localization:LocalisedText ApplicationDialog.DragCrosshair}"
+                       VerticalAlignment="Center"
+                       Margin="10,0,0,0"
+                       Foreground="{DynamicResource MahApps.Brushes.Gray3}" />
+        </StackPanel>
+
+        <!-- Buttons -->
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button x:Name="AddToPresetButton"
+                    Content="{localization:LocalisedText WindowPresets.AddToPreset}"
+                    Click="AddToPresetButton_Click"
+                    FontSize="14"
+                    Height="32"
+                    Padding="10,0"
+                    Visibility="{Binding ShowAddToPreset, RelativeSource={RelativeSource AncestorType=controls:MetroWindow}, Converter={StaticResource BoolToVisibilityConverter}}" />
+            <Button x:Name="CancelButton"
+                    Content="{localization:LocalisedText Common.Cancel}"
+                    FontSize="14"
+                    Height="32"
+                    Margin="5,0,5,0"
+                    Grid.Column="1"
+                    IsCancel="True" />
+            <Button x:Name="SaveButton"
+                    Content="{localization:LocalisedText Common.Save}"
+                    Click="SaveButton_Click"
+                    IsDefault="True"
+                    FontSize="14"
+                    Height="32"
+                    Grid.Column="2" />
+        </Grid>
+    </Grid>
+</controls:MetroWindow>

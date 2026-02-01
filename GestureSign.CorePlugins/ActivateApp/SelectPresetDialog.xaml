@@ -1,0 +1,56 @@
+<Window x:Class="GestureSign.CorePlugins.ActivateApp.SelectPresetDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:localization="clr-namespace:GestureSign.Common.Localization;assembly=GestureSign.Common"
+        mc:Ignorable="d"
+        Title="{localization:LocalisedText CorePlugins.ActivateApp.SelectPreset}"
+        Height="350"
+        Width="350"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Foreground="{DynamicResource MahApps.Brushes.ThemeForeground}"
+        Background="{DynamicResource MahApps.Brushes.ThemeBackground}">
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.SelectPresetPrompt}"
+                   FontWeight="Bold"
+                   Margin="0,0,0,10"
+                   Grid.Row="0" />
+
+        <ListBox x:Name="PresetsListBox"
+                 Grid.Row="1"
+                 Margin="0,0,0,10"
+                 SelectionMode="Single"
+                 MouseDoubleClick="PresetsListBox_MouseDoubleClick">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding Name}" Margin="5,3" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+            <Button x:Name="OKButton"
+                    Content="{localization:LocalisedText Common.OK}"
+                    Width="80"
+                    Height="28"
+                    Click="OKButton_Click" />
+            <Button x:Name="CancelButton"
+                    Content="{localization:LocalisedText Common.Cancel}"
+                    Width="80"
+                    Height="28"
+                    Margin="10,0,0,0"
+                    Click="CancelButton_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

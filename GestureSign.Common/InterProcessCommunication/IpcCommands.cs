@@ -8,6 +8,7 @@
         LoadApplications,
         LoadGestures,
         LoadConfiguration,
+        LoadWindowPresets,
         GotGesture,
         ConfigReload,
         SynDeviceState,

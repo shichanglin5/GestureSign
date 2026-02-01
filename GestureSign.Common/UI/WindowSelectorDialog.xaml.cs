@@ -194,11 +194,8 @@ namespace GestureSign.Common.UI
                     _selectedWindow.AUMID = WindowMatcher.GetWindowAUMID(_selectedWindow.Handle);
                 }
 
-                // 延迟获取命令行（避免在加载窗口列表时进行 WMI 查询）
-                if (string.IsNullOrEmpty(_selectedWindow.CommandLine) && _selectedWindow.ProcessId > 0)
-                {
-                    _selectedWindow.CommandLine = GetProcessCommandLine(_selectedWindow.ProcessId);
-                }
+                // 注意：CommandLine 已改为延迟加载，不在此处查询
+                // 如需 CommandLine，调用方应在必要时自行调用 GetProcessCommandLine
 
                 DialogResult = true;
             }
@@ -207,6 +204,19 @@ namespace GestureSign.Common.UI
                 DialogResult = false;
             }
             Close();
+        }
+
+        /// <summary>
+        /// 公开的方法，允许调用方按需获取命令行（WMI 查询较慢）
+        /// </summary>
+        public void LoadCommandLineIfNeeded()
+        {
+            if (_selectedWindow != null &&
+                string.IsNullOrEmpty(_selectedWindow.CommandLine) &&
+                _selectedWindow.ProcessId > 0)
+            {
+                _selectedWindow.CommandLine = GetProcessCommandLine(_selectedWindow.ProcessId);
+            }
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)

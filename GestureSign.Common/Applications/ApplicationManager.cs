@@ -214,6 +214,9 @@ namespace GestureSign.Common.Applications
 
             return Task.Run(() =>
             {
+                // Load window presets first (needed for WindowRuleRef resolution)
+                WindowPresetManager.Instance.LoadPresets();
+
                 // Load application list from file
                 _applications =
                     FileManager.LoadObject<List<IApplication>>(
@@ -261,12 +264,11 @@ namespace GestureSign.Common.Applications
                 return new[] { GetGlobalApplication() };
             }
 
-            string className, title, fileName;
-            GetWindowInfo(window, out className, out title, out fileName);
+            var windowInfo = new WindowInfoCache(window);
 
             IApplication[] definedApplications = userApplicationOnly
-                ? FindMatchApplications(Applications.Where(a => a is UserApp), window, className, title, fileName)
-                : FindMatchApplications(Applications.Where(a => !(a is GlobalApp)), window, className, title, fileName);
+                ? FindMatchApplications(Applications.Where(a => a is UserApp), windowInfo)
+                : FindMatchApplications(Applications.Where(a => !(a is GlobalApp)), windowInfo);
             // Try to find any user or ignored applications that match the given system window
             // If not user or ignored application could be found, return the global application
             return definedApplications.Length != 0
@@ -306,11 +308,20 @@ namespace GestureSign.Common.Applications
                 return Enumerable.Empty<IAction>();
             }
             // Attempt to retrieve an action on the application passed in
-            IEnumerable<IAction> finalAction =
-                application.Where(app => !(app is IgnoredApp) && app.Actions != null).SelectMany(app => app.Actions.Where(a => a.GestureName == gestureName && a.Commands != null && a.Commands.Any(com => com != null && com.IsEnabled)));
+            var appActions = application
+                .Where(app => !(app is IgnoredApp) && app.Actions != null)
+                .SelectMany(app => app.Actions
+                    .Where(a => a.GestureName == gestureName && a.Commands != null && a.Commands.Any(com => com != null && com.IsEnabled))
+                    .Select(a => new { App = app, Action = a }))
+                .ToList();
+
+            IEnumerable<IAction> finalAction = appActions.Select(x => x.Action);
+
             // If there is was no action found on given application, try to get an action for global application
             if (!finalAction.Any() && useGlobal)
+            {
                 finalAction = GetGlobalApplication().Actions.Where(a => a.GestureName == gestureName);
+            }
 
             // Return whatever the result was
             return finalAction;
@@ -354,18 +365,18 @@ namespace GestureSign.Common.Applications
             else return globalApp;
         }
 
-        public IApplication[] FindMatchApplications<TApplication>(List<MatchCondition> matchConditions, string excludedApplication = null) where TApplication : IApplication
+        public IApplication[] FindMatchApplications<TApplication>(List<IWindowRule> matchRules, string excludedApplication = null) where TApplication : IApplication
         {
-            if (matchConditions == null || matchConditions.Count == 0)
+            if (matchRules == null || matchRules.Count == 0)
                 return Array.Empty<IApplication>();
 
+            // 简单匹配：检查规则的显示名称是否相同
             return Applications.FindAll(
                     a => a is TApplication &&
-                        a.MatchConditions != null &&
-                        a.MatchConditions.Count == matchConditions.Count &&
-                        matchConditions.All(mc => a.MatchConditions.Any(amc =>
-                            amc.Type == mc.Type &&
-                            string.Equals(amc.Value, mc.Value, StringComparison.OrdinalIgnoreCase))) &&
+                        a.MatchRules != null &&
+                        a.MatchRules.Count == matchRules.Count &&
+                        matchRules.All(mr => a.MatchRules.Any(amr =>
+                            string.Equals(amr.GetDisplayName(), mr.GetDisplayName(), StringComparison.OrdinalIgnoreCase))) &&
                         excludedApplication != a.Name).ToArray();
         }
 
@@ -380,16 +391,23 @@ namespace GestureSign.Common.Applications
         {
             var versionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(executablefilePath);
             app.Name = string.IsNullOrWhiteSpace(versionInfo.ProductName) ? Path.GetFileNameWithoutExtension(executablefilePath) : versionInfo.ProductName;
-            app.MatchConditions = new List<MatchCondition>
+
+            // 创建一个 WindowRule 作为匹配规则
+            var rule = new WindowRule
             {
-                new MatchCondition
+                Name = app.Name,
+                Conditions = new List<MatchCondition>
                 {
-                    Type = MatchConditionType.ProcessName,
-                    Value = Path.GetFileName(executablefilePath)
+                    new MatchCondition
+                    {
+                        Type = MatchConditionType.ProcessName,
+                        Value = Path.GetFileName(executablefilePath)
+                    }
                 }
             };
+            app.MatchRules = new List<IWindowRule> { rule };
 
-            var matchApplications = FindMatchApplications<TApp>(app.MatchConditions);
+            var matchApplications = FindMatchApplications<TApp>(app.MatchRules);
             if (matchApplications.Length != 0)
             {
                 return matchApplications[0];
@@ -585,11 +603,11 @@ namespace GestureSign.Common.Applications
             // 6. 先匹配应用级别的优先级窗口
             if (appHasPriorityWindows)
             {
-                foreach (var priorityConditions in foregroundApp.PriorityWindows)
+                foreach (var rule in foregroundApp.PriorityWindows)
                 {
-                    if (MatchAllConditions(windowInfo, priorityConditions))
+                    if (rule.IsMatch(windowInfo))
                     {
-                        LogPriorityWindowMatch(mouseWindow, windowInfo, foregroundWindow, priorityConditions, foregroundApp.Name);
+                        LogPriorityWindowMatch(mouseWindow, foregroundWindow, rule, foregroundApp.Name);
                         return mouseWindow;
                     }
                 }
@@ -598,11 +616,11 @@ namespace GestureSign.Common.Applications
             // 7. 再匹配全局优先级窗口
             if (globalHasPriorityWindows)
             {
-                foreach (var priorityConditions in globalApp.PriorityWindows)
+                foreach (var rule in globalApp.PriorityWindows)
                 {
-                    if (MatchAllConditions(windowInfo, priorityConditions))
+                    if (rule.IsMatch(windowInfo))
                     {
-                        LogPriorityWindowMatch(mouseWindow, windowInfo, foregroundWindow, priorityConditions, "Global");
+                        LogPriorityWindowMatch(mouseWindow, foregroundWindow, rule, "Global");
                         return mouseWindow;
                     }
                 }
@@ -612,145 +630,14 @@ namespace GestureSign.Common.Applications
         }
 
         /// <summary>
-        /// 匹配一组条件（AND 逻辑：全部条件都要满足）
-        /// </summary>
-        private bool MatchAllConditions(WindowInfoCache windowInfo, List<MatchCondition> conditions)
-        {
-            if (conditions == null || conditions.Count == 0)
-            {
-                return false;  // 空条件不匹配
-            }
-
-            foreach (var condition in conditions)
-            {
-                // 跳过未配置的条件（Value 为空）
-                if (string.IsNullOrEmpty(condition.Value))
-                {
-                    continue;
-                }
-
-                if (!MatchSingleCondition(windowInfo, condition))
-                {
-                    return false;  // 任一条件不匹配，整体失败
-                }
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// 匹配单个条件（按需获取窗口属性）
-        /// </summary>
-        private bool MatchSingleCondition(WindowInfoCache windowInfo, MatchCondition condition)
-        {
-            return condition.Type switch
-            {
-                MatchConditionType.ClassName =>
-                    MatchValue(windowInfo.GetClassName(), condition.Value, condition.IsRegex),
-                MatchConditionType.Title =>
-                    MatchValue(windowInfo.GetTitle(), condition.Value, condition.IsRegex),
-                MatchConditionType.ProcessName =>
-                    MatchProcessName(windowInfo.GetProcessName(), condition.Value),
-                MatchConditionType.ProcessPath =>
-                    MatchProcessPath(windowInfo.GetProcessPath(), condition.Value),
-                MatchConditionType.AUMID =>
-                    MatchValue(windowInfo.GetAUMID(), condition.Value, false),
-                _ => false
-            };
-        }
-
-        /// <summary>
-        /// 匹配字符串值
-        /// </summary>
-        private bool MatchValue(string actualValue, string expectedValue, bool isRegex)
-        {
-            if (string.IsNullOrEmpty(actualValue))
-                return false;
-
-            if (isRegex)
-            {
-                try
-                {
-                    return Regex.IsMatch(actualValue, expectedValue, RegexOptions.IgnoreCase);
-                }
-                catch
-                {
-                    return false;
-                }
-            }
-
-            return string.Equals(actualValue, expectedValue, StringComparison.OrdinalIgnoreCase);
-        }
-
-        /// <summary>
-        /// 匹配进程名（自动处理 .exe 后缀）
-        /// </summary>
-        private bool MatchProcessName(string actualProcessName, string expectedProcessName)
-        {
-            if (string.IsNullOrEmpty(actualProcessName))
-                return false;
-
-            var expected = expectedProcessName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-                ? Path.GetFileNameWithoutExtension(expectedProcessName)
-                : expectedProcessName;
-
-            return string.Equals(actualProcessName, expected, StringComparison.OrdinalIgnoreCase);
-        }
-
-        /// <summary>
-        /// 匹配进程路径
-        /// </summary>
-        private bool MatchProcessPath(string actualProcessPath, string expectedProcessPath)
-        {
-            if (string.IsNullOrEmpty(actualProcessPath))
-                return false;
-
-            return string.Equals(actualProcessPath, expectedProcessPath, StringComparison.OrdinalIgnoreCase);
-        }
-
-        /// <summary>
         /// 记录优先级窗口匹配成功的日志
         /// </summary>
-        private static void LogPriorityWindowMatch(SystemWindow priorityWindow, WindowInfoCache priorityWindowInfo, SystemWindow foregroundWindow, List<MatchCondition> conditions, string appName)
+        private static void LogPriorityWindowMatch(SystemWindow priorityWindow, SystemWindow foregroundWindow, IWindowRule rule, string appName)
         {
             try
             {
-                var conditionsStr = string.Join(" && ", conditions
-                    .Where(c => !string.IsNullOrEmpty(c.Value))
-                    .Select(c => $"{c.Type}={c.Value}"));
-
-                // 只打印匹配条件中涉及的属性（这些属性在匹配时已被缓存，无额外开销）
-                var priorityInfoParts = new List<string>();
-                var usedTypes = conditions
-                    .Where(c => !string.IsNullOrEmpty(c.Value))
-                    .Select(c => c.Type)
-                    .Distinct();
-
-                foreach (var type in usedTypes)
-                {
-                    switch (type)
-                    {
-                        case MatchConditionType.ClassName:
-                            priorityInfoParts.Add($"class={priorityWindowInfo.GetClassName()}");
-                            break;
-                        case MatchConditionType.Title:
-                            priorityInfoParts.Add($"title={priorityWindowInfo.GetTitle()}");
-                            break;
-                        case MatchConditionType.ProcessName:
-                            priorityInfoParts.Add($"processName={priorityWindowInfo.GetProcessName()}");
-                            break;
-                        case MatchConditionType.ProcessPath:
-                            priorityInfoParts.Add($"processPath={priorityWindowInfo.GetProcessPath()}");
-                            break;
-                        case MatchConditionType.AUMID:
-                            priorityInfoParts.Add($"aumid={priorityWindowInfo.GetAUMID() ?? "null"}");
-                            break;
-                    }
-                }
-
-                var priorityInfo = priorityInfoParts.Count > 0 ? $" ({string.Join(", ", priorityInfoParts)})" : "";
-
-                Logging.LogDebug($"[ApplicationManager] PriorityWindow matched ({appName}): [{conditionsStr}] -> 0x{priorityWindow?.HWnd:X} '{priorityWindow?.Title}'{priorityInfo}, ForegroundWindow=0x{foregroundWindow?.HWnd:X} '{foregroundWindow?.Title}'");
+                var ruleInfo = rule.GetDisplayName();
+                Logging.LogDebug($"[ApplicationManager] PriorityWindow matched ({appName}): [{ruleInfo}] -> 0x{priorityWindow?.HWnd:X} '{priorityWindow?.Title}', ForegroundWindow=0x{foregroundWindow?.HWnd:X} '{foregroundWindow?.Title}'");
             }
             catch
             {
@@ -758,14 +645,14 @@ namespace GestureSign.Common.Applications
             }
         }
 
-        private IApplication[] FindMatchApplications(IEnumerable<IApplication> applications, SystemWindow window, string className, string title, string fileName)
+        private IApplication[] FindMatchApplications(IEnumerable<IApplication> applications, WindowInfoCache windowInfo)
         {
             var result = new List<IApplication>();
             foreach (var app in applications)
             {
                 try
                 {
-                    if (WindowMatcher.IsMatch(window, app))
+                    if (app.IsMatch(windowInfo))
                     {
                         result.Add(app);
                     }
@@ -795,7 +682,7 @@ namespace GestureSign.Common.Applications
                         BlockTouchInputThreshold = legacyUserApp.BlockTouchInputThreshold,
                         LimitNumberOfFingers = legacyUserApp.LimitNumberOfFingers,
                         Group = legacyUserApp.Group,
-                        MatchConditions = ConvertLegacyMatchConditions(legacyUserApp.MatchUsing, legacyUserApp.MatchString, legacyUserApp.IsRegEx),
+                        MatchRules = ConvertLegacyMatchRules(legacyUserApp.MatchUsing, legacyUserApp.MatchString, legacyUserApp.IsRegEx, legacyUserApp.Name),
                         Name = legacyUserApp.Name
                     };
                     _applications.Add(newApp);
@@ -808,7 +695,7 @@ namespace GestureSign.Common.Applications
                     var temp = legacyIgnoredApp.Name.Split(new[] { '$' }, StringSplitOptions.RemoveEmptyEntries);
                     var newName = temp.Length > 1 ? temp[1] : legacyIgnoredApp.Name;
                     var newApp = new IgnoredApp(newName,
-                        ConvertLegacyMatchConditions(legacyIgnoredApp.MatchUsing, legacyIgnoredApp.MatchString, legacyIgnoredApp.IsRegEx),
+                        ConvertLegacyMatchRules(legacyIgnoredApp.MatchUsing, legacyIgnoredApp.MatchString, legacyIgnoredApp.IsRegEx, newName),
                         legacyIgnoredApp.IsEnabled);
                     _applications.Add(newApp);
                     continue;
@@ -829,10 +716,10 @@ namespace GestureSign.Common.Applications
             return true;
         }
 
-        private static List<MatchCondition> ConvertLegacyMatchConditions(MatchUsing matchUsing, string matchString, bool isRegEx)
+        private static List<IWindowRule> ConvertLegacyMatchRules(MatchUsing matchUsing, string matchString, bool isRegEx, string appName)
         {
             if (string.IsNullOrEmpty(matchString))
-                return new List<MatchCondition>();
+                return new List<IWindowRule>();
 
             var conditionType = matchUsing switch
             {
@@ -842,15 +729,21 @@ namespace GestureSign.Common.Applications
                 _ => MatchConditionType.ProcessName
             };
 
-            return new List<MatchCondition>
+            var rule = new WindowRule
             {
-                new MatchCondition
+                Name = appName,
+                Conditions = new List<MatchCondition>
                 {
-                    Type = conditionType,
-                    Value = matchString,
-                    IsRegex = isRegEx && conditionType == MatchConditionType.Title
+                    new MatchCondition
+                    {
+                        Type = conditionType,
+                        Value = matchString,
+                        IsRegex = isRegEx && conditionType == MatchConditionType.Title
+                    }
                 }
             };
+
+            return new List<IWindowRule> { rule };
         }
 
         private List<IAction> ConvertLegacyActions(List<GestureSign.Applications.Action> legacyActions)
@@ -880,7 +773,7 @@ namespace GestureSign.Common.Applications
             }
             return newActions;
         }
-#pragma warning restore CS0618  
+#pragma warning restore CS0618
 
         private bool IsFullScreenWindow(Point targetPoint)
         {

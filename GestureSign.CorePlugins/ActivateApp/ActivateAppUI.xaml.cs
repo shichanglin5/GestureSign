@@ -1,9 +1,12 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using GestureSign.Common.Applications;
+using GestureSign.Common.Localization;
 using GestureSign.Common.Log;
 using GestureSign.Common.UI;
 
@@ -14,6 +17,9 @@ namespace GestureSign.CorePlugins.ActivateApp
         #region Private Variables
 
         private ActivateAppSettings _settings;
+        private WindowRule _windowRule;
+        private string _applicationArguments;
+        private string _presetId; // 引用的预置规则 ID
 
         #endregion
 
@@ -35,17 +41,14 @@ namespace GestureSign.CorePlugins.ActivateApp
                 if (_settings == null)
                     _settings = new ActivateAppSettings();
 
-                // Get display name
-                _settings.DisplayName = DisplayNameTextBox.Text.Trim();
+                // Set window rule
+                _settings.WindowRule = _windowRule;
 
-                // Get application path
-                _settings.ApplicationPath = MatchConditionList.ApplicationPath;
+                // Set preset id
+                _settings.PresetId = _presetId;
 
-                // Get application arguments
-                _settings.ApplicationArguments = MatchConditionList.ApplicationArguments;
-
-                // Get matching conditions
-                _settings.MatchConditions = MatchConditionList.GetConditions();
+                // Set application arguments
+                _settings.ApplicationArguments = _applicationArguments;
 
                 // Parse cache expiration
                 if (int.TryParse(CacheExpirationTextBox.Text.Trim(), out int cacheExpiration))
@@ -66,17 +69,14 @@ namespace GestureSign.CorePlugins.ActivateApp
             {
                 _settings = value ?? new ActivateAppSettings();
 
-                // Set display name
-                DisplayNameTextBox.Text = _settings.DisplayName ?? string.Empty;
+                // Get window rule
+                _windowRule = _settings.WindowRule;
 
-                // Set application path
-                MatchConditionList.ApplicationPath = _settings.ApplicationPath ?? string.Empty;
+                // Get preset id
+                _presetId = _settings.PresetId;
 
-                // Set application arguments
-                MatchConditionList.ApplicationArguments = _settings.ApplicationArguments ?? string.Empty;
-
-                // Set matching conditions
-                MatchConditionList.SetConditions(_settings.MatchConditions);
+                // Get application arguments
+                _applicationArguments = _settings.ApplicationArguments;
 
                 // Set cache expiration
                 CacheExpirationTextBox.Text = _settings.CacheExpirationSeconds.ToString();
@@ -84,11 +84,8 @@ namespace GestureSign.CorePlugins.ActivateApp
                 // Set minimize if activated checkbox
                 MinimizeIfActivatedCheckBox.IsChecked = _settings.MinimizeIfActivated;
 
-                // Set default display name if empty but has ApplicationPath
-                if (string.IsNullOrEmpty(DisplayNameTextBox.Text) && !string.IsNullOrEmpty(_settings.ApplicationPath))
-                {
-                    DisplayNameTextBox.Text = Path.GetFileNameWithoutExtension(_settings.ApplicationPath);
-                }
+                // Update summary display
+                UpdateWindowRuleSummary();
             }
         }
 
@@ -96,23 +93,44 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         #region Event Handlers
 
-        private void CaptureCrosshair_CrosshairDragged(object sender, MouseButtonEventArgs e)
+        private void AddWindowRuleButton_Click(object sender, RoutedEventArgs e)
         {
-            ShowWindowSelectorDialog();
+            ShowWindowSelectorDialogAndEdit();
         }
 
-        private void ShowWindowSelectorDialog()
+        private void WindowRuleBorder_Click(object sender, MouseButtonEventArgs e)
         {
+            // 如果是预置引用，打开预置编辑对话框
+            if (!string.IsNullOrEmpty(_presetId))
+            {
+                ShowPresetEditDialog();
+            }
+            else
+            {
+                // 点击窗口规则区域，打开编辑对话框
+                ShowEditDialog();
+            }
+        }
+
+        private void ReferencePresetButton_Click(object sender, RoutedEventArgs e)
+        {
+            // 引用预置规则
             try
             {
-                Logging.LogDebug("[ActivateAppUI] ShowWindowSelectorDialog called");
+                var presets = WindowPresetManager.Instance.Presets;
+                if (presets == null || presets.Count == 0)
+                {
+                    MessageBox.Show(
+                        LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.NoPresetsAvailable"),
+                        LocalizationProvider.Instance.GetTextValue("Common.OK"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    return;
+                }
 
                 var ownerWindow = Window.GetWindow(this);
-                Logging.LogDebug($"[ActivateAppUI] Owner window: {(ownerWindow != null ? ownerWindow.GetType().Name : "null")}");
+                var dialog = new SelectPresetDialog();
 
-                var dialog = new WindowSelectorDialog();
-
-                // 只有当 Owner 窗口有效时才设置，否则使用 CenterScreen
                 if (ownerWindow != null && ownerWindow.IsLoaded)
                 {
                     dialog.Owner = ownerWindow;
@@ -122,17 +140,93 @@ namespace GestureSign.CorePlugins.ActivateApp
                     dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
                 }
 
-                Logging.LogDebug("[ActivateAppUI] Showing dialog...");
-
-                if (dialog.ShowDialog() == true && dialog.SelectedWindow != null)
+                if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.SelectedPresetId))
                 {
-                    var windowInfo = dialog.SelectedWindow;
-                    Logging.LogDebug($"[ActivateAppUI] Dialog result: true, selected window: {windowInfo.Title}");
-                    PopulateFromWindowInfo(windowInfo);
+                    // 获取预置规则并复制
+                    var preset = WindowPresetManager.Instance.GetPresetById(dialog.SelectedPresetId);
+                    if (preset != null)
+                    {
+                        _presetId = preset.Id;
+                        // 复制预置规则作为 WindowRule
+                        _windowRule = new WindowRule
+                        {
+                            Name = preset.Name,
+                            ApplicationPath = preset.ApplicationPath,
+                            Conditions = preset.Conditions?.ToList()
+                        };
+
+                        UpdateWindowRuleSummary();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.LogError($"[ActivateAppUI] Error referencing preset: {ex.Message}\n{ex.StackTrace}");
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ShowWindowSelectorDialogAndEdit()
+        {
+            try
+            {
+                Logging.LogDebug("[ActivateAppUI] ShowWindowSelectorDialogAndEdit called");
+
+                var ownerWindow = Window.GetWindow(this);
+                var selectorDialog = new WindowSelectorDialog();
+
+                if (ownerWindow != null && ownerWindow.IsLoaded)
+                {
+                    selectorDialog.Owner = ownerWindow;
                 }
                 else
                 {
-                    Logging.LogDebug("[ActivateAppUI] Dialog result: false or no selection");
+                    selectorDialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+
+                if (selectorDialog.ShowDialog() == true && selectorDialog.SelectedWindow != null)
+                {
+                    var windowInfo = selectorDialog.SelectedWindow;
+                    Logging.LogDebug($"[ActivateAppUI] Dialog result: true, selected window: {windowInfo.Title}");
+
+                    // 清除预置引用
+                    _presetId = null;
+
+                    // 创建新的 WindowRule 并打开编辑对话框
+                    var rule = new WindowRule
+                    {
+                        Name = windowInfo.FileName ?? windowInfo.Title,
+                        ApplicationPath = windowInfo.ProcessPath
+                    };
+
+                    var editDialog = new WindowRuleDialog(rule)
+                    {
+                        ShowRuleName = true,
+                        ShowAddToPreset = true,
+                        ShowArguments = true
+                    };
+
+                    if (ownerWindow != null && ownerWindow.IsLoaded)
+                    {
+                        editDialog.Owner = ownerWindow;
+                    }
+                    else
+                    {
+                        editDialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                    }
+
+                    // 使用 PopulateFromWindowInfo 填充所有可用条件供用户选择
+                    editDialog.PopulateFromWindowInfo(windowInfo);
+
+                    if (editDialog.ShowDialog() == true)
+                    {
+                        // 保存编辑结果
+                        _windowRule = editDialog.WindowRule;
+                        _applicationArguments = editDialog.ApplicationArguments;
+
+                        // 更新摘要
+                        UpdateWindowRuleSummary();
+                    }
                 }
             }
             catch (Exception ex)
@@ -142,25 +236,164 @@ namespace GestureSign.CorePlugins.ActivateApp
             }
         }
 
+        private void ShowEditDialog()
+        {
+            try
+            {
+                var ownerWindow = Window.GetWindow(this);
+                var dialog = new WindowRuleDialog(_windowRule ?? new WindowRule())
+                {
+                    ShowRuleName = true,
+                    ShowAddToPreset = true,
+                    ShowArguments = true
+                };
+
+                if (ownerWindow != null && ownerWindow.IsLoaded)
+                {
+                    dialog.Owner = ownerWindow;
+                }
+                else
+                {
+                    dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+
+                // Load current arguments
+                dialog.ApplicationArguments = _applicationArguments ?? string.Empty;
+
+                if (dialog.ShowDialog() == true)
+                {
+                    // Save settings from dialog
+                    _windowRule = dialog.WindowRule;
+                    _applicationArguments = dialog.ApplicationArguments;
+
+                    // 清除预置引用（因为用户手动编辑了）
+                    _presetId = null;
+
+                    // Update summary
+                    UpdateWindowRuleSummary();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.LogError($"[ActivateAppUI] Error opening edit dialog: {ex.Message}\n{ex.StackTrace}");
+                MessageBox.Show($"Error opening edit dialog: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ShowPresetEditDialog()
+        {
+            try
+            {
+                var preset = WindowPresetManager.Instance.GetPresetById(_presetId);
+                if (preset == null)
+                {
+                    MessageBox.Show(
+                        LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.PresetNotFound"),
+                        LocalizationProvider.Instance.GetTextValue("Common.Error"),
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                var ownerWindow = Window.GetWindow(this);
+                var dialog = new WindowRuleDialog(preset)
+                {
+                    ShowRuleName = true,
+                    ShowAddToPreset = false,
+                    ShowArguments = true
+                };
+
+                if (ownerWindow != null && ownerWindow.IsLoaded)
+                {
+                    dialog.Owner = ownerWindow;
+                }
+                else
+                {
+                    dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+
+                // Load current arguments
+                dialog.ApplicationArguments = _applicationArguments ?? string.Empty;
+
+                if (dialog.ShowDialog() == true)
+                {
+                    // Save presets
+                    WindowPresetManager.Instance.SavePresets();
+
+                    // Update local cache
+                    _windowRule = new WindowRule
+                    {
+                        Name = preset.Name,
+                        ApplicationPath = preset.ApplicationPath,
+                        Conditions = preset.Conditions?.ToList()
+                    };
+                    _applicationArguments = dialog.ApplicationArguments;
+
+                    // Update summary
+                    UpdateWindowRuleSummary();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.LogError($"[ActivateAppUI] Error editing preset: {ex.Message}\n{ex.StackTrace}");
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         #endregion
 
         #region Private Methods
 
-        private void PopulateFromWindowInfo(WindowMatchInfo windowInfo)
+        private void UpdateWindowRuleSummary()
         {
-            if (_settings == null)
-                _settings = new ActivateAppSettings();
+            var sb = new StringBuilder();
 
-            // Auto-fill display name (if empty)
-            if (string.IsNullOrEmpty(DisplayNameTextBox.Text))
+            // 如果有预置规则 ID，优先显示
+            if (!string.IsNullOrEmpty(_presetId))
             {
-                DisplayNameTextBox.Text = windowInfo.FileName ?? windowInfo.Title ?? string.Empty;
+                var preset = WindowPresetManager.Instance.GetPresetById(_presetId);
+                var presetName = preset?.Name ?? _presetId;
+                sb.AppendLine($"[{LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.PresetReference")}] {presetName}");
             }
 
-            // Populate condition list
-            MatchConditionList.PopulateFromWindowInfo(windowInfo);
+            if (_windowRule != null)
+            {
+                // Show rule name
+                if (!string.IsNullOrEmpty(_windowRule.Name))
+                {
+                    sb.AppendLine($"{LocalizationProvider.Instance.GetTextValue("WindowRuleDialog.RuleName")}: {_windowRule.Name}");
+                }
 
-            Logging.LogDebug($"[ActivateAppUI] Selected window: {windowInfo.FileName}, AUMID: {windowInfo.AUMID}, ClassName: {windowInfo.ClassName}");
+                // Show application path
+                if (!string.IsNullOrEmpty(_windowRule.ApplicationPath))
+                {
+                    sb.AppendLine($"{LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.ApplicationPath")}: {Path.GetFileName(_windowRule.ApplicationPath)}");
+                }
+
+                // Show conditions summary
+                if (_windowRule.Conditions != null && _windowRule.Conditions.Count > 0)
+                {
+                    foreach (var condition in _windowRule.Conditions.Take(3))
+                    {
+                        sb.AppendLine($"{condition.Type}: {condition.Value}");
+                    }
+                    if (_windowRule.Conditions.Count > 3)
+                    {
+                        sb.AppendLine($"... (+{_windowRule.Conditions.Count - 3})");
+                    }
+                }
+            }
+
+            if (sb.Length > 0)
+            {
+                WindowRuleSummaryText.Text = sb.ToString().TrimEnd();
+                WindowRuleSummaryText.Foreground = (System.Windows.Media.Brush)FindResource("MahApps.Brushes.ThemeForeground");
+            }
+            else
+            {
+                WindowRuleSummaryText.Text = LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.NoWindowRuleConfigured");
+                WindowRuleSummaryText.Foreground = System.Windows.Media.Brushes.Gray;
+            }
         }
 
         #endregion

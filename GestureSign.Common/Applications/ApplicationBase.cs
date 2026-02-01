@@ -1,4 +1,3 @@
-using ManagedWinapi.Windows;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -21,10 +20,10 @@ namespace GestureSign.Common.Applications
         public virtual string Name { get; set; }
 
         /// <summary>
-        /// 匹配条件列表（多条件 AND 组合）
+        /// 应用匹配规则列表（有序，OR 关系）
         /// </summary>
-        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public virtual List<MatchCondition> MatchConditions { get; set; } = new List<MatchCondition>();
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore, ItemTypeNameHandling = TypeNameHandling.Auto)]
+        public virtual List<IWindowRule> MatchRules { get; set; } = new List<IWindowRule>();
 
         [DefaultValue("")]
         public virtual string Group { get; set; }
@@ -36,12 +35,10 @@ namespace GestureSign.Common.Applications
         public virtual MouseWindowDetectionMode MouseWindowDetection { get; set; } = MouseWindowDetectionMode.Disabled;
 
         /// <summary>
-        /// 优先级窗口列表
-        /// 外层 List：多个优先级窗口（OR 关系，按顺序匹配）
-        /// 内层 List：每个优先级窗口的匹配条件（AND 关系，全部满足才匹配）
+        /// 优先级窗口列表（有序，OR 关系）
         /// </summary>
-        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public virtual List<List<MatchCondition>> PriorityWindows { get; set; } = new List<List<MatchCondition>>();
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore, ItemTypeNameHandling = TypeNameHandling.Auto)]
+        public virtual List<IWindowRule> PriorityWindows { get; set; } = new List<IWindowRule>();
 
         [JsonProperty(ItemTypeNameHandling = TypeNameHandling.None)]
         public virtual IEnumerable<IAction> Actions
@@ -109,9 +106,26 @@ namespace GestureSign.Common.Applications
                 oldIndex));
         }
 
-        public bool IsSystemWindowMatch(SystemWindow Window)
+        public virtual bool IsMatch(WindowInfoCache windowInfo)
         {
-            return WindowMatcher.IsMatch(Window, this);
+            if (windowInfo == null)
+                return false;
+
+            var matchRules = MatchRules;
+
+            if (matchRules == null || matchRules.Count == 0)
+            {
+                return false;
+            }
+
+            // OR 关系：任一规则匹配即可
+            foreach (var rule in matchRules)
+            {
+                if (rule != null && rule.IsMatch(windowInfo))
+                    return true;
+            }
+
+            return false;
         }
 
         public int CompareTo(object obj)

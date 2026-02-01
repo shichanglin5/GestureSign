@@ -31,7 +31,8 @@ namespace GestureSign.CorePlugins.ActivateApp
         private readonly Dictionary<string, (List<IntPtr> Handles, DateTime LastUpdate)> _windowListCache = new();
 
         // Settings cache: Key = serializedData (JSON string), Value = deserialized settings
-        private readonly Dictionary<string, ActivateAppSettings> _settingsCache = new();
+        // 注意：这里缓存的是不可变数据，UI 编辑时会生成新的 JSON 字符串
+        private static readonly Dictionary<string, ActivateAppSettings> _settingsCache = new();
 
         #endregion
 
@@ -89,12 +90,12 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             get
             {
-                if (_settings == null)
+                if (_settings == null || _settings.WindowRule == null)
                     return LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.Description");
 
                 // Build description with matching info
                 string matchInfo = GetMatchInfoString();
-                string displayName = _settings.DisplayName ?? "Unknown";
+                string displayName = _settings.WindowRule.Name ?? "Unknown";
 
                 if (string.IsNullOrEmpty(matchInfo))
                 {
@@ -112,16 +113,17 @@ namespace GestureSign.CorePlugins.ActivateApp
         /// </summary>
         private string GetMatchInfoString()
         {
-            if (_settings == null)
+            if (_settings?.WindowRule == null)
                 return string.Empty;
 
-            if (_settings.MatchConditions != null && _settings.MatchConditions.Count > 0)
+            var rule = _settings.WindowRule;
+            if (rule.Conditions != null && rule.Conditions.Count > 0)
             {
-                return string.Join(", ", _settings.MatchConditions.Select(c => $"{c.Type}={c.Value}"));
+                return string.Join(", ", rule.Conditions.Select(c => $"{c.Type}={c.Value}"));
             }
-            else if (!string.IsNullOrEmpty(_settings.ApplicationPath))
+            else if (!string.IsNullOrEmpty(rule.ApplicationPath))
             {
-                return $"AppPath={_settings.ApplicationPath}";
+                return $"AppPath={rule.ApplicationPath}";
             }
 
             return string.Empty;
@@ -168,7 +170,7 @@ namespace GestureSign.CorePlugins.ActivateApp
 
                 // Log matching result using GetMatchInfoString
                 var matchInfo = GetMatchInfoString();
-                Logging.LogDebug($"[ActivateApp] Activating: {_settings.DisplayName}, matched by [{matchInfo}]: {appWindows.Count} windows found");
+                Logging.LogDebug($"[ActivateApp] Activating: {_settings.WindowRule?.Name}, matched by [{matchInfo}]: {appWindows.Count} windows found");
 
                 if (appWindows.Count == 0)
                 {
@@ -195,21 +197,19 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         public bool Deserialize(string serializedData)
         {
-            // Use settings cache to avoid redundant JSON deserialization
-            if (_settingsCache.TryGetValue(serializedData, out var cachedSettings))
+            // 从缓存获取，避免重复反序列化
+            if (_settingsCache.TryGetValue(serializedData, out var cached))
             {
-                _settings = cachedSettings;
+                _settings = cached;
                 return true;
             }
 
-            // Cache miss - deserialize and cache the result
+            // 反序列化并缓存
             bool success = PluginHelper.DeserializeSettings(serializedData, out _settings);
-
             if (success && _settings != null)
             {
                 _settingsCache[serializedData] = _settings;
             }
-
             return success;
         }
 
@@ -285,13 +285,17 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         /// <summary>
         /// Scan all windows and find matching ones
-        /// Uses MatchConditions if available, otherwise falls back to ApplicationPath matching
+        /// Uses WindowRule.Conditions if available, otherwise falls back to WindowRule.ApplicationPath matching
         /// </summary>
         private List<IntPtr> ScanMatchingWindows(ActivateAppSettings settings, bool includeHidden)
         {
             var windows = new List<IntPtr>();
-            bool hasConditions = settings.MatchConditions != null && settings.MatchConditions.Count > 0;
-            bool hasApplicationPath = !string.IsNullOrEmpty(settings.ApplicationPath);
+            var rule = settings.WindowRule;
+            if (rule == null)
+                return windows;
+
+            bool hasConditions = rule.Conditions != null && rule.Conditions.Count > 0;
+            bool hasApplicationPath = !string.IsNullOrEmpty(rule.ApplicationPath);
 
             EnumWindows((hWnd, _) =>
             {
@@ -309,7 +313,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                     if (hasConditions)
                     {
                         // Use WindowMatcher's unified matching logic for explicit conditions
-                        if (WindowMatcher.MatchAllConditions(window, settings.MatchConditions))
+                        if (WindowMatcher.MatchAllConditions(window, rule.Conditions))
                         {
                             windows.Add(hWnd);
                         }
@@ -319,7 +323,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                         // Fallback: match ProcessPath against ApplicationPath when no conditions specified
                         var processPath = WindowMatcher.GetProcessPath(hWnd);
                         if (!string.IsNullOrEmpty(processPath) &&
-                            string.Equals(processPath, settings.ApplicationPath, StringComparison.OrdinalIgnoreCase))
+                            string.Equals(processPath, rule.ApplicationPath, StringComparison.OrdinalIgnoreCase))
                         {
                             windows.Add(hWnd);
                         }
@@ -451,7 +455,7 @@ namespace GestureSign.CorePlugins.ActivateApp
         }
 
         /// <summary>
-        /// Try to launch application using ApplicationPath and ApplicationArguments
+        /// Try to launch application using WindowRule.ApplicationPath and ApplicationArguments
         /// For PWA/UWP apps, use AUMID to launch via shell:AppsFolder
         /// </summary>
         private bool TryLaunchApplication(ActivateAppSettings settings)
@@ -463,13 +467,12 @@ namespace GestureSign.CorePlugins.ActivateApp
             }
 
             // 回退到传统的 exe 路径启动
-            if (string.IsNullOrEmpty(settings.ApplicationPath))
+            var applicationPath = settings.WindowRule?.ApplicationPath;
+            if (string.IsNullOrEmpty(applicationPath))
             {
                 Logging.LogWarning($"[ActivateApp] No application path or AUMID, cannot launch");
                 return false;
             }
-
-            string applicationPath = settings.ApplicationPath;
 
             try
             {

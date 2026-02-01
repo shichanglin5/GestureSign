@@ -53,7 +53,6 @@ namespace GestureSign.Daemon.Triggers
             var state = PointCapture.Instance.State;
             if ((state != CaptureState.Capturing && state != CaptureState.CapturingInvalid) || fingerCount < 2)
             {
-                Logging.LogDebug($"[ContinuousGestureTrigger] Skip: State={state}, FingerCount={fingerCount}, Points={e.Points.Count}");
                 return;
             }
 

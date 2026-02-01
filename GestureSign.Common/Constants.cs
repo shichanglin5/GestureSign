@@ -7,6 +7,7 @@
         public const string GesturesExtension = ".gest";
         public const string ActionFileName = "Actions.gsa";
         public const string ActionExtension = ".gsa";
+        public const string WindowPresetsFileName = "WindowPresets.json";
         public const string ArchivesName = ProductName + ArchivesExtension;
         public const string ArchivesExtension = ".ges";
         public const string BackupFileExtension = ".gsb";

@@ -74,7 +74,7 @@ namespace GestureSign.Common.Configuration
                     ? new JsonSerializerSettings()
                     {
                         TypeNameHandling = TypeNameHandling.Objects,
-                        Converters = new List<JsonConverter>() { new ActionConverter(), new CommandConverter() }
+                        Converters = new List<JsonConverter>() { new ActionConverter(), new CommandConverter(), new WindowRuleConverter() }
                     }
                     : new JsonSerializerSettings());
             }

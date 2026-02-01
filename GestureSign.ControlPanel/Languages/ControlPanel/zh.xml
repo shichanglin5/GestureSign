@@ -84,6 +84,7 @@ QQ交流群：576981420
     <MatchString>匹配文本</MatchString>
     <MatchUsing>匹配类型</MatchUsing>
     <MatchConditions>匹配条件</MatchConditions>
+    <WindowRules>窗口规则</WindowRules>
     <AddCondition>+ 添加条件</AddCondition>
     <ApplicationPath>应用程序路径:</ApplicationPath>
     <GetMatchString>捕获目标程序</GetMatchString>
@@ -119,6 +120,7 @@ QQ交流群：576981420
       <NoMatchStringTitle>无匹配字段</NoMatchStringTitle>
       <NoMatchString>请先提供一个匹配字段</NoMatchString>
       <EmptyProcessPath>使用"类名+路径"匹配时，进程路径不能为空</EmptyProcessPath>
+      <PresetNotFound>预置规则未找到，可能已被删除。</PresetNotFound>
     </Messages>
   </ApplicationDialog>
   <ActionDialog>
@@ -357,4 +359,38 @@ QQ交流群：576981420
       <TaskUserDisabled>开机启动已被用户禁用，请先在任务管理器中启用。</TaskUserDisabled>
     </Messages>
   </Options>
+  <WindowPresets>
+    <Header>预置</Header>
+    <PresetList>预置规则</PresetList>
+    <PresetName>规则名称</PresetName>
+    <MatchConditions>匹配条件</MatchConditions>
+    <AddPreset>添加预置</AddPreset>
+    <DeletePreset>删除预置</DeletePreset>
+    <SavePreset>保存</SavePreset>
+    <EditPreset>编辑预置</EditPreset>
+    <ReferencePreset>使用预置</ReferencePreset>
+    <AddToPreset>保存为预置</AddToPreset>
+    <SaveToPreset>保存到预置</SaveToPreset>
+    <EnterPresetName>请输入预置规则名称：</EnterPresetName>
+    <Messages>
+      <DeleteConfirmTitle>确认删除</DeleteConfirmTitle>
+      <DeleteConfirm>确定要删除预置规则 "{0}" 吗？</DeleteConfirm>
+      <DeleteWithReferences>以下位置引用了此预置规则，删除后这些引用将被清除：\n\n{0}\n\n确定要删除吗？</DeleteWithReferences>
+      <EmptyName>请输入预置规则名称</EmptyName>
+      <EmptyConditions>请至少添加一个匹配条件或指定应用程序路径</EmptyConditions>
+      <DuplicateName>预置规则名称 "{0}" 已存在，请使用其他名称</DuplicateName>
+      <Saved>预置规则 "{0}" 已保存</Saved>
+      <SavedTitle>已保存</SavedTitle>
+    </Messages>
+  </WindowPresets>
+  <WindowRuleDialog>
+    <Title>编辑窗口规则</Title>
+    <RuleName>规则名称（可选）</RuleName>
+    <RuleNameWatermark>输入名称以便识别</RuleNameWatermark>
+    <MatchConditions>匹配条件</MatchConditions>
+  </WindowRuleDialog>
+  <SelectPresetDialog>
+    <Title>选择预置规则</Title>
+    <SelectPreset>选择要引用的预置规则：</SelectPreset>
+  </SelectPresetDialog>
 </Language>

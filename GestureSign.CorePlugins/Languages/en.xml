@@ -1,5 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <Language DisplayName="English" Culture="en" Version="6.1">
+  <Common>
+    <Add>Add</Add>
+    <Save>Save</Save>
+    <Cancel>Cancel</Cancel>
+    <OK>OK</OK>
+    <Error>Error</Error>
+    <Tip>Tip</Tip>
+  </Common>
   <CorePlugins>
     <ActivateWindow>
       <Name>Activate Window</Name>
@@ -237,7 +245,20 @@
       <UseRegex>Use Regular Expression</UseRegex>
       <DisplayName>Display Name:</DisplayName>
       <MinimizeIfActivated>Minimize if already activated</MinimizeIfActivated>
-      <ApplicationPath>Application Path:</ApplicationPath>
+      <ApplicationPath>Application Path</ApplicationPath>
+      <ApplicationArguments>Arguments</ApplicationArguments>
+      <WindowRule>Window Rule</WindowRule>
+      <EditWindowRule>Edit Window Rule</EditWindowRule>
+      <NoWindowRuleConfigured>No window rule configured</NoWindowRuleConfigured>
+      <DragCrosshairToSelect>Drag crosshair to select window</DragCrosshairToSelect>
+      <CacheExpiration>Cache Expiration (seconds)</CacheExpiration>
+      <CacheExpirationTip>Set to 0 to disable caching</CacheExpirationTip>
+      <ReferencePreset>Reference Preset</ReferencePreset>
+      <SelectPreset>Select Preset</SelectPreset>
+      <SelectPresetPrompt>Select a preset window rule:</SelectPresetPrompt>
+      <NoPresetsAvailable>No presets available. Please create presets in the Window Presets page first.</NoPresetsAvailable>
+      <PresetReference>Preset</PresetReference>
+      <PresetNotFound>The preset rule was not found. It may have been deleted.</PresetNotFound>
     </ActivateApp>
     <InertialScroll>
       <Name>Simulate Inertial Swipe</Name>
@@ -278,5 +299,7 @@
   <Common>
     <OK>OK</OK>
     <Cancel>Cancel</Cancel>
+    <Save>Save</Save>
+    <Add>Add</Add>
   </Common>
 </Language>

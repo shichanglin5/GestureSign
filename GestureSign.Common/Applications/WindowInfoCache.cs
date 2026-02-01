@@ -8,7 +8,7 @@ namespace GestureSign.Common.Applications
     /// 窗口信息缓存，支持按需获取和缓存属性
     /// 注意：EmptyMarker 仅用于内部标记"已获取但为空"，不会与配置值比较
     /// </summary>
-    internal class WindowInfoCache
+    public class WindowInfoCache
     {
         private readonly SystemWindow _window;
         private readonly IntPtr _hWnd;

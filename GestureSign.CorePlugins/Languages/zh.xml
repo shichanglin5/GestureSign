@@ -1,5 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <Language DisplayName="中文" Culture="zh-CN" Version="6.1">
+  <Common>
+    <Add>添加</Add>
+    <Save>保存</Save>
+    <Cancel>取消</Cancel>
+    <OK>确定</OK>
+    <Error>错误</Error>
+    <Tip>提示</Tip>
+  </Common>
   <CorePlugins>
     <ActivateWindow>
       <Name>激活窗口</Name>
@@ -238,7 +246,20 @@
       <UseRegex>使用正则表达式</UseRegex>
       <DisplayName>显示名称:</DisplayName>
       <MinimizeIfActivated>已激活则最小化</MinimizeIfActivated>
-      <ApplicationPath>应用程序路径:</ApplicationPath>
+      <ApplicationPath>应用程序路径</ApplicationPath>
+      <ApplicationArguments>启动参数</ApplicationArguments>
+      <WindowRule>窗口规则</WindowRule>
+      <EditWindowRule>编辑窗口规则</EditWindowRule>
+      <NoWindowRuleConfigured>未配置窗口规则</NoWindowRuleConfigured>
+      <DragCrosshairToSelect>拖拽十字光标选择窗口</DragCrosshairToSelect>
+      <CacheExpiration>缓存过期时间（秒）</CacheExpiration>
+      <CacheExpirationTip>设置为 0 禁用缓存</CacheExpirationTip>
+      <ReferencePreset>引用预置</ReferencePreset>
+      <SelectPreset>选择预置规则</SelectPreset>
+      <SelectPresetPrompt>请选择一个预置窗口规则：</SelectPresetPrompt>
+      <NoPresetsAvailable>没有可用的预置规则，请先在预置窗口规则页面创建。</NoPresetsAvailable>
+      <PresetReference>预置</PresetReference>
+      <PresetNotFound>预置规则未找到，可能已被删除。</PresetNotFound>
     </ActivateApp>
     <InertialScroll>
       <Name>模拟惯性滑动</Name>
@@ -279,5 +300,7 @@
   <Common>
     <OK>确定</OK>
     <Cancel>取消</Cancel>
+    <Save>保存</Save>
+    <Add>添加</Add>
   </Common>
 </Language>

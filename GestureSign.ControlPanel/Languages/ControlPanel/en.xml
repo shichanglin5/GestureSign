@@ -80,6 +80,7 @@ Email:ccfyzh@gmail.com
     <MatchString>Match String</MatchString>
     <MatchUsing>Match Using</MatchUsing>
     <MatchConditions>Match Conditions</MatchConditions>
+    <WindowRules>Window Rules</WindowRules>
     <AddCondition>+ Add Condition</AddCondition>
     <ApplicationPath>Application Path:</ApplicationPath>
     <GetMatchString>Get Match String</GetMatchString>
@@ -115,6 +116,7 @@ Email:ccfyzh@gmail.com
       <NoMatchStringTitle>No Match String</NoMatchStringTitle>
       <NoMatchString>Please provide Match String for the application</NoMatchString>
       <EmptyProcessPath>Process path is required when using Class+Path matching</EmptyProcessPath>
+      <PresetNotFound>The preset rule was not found. It may have been deleted.</PresetNotFound>
     </Messages>
   </ApplicationDialog>
   <ActionDialog>
@@ -353,4 +355,38 @@ Email:ccfyzh@gmail.com
       <TaskUserDisabled>The task has been disabled by user, please enable it in the Startup section of Task Manager. </TaskUserDisabled>
     </Messages>
   </Options>
+  <WindowPresets>
+    <Header>Presets</Header>
+    <PresetList>Preset Rules</PresetList>
+    <PresetName>Rule Name</PresetName>
+    <MatchConditions>Match Conditions</MatchConditions>
+    <AddPreset>Add Preset</AddPreset>
+    <DeletePreset>Delete Preset</DeletePreset>
+    <SavePreset>Save</SavePreset>
+    <EditPreset>Edit Preset</EditPreset>
+    <ReferencePreset>Use Preset</ReferencePreset>
+    <AddToPreset>Save as Preset</AddToPreset>
+    <SaveToPreset>Save to Preset</SaveToPreset>
+    <EnterPresetName>Enter a name for this preset rule:</EnterPresetName>
+    <Messages>
+      <DeleteConfirmTitle>Confirm Delete</DeleteConfirmTitle>
+      <DeleteConfirm>Are you sure you want to delete preset "{0}"?</DeleteConfirm>
+      <DeleteWithReferences>The following locations reference this preset. These references will be removed after deletion:\n\n{0}\n\nAre you sure you want to delete?</DeleteWithReferences>
+      <EmptyName>Please enter a preset name</EmptyName>
+      <EmptyConditions>Please add at least one match condition or specify an application path</EmptyConditions>
+      <DuplicateName>Preset name "{0}" already exists, please use a different name</DuplicateName>
+      <Saved>Preset "{0}" has been saved</Saved>
+      <SavedTitle>Saved</SavedTitle>
+    </Messages>
+  </WindowPresets>
+  <WindowRuleDialog>
+    <Title>Edit Window Rule</Title>
+    <RuleName>Rule Name (optional)</RuleName>
+    <RuleNameWatermark>Enter a name for identification</RuleNameWatermark>
+    <MatchConditions>Match Conditions</MatchConditions>
+  </WindowRuleDialog>
+  <SelectPresetDialog>
+    <Title>Select Preset Rule</Title>
+    <SelectPreset>Select a preset rule to reference:</SelectPreset>
+  </SelectPresetDialog>
 </Language>

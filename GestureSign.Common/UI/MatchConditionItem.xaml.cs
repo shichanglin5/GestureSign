@@ -3,27 +3,43 @@ using System.Windows;
 using System.Windows.Controls;
 using GestureSign.Common.Applications;
 
-namespace GestureSign.CorePlugins.ActivateApp
+namespace GestureSign.Common.UI
 {
     /// <summary>
-    /// MatchConditionItemControl.xaml 的交互逻辑
+    /// MatchConditionItem.xaml 的交互逻辑
     /// </summary>
-    public partial class MatchConditionItemControl : UserControl
+    public partial class MatchConditionItem : UserControl
     {
         public event EventHandler DeleteRequested;
 
-        public MatchConditionItemControl()
+        public static readonly DependencyProperty ShowCheckBoxProperty =
+            DependencyProperty.Register("ShowCheckBox", typeof(bool), typeof(MatchConditionItem),
+                new PropertyMetadata(false, OnShowCheckBoxChanged));
+
+        private static void OnShowCheckBoxChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            InitializeComponent();
+            if (d is MatchConditionItem item && item.EnabledCheckBox != null)
+            {
+                item.EnabledCheckBox.Visibility = (bool)e.NewValue ? Visibility.Visible : Visibility.Collapsed;
+            }
         }
 
-        /// <summary>
-        /// 条件是否启用
-        /// </summary>
-        public bool IsConditionEnabled
+        public bool ShowCheckBox
         {
-            get { return EnabledCheckBox.IsChecked == true; }
-            set { EnabledCheckBox.IsChecked = value; }
+            get { return (bool)GetValue(ShowCheckBoxProperty); }
+            set { SetValue(ShowCheckBoxProperty, value); }
+        }
+
+        public MatchConditionItem()
+        {
+            InitializeComponent();
+            Loaded += MatchConditionItem_Loaded;
+        }
+
+        private void MatchConditionItem_Loaded(object sender, RoutedEventArgs e)
+        {
+            // 初始化后更新 CheckBox 可见性
+            EnabledCheckBox.Visibility = ShowCheckBox ? Visibility.Visible : Visibility.Collapsed;
         }
 
         public MatchConditionType ConditionType
@@ -38,6 +54,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                         "ClassName" => MatchConditionType.ClassName,
                         "Title" => MatchConditionType.Title,
                         "ProcessName" => MatchConditionType.ProcessName,
+                        "ProcessPath" => MatchConditionType.ProcessPath,
                         "AUMID" => MatchConditionType.AUMID,
                         _ => MatchConditionType.ClassName
                     };
@@ -51,7 +68,8 @@ namespace GestureSign.CorePlugins.ActivateApp
                     MatchConditionType.ClassName => 0,
                     MatchConditionType.Title => 1,
                     MatchConditionType.ProcessName => 2,
-                    MatchConditionType.AUMID => 3,
+                    MatchConditionType.ProcessPath => 3,
+                    MatchConditionType.AUMID => 4,
                     _ => 0
                 };
                 TypeComboBox.SelectedIndex = index;
@@ -70,13 +88,22 @@ namespace GestureSign.CorePlugins.ActivateApp
             set { RegexCheckBox.IsChecked = value; }
         }
 
+        public bool IsConditionEnabled
+        {
+            get { return EnabledCheckBox.IsChecked == true; }
+            set { EnabledCheckBox.IsChecked = value; }
+        }
+
         /// <summary>
-        /// 获取条件（仅当启用且有值时返回）
+        /// 获取条件（当 ShowCheckBox 为 true 时仅当启用且有值时返回，否则仅当有值时返回）
         /// </summary>
         public MatchCondition GetCondition()
         {
-            // 未启用或无值时返回 null
-            if (!IsConditionEnabled || string.IsNullOrWhiteSpace(ConditionValue))
+            // 如果显示 CheckBox 且未启用，返回 null
+            if (ShowCheckBox && !IsConditionEnabled)
+                return null;
+
+            if (string.IsNullOrWhiteSpace(ConditionValue))
                 return null;
 
             return new MatchCondition
@@ -92,10 +119,10 @@ namespace GestureSign.CorePlugins.ActivateApp
             if (condition == null)
                 return;
 
-            IsConditionEnabled = isEnabled;
             ConditionType = condition.Type;
             ConditionValue = condition.Value;
             IsRegex = condition.IsRegex;
+            IsConditionEnabled = isEnabled;
         }
 
         private void TypeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

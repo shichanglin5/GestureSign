@@ -145,43 +145,6 @@ namespace GestureSign.Common.Applications
         #region Public Methods
 
         /// <summary>
-        /// 检查窗口是否匹配应用的所有条件（AND 组合）
-        /// </summary>
-        public static bool IsMatch(SystemWindow window, IApplication app)
-        {
-            if (window == null || app == null)
-                return false;
-
-            var conditions = app.MatchConditions;
-
-            // 无条件 = 匹配所有（GlobalApp 行为）
-            if (conditions == null || conditions.Count == 0)
-                return true;
-
-            try
-            {
-                var hWnd = window.HWnd;
-                var cache = GetOrCreateCache(hWnd, window);
-
-                // 按性能优先级排序条件，快速失败
-                var sortedConditions = conditions.OrderBy(c => c.GetPriority());
-
-                foreach (var condition in sortedConditions)
-                {
-                    if (!MatchCondition(window, hWnd, cache, condition))
-                        return false;
-                }
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logging.LogTrace($"[WindowMatcher] Match error: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
         /// 获取窗口的 AUMID（应用用户模型 ID），带缓存
         /// </summary>
         public static string GetWindowAUMID(IntPtr hWnd)
@@ -299,6 +262,118 @@ namespace GestureSign.Common.Applications
                 Logging.LogTrace($"[WindowMatcher] MatchAllConditions error: {ex.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 匹配所有条件（AND 逻辑，使用外部 WindowInfoCache）
+        /// </summary>
+        public static bool MatchAllConditions(Applications.WindowInfoCache windowInfo, List<MatchCondition> conditions)
+        {
+            if (windowInfo == null)
+                return false;
+
+            if (conditions == null || conditions.Count == 0)
+                return false;
+
+            try
+            {
+                foreach (var condition in conditions)
+                {
+                    if (string.IsNullOrEmpty(condition.Value))
+                        continue;
+
+                    if (!MatchConditionWithCache(windowInfo, condition))
+                        return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logging.LogTrace($"[WindowMatcher] MatchAllConditions error: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 匹配单个条件（使用外部 WindowInfoCache）
+        /// </summary>
+        private static bool MatchConditionWithCache(Applications.WindowInfoCache windowInfo, MatchCondition condition)
+        {
+            return condition.Type switch
+            {
+                MatchConditionType.ClassName =>
+                    MatchClassName(windowInfo.GetClassName(), condition.Value),
+                MatchConditionType.Title =>
+                    MatchTitleValue(windowInfo.GetTitle(), condition.Value, condition.IsRegex),
+                MatchConditionType.ProcessName =>
+                    MatchProcessNameValue(windowInfo.GetProcessName(), condition.Value),
+                MatchConditionType.ProcessPath =>
+                    MatchProcessPathValue(windowInfo.GetProcessPath(), windowInfo.GetProcessName(), condition.Value),
+                MatchConditionType.AUMID =>
+                    MatchValue(windowInfo.GetAUMID(), condition.Value),
+                _ => false
+            };
+        }
+
+        private static bool MatchValue(string actualValue, string expectedValue)
+        {
+            if (string.IsNullOrEmpty(actualValue))
+                return false;
+            return string.Equals(actualValue, expectedValue, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool MatchTitleValue(string windowTitle, string pattern, bool isRegex)
+        {
+            if (string.IsNullOrEmpty(windowTitle))
+                return false;
+
+            if (isRegex)
+            {
+                try
+                {
+                    return Regex.IsMatch(windowTitle, pattern, RegexOptions.IgnoreCase);
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                return windowTitle.Contains(pattern, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private static bool MatchProcessNameValue(string actualProcessName, string expectedProcessName)
+        {
+            if (string.IsNullOrEmpty(actualProcessName))
+                return false;
+
+            var expected = expectedProcessName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                ? Path.GetFileNameWithoutExtension(expectedProcessName)
+                : expectedProcessName;
+
+            return string.Equals(actualProcessName, expected, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool MatchProcessPathValue(string actualPath, string processName, string expectedPath)
+        {
+            // 优先完整路径匹配
+            if (!string.IsNullOrEmpty(actualPath))
+            {
+                return string.Equals(actualPath, expectedPath, StringComparison.OrdinalIgnoreCase);
+            }
+
+            // 回退到进程名匹配
+            if (!string.IsNullOrEmpty(processName))
+            {
+                string expectedFileName = Path.GetFileName(expectedPath);
+                string actualFileName = processName + ".exe";
+                return string.Equals(expectedFileName, actualFileName, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
         }
 
         #endregion

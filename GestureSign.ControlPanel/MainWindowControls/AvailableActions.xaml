@@ -382,6 +382,19 @@
                                                                   FontSize="16"
                                                                   Click="ActionButton_Click" />
                                                         <Separator />
+                                                        <MenuItem x:Name="CutGestureMenuItem"
+                                                                  Header="{localization:LocalisedText Action.CutAction}"
+                                                                  FontSize="16"
+                                                                  Click="CutGestureMenuItem_Click" />
+                                                        <MenuItem x:Name="CopyGestureMenuItem"
+                                                                  Header="{localization:LocalisedText Action.CopyAction}"
+                                                                  FontSize="16"
+                                                                  Click="CopyGestureMenuItem_Click" />
+                                                        <MenuItem x:Name="PasteGestureMenuItem"
+                                                                  Header="{localization:LocalisedText Action.PasteToSelectedAction}"
+                                                                  FontSize="16"
+                                                                  Click="PasteGestureMenuItem_Click" />
+                                                        <Separator />
                                                         <MenuItem x:Name="DeleteActionMenuItem"
                                                                   Header="{localization:LocalisedText Action.Delete}"
                                                                   FontSize="16"

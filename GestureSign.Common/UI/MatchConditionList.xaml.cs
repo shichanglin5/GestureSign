@@ -4,10 +4,9 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using GestureSign.Common.Applications;
-using GestureSign.Common.UI;
 using Microsoft.Win32;
 
-namespace GestureSign.ControlPanel.UserControls
+namespace GestureSign.Common.UI
 {
     /// <summary>
     /// MatchConditionList.xaml 的交互逻辑
@@ -17,10 +16,19 @@ namespace GestureSign.ControlPanel.UserControls
         public static readonly DependencyProperty ShowCheckBoxProperty =
             DependencyProperty.Register("ShowCheckBox", typeof(bool), typeof(MatchConditionList), new PropertyMetadata(false));
 
+        public static readonly DependencyProperty ShowArgumentsProperty =
+            DependencyProperty.Register("ShowArguments", typeof(bool), typeof(MatchConditionList), new PropertyMetadata(false));
+
         public bool ShowCheckBox
         {
             get { return (bool)GetValue(ShowCheckBoxProperty); }
             set { SetValue(ShowCheckBoxProperty, value); }
+        }
+
+        public bool ShowArguments
+        {
+            get { return (bool)GetValue(ShowArgumentsProperty); }
+            set { SetValue(ShowArgumentsProperty, value); }
         }
 
         /// <summary>
@@ -30,6 +38,15 @@ namespace GestureSign.ControlPanel.UserControls
         {
             get => ApplicationPathTextBox.Text.Trim();
             set => ApplicationPathTextBox.Text = value ?? string.Empty;
+        }
+
+        /// <summary>
+        /// 应用程序参数
+        /// </summary>
+        public string ApplicationArguments
+        {
+            get => ApplicationArgumentsTextBox.Text.Trim();
+            set => ApplicationArgumentsTextBox.Text = value ?? string.Empty;
         }
 
         public MatchConditionList()
@@ -47,10 +64,6 @@ namespace GestureSign.ControlPanel.UserControls
             {
                 if (child is MatchConditionItem item)
                 {
-                    // 如果显示 CheckBox，只取勾选的；否则全取
-                    if (ShowCheckBox && !item.IsConditionEnabled)
-                        continue;
-
                     var condition = item.GetCondition();
                     if (condition != null)
                     {
@@ -87,6 +100,20 @@ namespace GestureSign.ControlPanel.UserControls
             if (!string.IsNullOrEmpty(info.ProcessPath))
             {
                 ApplicationPathTextBox.Text = info.ProcessPath;
+            }
+
+            // 自动填充应用程序参数（如果显示参数输入框）
+            if (ShowArguments)
+            {
+                var arguments = info.GetArguments();
+                if (!string.IsNullOrEmpty(arguments))
+                {
+                    ApplicationArgumentsTextBox.Text = arguments;
+                }
+                else
+                {
+                    ApplicationArgumentsTextBox.Text = string.Empty;
+                }
             }
 
             if (!string.IsNullOrEmpty(info.ClassName))
@@ -131,7 +158,7 @@ namespace GestureSign.ControlPanel.UserControls
                 {
                     Type = MatchConditionType.AUMID,
                     Value = info.AUMID
-                }, isEnabled: false);
+                }, isEnabled: !string.IsNullOrEmpty(info.AUMID)); // UWP 应用默认勾选 AUMID
             }
         }
 
@@ -141,6 +168,8 @@ namespace GestureSign.ControlPanel.UserControls
         public void Clear()
         {
             ConditionPanel.Children.Clear();
+            ApplicationPathTextBox.Text = string.Empty;
+            ApplicationArgumentsTextBox.Text = string.Empty;
         }
 
         /// <summary>
@@ -156,8 +185,7 @@ namespace GestureSign.ControlPanel.UserControls
 
             if (condition != null)
             {
-                item.SetCondition(condition);
-                item.IsConditionEnabled = isEnabled;
+                item.SetCondition(condition, isEnabled);
             }
 
             item.DeleteRequested += (s, e) =>

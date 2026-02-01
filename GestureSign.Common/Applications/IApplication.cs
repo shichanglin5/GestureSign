@@ -1,4 +1,3 @@
-using ManagedWinapi.Windows;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 
@@ -11,9 +10,10 @@ namespace GestureSign.Common.Applications
         IEnumerable<IAction> Actions { get; set; }
 
         /// <summary>
-        /// 匹配条件列表（多条件 AND 组合）
+        /// 应用匹配规则列表（有序，OR 关系，支持拖动排序）
+        /// 任意一个规则匹配即视为此应用匹配
         /// </summary>
-        List<MatchCondition> MatchConditions { get; set; }
+        List<IWindowRule> MatchRules { get; set; }
 
         string Group { get; set; }
 
@@ -23,16 +23,14 @@ namespace GestureSign.Common.Applications
         MouseWindowDetectionMode MouseWindowDetection { get; set; }
 
         /// <summary>
-        /// 优先级窗口列表
-        /// 外层 List：多个优先级窗口（OR 关系，按顺序匹配）
-        /// 内层 List：每个优先级窗口的匹配条件（AND 关系，全部满足才匹配）
+        /// 优先级窗口列表（有序，OR 关系，支持拖动排序）
         /// </summary>
-        List<List<MatchCondition>> PriorityWindows { get; set; }
+        List<IWindowRule> PriorityWindows { get; set; }
 
         void AddAction(IAction Action);
         void Insert(int index, IAction action);
         void RemoveAction(IAction Action);
         void MoveAction(int oldIndex, int newIndex);
-        bool IsSystemWindowMatch(SystemWindow Window);
+        bool IsMatch(WindowInfoCache windowInfo);
     }
 }

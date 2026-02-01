@@ -1,10 +1,10 @@
-<UserControl x:Class="GestureSign.ControlPanel.UserControls.MatchConditionList"
+<UserControl x:Class="GestureSign.Common.UI.MatchConditionList"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:localization="clr-namespace:GestureSign.Common.Localization;assembly=GestureSign.Common"
-             xmlns:local="clr-namespace:GestureSign.ControlPanel.UserControls"
+             xmlns:localization="clr-namespace:GestureSign.Common.Localization"
+             xmlns:ui="clr-namespace:GestureSign.Common.UI"
              mc:Ignorable="d"
              d:DesignHeight="200"
              d:DesignWidth="400">
@@ -13,6 +13,7 @@
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -39,14 +40,25 @@
             </Grid>
         </StackPanel>
 
-        <ScrollViewer Grid.Row="1"
+        <!-- Application Arguments (optional, controlled by ShowArguments) -->
+        <StackPanel x:Name="ArgumentsPanel"
+                    Grid.Row="1"
+                    Margin="0,0,0,10"
+                    Visibility="{Binding ShowArguments, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}">
+            <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.ApplicationArguments}"
+                       Margin="0,0,0,5" />
+            <TextBox x:Name="ApplicationArgumentsTextBox"
+                     Height="23" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="2"
                       VerticalScrollBarVisibility="Auto"
                       MaxHeight="120">
             <StackPanel x:Name="ConditionPanel" />
         </ScrollViewer>
 
         <Button x:Name="AddButton"
-                Grid.Row="2"
+                Grid.Row="3"
                 Content="{localization:LocalisedText ApplicationDialog.AddCondition}"
                 HorizontalAlignment="Left"
                 Margin="0,5,0,0"

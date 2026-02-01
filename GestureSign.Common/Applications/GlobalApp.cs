@@ -20,7 +20,13 @@ namespace GestureSign.Common.Applications
             //set { /* Set only exists for deserialization purposes */ }
         }
 
-        // GlobalApp 的 MatchConditions 为空列表，表示匹配所有窗口
+        /// <summary>
+        /// GlobalApp 匹配所有窗口
+        /// </summary>
+        public override bool IsMatch(WindowInfoCache windowInfo)
+        {
+            return windowInfo != null;
+        }
 
         #endregion
     }

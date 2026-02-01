@@ -31,6 +31,7 @@ namespace GestureSign.ControlPanel
         private EventHandler _applicationSavedHandler;
         private EventHandler _gestureSavedHandler;
         private EventHandler _configChangedHandler;
+        private EventHandler _presetsSavedHandler;
 
         private void Application_Startup(object sender, StartupEventArgs e)
         {
@@ -53,6 +54,7 @@ namespace GestureSign.ControlPanel
                 GestureManager.Instance.Load(null);
                 GestureSign.Common.Plugins.PluginManager.Instance.Load(null);
                 ApplicationManager.Instance.Load(null);
+                WindowPresetManager.Instance.LoadPresets();
 
                 NamedPipe.Instance.RunNamedPipeServer(Constants.ControlPanel, new MessageProcessor());
 
@@ -65,6 +67,9 @@ namespace GestureSign.ControlPanel
 
                 _configChangedHandler = (o, ea) => NamedPipe.SendMessageAsync(IpcCommands.LoadConfiguration, Constants.Daemon);
                 AppConfig.ConfigChanged += _configChangedHandler;
+
+                _presetsSavedHandler = (o, ea) => NamedPipe.SendMessageAsync(IpcCommands.LoadWindowPresets, Constants.Daemon);
+                WindowPresetManager.Instance.PresetsChanged += _presetsSavedHandler;
 
                 MainWindow mainWindow = new MainWindow();
                 mainWindow.Show();
@@ -84,6 +89,9 @@ namespace GestureSign.ControlPanel
                 LocalizationProvider.Instance.LoadFromResource(ControlPanel.Properties.Resources.en);
             }
 
+            // 加载 CorePlugins 语言（从 Languages 根目录的 XML 文件）
+            LoadCorePluginsLanguage();
+
             Current.Resources["DefaultFlowDirection"] = LocalizationProviderEx.FlowDirection;
             var font = LocalizationProviderEx.Font;
             var headerFontFamily = LocalizationProviderEx.HeaderFontFamily;
@@ -96,6 +104,47 @@ namespace GestureSign.ControlPanel
                     Current.Resources["ToggleSwitchHeaderFontFamily.Win10"] = font;
             if (headerFontFamily != null)
                 Current.Resources["HeaderFontFamily"] = headerFontFamily;
+        }
+
+        private void LoadCorePluginsLanguage()
+        {
+            try
+            {
+                // 获取当前语言的两字母代码
+                var cultureName = string.IsNullOrEmpty(AppConfig.CultureName)
+                    ? System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName
+                    : AppConfig.CultureName.Split('-')[0];
+
+                // 尝试加载对应语言文件
+                var languageFile = System.IO.Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    "Languages",
+                    cultureName + ".xml");
+
+                if (!System.IO.File.Exists(languageFile))
+                {
+                    // 回退到英文
+                    languageFile = System.IO.Path.Combine(
+                        AppDomain.CurrentDomain.BaseDirectory,
+                        "Languages",
+                        "en.xml");
+                }
+
+                if (System.IO.File.Exists(languageFile))
+                {
+                    using (var xtr = new System.Xml.XmlTextReader(languageFile)
+                    {
+                        WhitespaceHandling = System.Xml.WhitespaceHandling.None
+                    })
+                    {
+                        LocalizationProvider.Instance.LoadFromResource(System.IO.File.ReadAllText(languageFile));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.LogException(ex);
+            }
         }
 
         private bool ShowControlPanel()
@@ -174,6 +223,9 @@ namespace GestureSign.ControlPanel
 
                 if (_configChangedHandler != null)
                     AppConfig.ConfigChanged -= _configChangedHandler;
+
+                if (_presetsSavedHandler != null)
+                    WindowPresetManager.Instance.PresetsChanged -= _presetsSavedHandler;
 
                 NamedPipe.Instance.Dispose();
                 mutex.Dispose();

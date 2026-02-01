@@ -62,6 +62,10 @@
                 <mainWindowControl:Options Width="Auto"
                                            Height="Auto" />
             </TabItem>
+            <TabItem Header="{localization:LocalisedText WindowPresets.Header}"
+                     controls:HeaderedControlHelper.HeaderFontSize="32">
+                <mainWindowControl:WindowPresets x:Name="WindowPresetsControl" />
+            </TabItem>
             <TabItem Header="{localization:LocalisedText About.Header}"
                      controls:HeaderedControlHelper.HeaderFontSize="32">
                 <ScrollViewer PanningMode="VerticalFirst">

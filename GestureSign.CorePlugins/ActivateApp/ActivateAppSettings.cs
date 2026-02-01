@@ -14,25 +14,20 @@ namespace GestureSign.CorePlugins.ActivateApp
         #region Public Properties
 
         /// <summary>
-        /// Display name for UI
+        /// Window matching rule (includes Name, ApplicationPath, Conditions)
         /// </summary>
-        public string DisplayName { get; set; }
+        public WindowRule WindowRule { get; set; }
 
         /// <summary>
-        /// Application path for launching when no matching window found
+        /// Referenced preset ID (if using a preset rule)
+        /// When set, WindowRule is a copy of the preset at the time of configuration
         /// </summary>
-        public string ApplicationPath { get; set; }
+        public string PresetId { get; set; }
 
         /// <summary>
         /// Command line arguments for launching the application
         /// </summary>
         public string ApplicationArguments { get; set; }
-
-        /// <summary>
-        /// Matching conditions list (ClassName, Title, ProcessName, ProcessPath, AUMID)
-        /// All conditions must match (AND logic)
-        /// </summary>
-        public List<MatchCondition> MatchConditions { get; set; }
 
         /// <summary>
         /// Window list cache expiration time in seconds
@@ -62,36 +57,40 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         /// <summary>
         /// Check if settings have valid matching configuration
-        /// Valid if: has MatchConditions OR has ApplicationPath (for fallback matching)
+        /// Valid if: WindowRule has conditions OR has ApplicationPath (for fallback matching)
         /// </summary>
         [JsonIgnore]
         public bool HasValidConditions =>
-            (MatchConditions != null && MatchConditions.Count > 0) ||
-            !string.IsNullOrEmpty(ApplicationPath);
+            WindowRule != null &&
+            ((WindowRule.Conditions != null && WindowRule.Conditions.Count > 0) ||
+             !string.IsNullOrEmpty(WindowRule.ApplicationPath));
 
         /// <summary>
-        /// Get AUMID from MatchConditions (for PWA/UWP app launching)
+        /// Get AUMID from WindowRule.Conditions (for PWA/UWP app launching)
         /// </summary>
         [JsonIgnore]
         public string AUMID =>
-            MatchConditions?.FirstOrDefault(c => c.Type == MatchConditionType.AUMID)?.Value;
+            WindowRule?.Conditions?.FirstOrDefault(c => c.Type == MatchConditionType.AUMID)?.Value;
 
         /// <summary>
         /// Generate cache key from matching conditions and ApplicationPath
         /// </summary>
         public string GenerateCacheKey()
         {
+            if (WindowRule == null)
+                return string.Empty;
+
             var parts = new List<string>();
 
             // Include ApplicationPath in cache key (used for fallback matching)
-            if (!string.IsNullOrEmpty(ApplicationPath))
+            if (!string.IsNullOrEmpty(WindowRule.ApplicationPath))
             {
-                parts.Add($"AppPath:{ApplicationPath}");
+                parts.Add($"AppPath:{WindowRule.ApplicationPath}");
             }
 
-            if (MatchConditions != null)
+            if (WindowRule.Conditions != null)
             {
-                foreach (var condition in MatchConditions)
+                foreach (var condition in WindowRule.Conditions)
                 {
                     parts.Add($"{condition.Type}:{condition.Value}:{condition.IsRegex}");
                 }

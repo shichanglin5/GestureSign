@@ -40,6 +40,9 @@ namespace GestureSign.Daemon
                     case IpcCommands.LoadConfiguration:
                         AppConfig.Reload();
                         break;
+                    case IpcCommands.LoadWindowPresets:
+                        WindowPresetManager.Instance.LoadPresets();
+                        break;
                     case IpcCommands.StartControlPanel:
                         TrayManager.StartControlPanel();
                         break;

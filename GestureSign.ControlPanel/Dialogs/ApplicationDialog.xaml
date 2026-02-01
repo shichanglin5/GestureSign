@@ -9,6 +9,7 @@
                     xmlns:common="clr-namespace:GestureSign.ControlPanel.Common"
                     xmlns:converters="clr-namespace:GestureSign.ControlPanel.Converters"
                     xmlns:usercontrols="clr-namespace:GestureSign.ControlPanel.UserControls"
+                    xmlns:ui="clr-namespace:GestureSign.Common.UI;assembly=GestureSign.Common"
                     mc:Ignorable="d"
                     Icon="pack://application:,,,/GestureSignControlPanel;component/Resources/normal.ico"
                     SizeToContent="Height"
@@ -58,7 +59,7 @@
                        FontSize="14"
                        FontWeight="Bold"
                        Margin="10,5,0,0" />
-            <usercontrols:Crosshair x:Name="chCrosshair"
+            <ui:Crosshair x:Name="chCrosshair"
                                     HorizontalAlignment="Right"
                                     Height="36"
                                     Width="36"
@@ -114,15 +115,59 @@
                       VerticalScrollBarVisibility="Auto"
                       Margin="0,0,0,20">
             <StackPanel>
-                <TextBlock HorizontalAlignment="Left"
-                           Text="{localization:LocalisedText ApplicationDialog.MatchConditions}"
-                           VerticalAlignment="Top"
-                           FontSize="14"
-                           FontWeight="Bold"
-                           Margin="10,5,0,0" />
-                <usercontrols:MatchConditionList x:Name="matchConditionList"
-                                                 ShowCheckBox="True"
-                                                 Margin="10,5,10,0" />
+                <!-- 窗口规则列表 -->
+                <StackPanel x:Name="MatchRulesPanel" Margin="10,5,10,0">
+                    <TextBlock Text="{localization:LocalisedText ApplicationDialog.WindowRules}"
+                               FontSize="14"
+                               FontWeight="Bold" />
+                    <ListBox x:Name="MatchRulesListBox"
+                             MinHeight="26"
+                             MaxHeight="80"
+                             SelectionMode="Single"
+                             BorderThickness="1"
+                             BorderBrush="{DynamicResource MahApps.Brushes.Gray7}"
+                             SelectionChanged="MatchRulesListBox_SelectionChanged"
+                             MouseDoubleClick="MatchRulesListBox_MouseDoubleClick"
+                             Margin="0,5,0,0">
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="{localization:LocalisedText Action.Edit}"
+                                          Click="EditMatchRule_Click" />
+                                <MenuItem Header="{localization:LocalisedText Common.Delete}"
+                                          Click="RemoveMatchRule_Click" />
+                                <Separator />
+                                <MenuItem Header="{localization:LocalisedText WindowPresets.SaveToPreset}"
+                                          Click="SaveMatchRuleToPreset_Click" />
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}" Margin="5,2" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                        <Button Content="{localization:LocalisedText Common.Add}"
+                                Click="AddMatchRule_Click"
+                                VerticalAlignment="Center" />
+                        <Button x:Name="EditMatchRuleButton"
+                                Content="{localization:LocalisedText Action.Edit}"
+                                Click="EditMatchRule_Click"
+                                Margin="5,0,0,0"
+                                VerticalAlignment="Center"
+                                IsEnabled="False" />
+                        <Button x:Name="DeleteMatchRuleButton"
+                                Content="{localization:LocalisedText Common.Delete}"
+                                Click="RemoveMatchRule_Click"
+                                Margin="5,0,0,0"
+                                VerticalAlignment="Center"
+                                IsEnabled="False" />
+                        <Button Content="{localization:LocalisedText WindowPresets.ReferencePreset}"
+                                Click="ReferenceMatchRulePreset_Click"
+                                Margin="5,0,0,0"
+                                VerticalAlignment="Center" />
+                    </StackPanel>
+                </StackPanel>
                 <TextBlock x:Name="BlockTouchInputTextBlock"
                            Text="{localization:LocalisedText ApplicationDialog.BlockTouchInput}"
                            Margin="10,10,0,0"
@@ -182,36 +227,53 @@
                                Foreground="Gray"
                                TextWrapping="Wrap"
                                Margin="0,5,0,10" />
-                    <ItemsControl x:Name="PriorityWindowsItemsControl">
-                        <ItemsControl.ItemTemplate>
+                    <!-- 规则列表 -->
+                    <ListBox x:Name="PriorityWindowsListBox"
+                             MinHeight="26"
+                             MaxHeight="100"
+                             SelectionMode="Single"
+                             BorderThickness="1"
+                             BorderBrush="{DynamicResource MahApps.Brushes.Gray7}"
+                             SelectionChanged="PriorityWindowsListBox_SelectionChanged"
+                             MouseDoubleClick="PriorityWindowsListBox_MouseDoubleClick">
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="{localization:LocalisedText Action.Edit}"
+                                          Click="EditPriorityWindow_Click" />
+                                <MenuItem Header="{localization:LocalisedText Common.Delete}"
+                                          Click="RemovePriorityWindow_Click" />
+                                <Separator />
+                                <MenuItem Header="{localization:LocalisedText WindowPresets.SaveToPreset}"
+                                          Click="SavePriorityWindowToPreset_Click" />
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                        <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="{DynamicResource MahApps.Brushes.Gray5}"
-                                        BorderThickness="1"
-                                        CornerRadius="3"
-                                        Margin="0,0,0,10"
-                                        Padding="10">
-                                    <StackPanel>
-                                        <usercontrols:MatchConditionList ShowCheckBox="False"
-                                                                         Tag="{Binding}"
-                                                                         Loaded="PriorityWindowMatchConditionList_Loaded" />
-                                        <Button Content="{localization:LocalisedText Common.Delete}"
-                                                HorizontalAlignment="Right"
-                                                Click="RemovePriorityWindow_Click"
-                                                Margin="0,5,0,0" />
-                                    </StackPanel>
-                                </Border>
+                                <TextBlock Text="{Binding DisplayName}" Margin="5,2" />
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <!-- 操作按钮 -->
                     <StackPanel Orientation="Horizontal"
                                 Margin="0,5,0,0">
-                        <usercontrols:Crosshair x:Name="PriorityWindowCrosshair"
-                                                Height="30"
-                                                Width="30"
-                                                CrosshairDragged="PriorityWindowCrosshair_CrosshairDragged" />
                         <Button Content="{localization:LocalisedText Common.Add}"
                                 Click="AddPriorityWindow_Click"
-                                Margin="10,0,0,0"
+                                VerticalAlignment="Center" />
+                        <Button x:Name="EditPriorityWindowButton"
+                                Content="{localization:LocalisedText Action.Edit}"
+                                Click="EditPriorityWindow_Click"
+                                Margin="5,0,0,0"
+                                VerticalAlignment="Center"
+                                IsEnabled="False" />
+                        <Button x:Name="DeletePriorityWindowButton"
+                                Content="{localization:LocalisedText Common.Delete}"
+                                Click="RemovePriorityWindow_Click"
+                                Margin="5,0,0,0"
+                                VerticalAlignment="Center"
+                                IsEnabled="False" />
+                        <Button Content="{localization:LocalisedText WindowPresets.ReferencePreset}"
+                                Click="ReferencePriorityWindowPreset_Click"
+                                Margin="5,0,0,0"
                                 VerticalAlignment="Center" />
                     </StackPanel>
                 </StackPanel>

@@ -13,10 +13,10 @@ namespace GestureSign.Common.Applications
         {
         }
 
-        public IgnoredApp(string name, List<MatchCondition> matchConditions, bool isEnabled)
+        public IgnoredApp(string name, List<IWindowRule> matchRules, bool isEnabled)
         {
             Name = name;
-            MatchConditions = matchConditions ?? new List<MatchCondition>();
+            MatchRules = matchRules ?? new List<IWindowRule>();
             IsEnabled = isEnabled;
         }
 

@@ -60,7 +60,7 @@ namespace GestureSign.ControlPanel.UserControls
                                 BlockTouchInputThreshold = seletedApp.BlockTouchInputThreshold,
                                 Group = seletedApp.Group,
                                 LimitNumberOfFingers = seletedApp.LimitNumberOfFingers,
-                                MatchConditions = seletedApp.MatchConditions,
+                                MatchRules = seletedApp.MatchRules,
                                 Name = seletedApp.Name,
                                 Actions = app.ActionItemList.Where(ail => ail.IsSelected).Select(ail => ail.Action).ToList()
                             };

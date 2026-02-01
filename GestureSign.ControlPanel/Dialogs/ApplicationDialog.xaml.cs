@@ -4,6 +4,7 @@ using GestureSign.Common.Localization;
 using GestureSign.Common.UI;
 using GestureSign.ControlPanel.Common;
 using GestureSign.ControlPanel.UserControls;
+using WindowRuleDialog = GestureSign.Common.UI.WindowRuleDialog;
 using MahApps.Metro.Controls.Dialogs;
 using ManagedWinapi.Windows;
 using Microsoft.Win32;
@@ -27,7 +28,8 @@ namespace GestureSign.ControlPanel.Dialogs
     {
         private bool _newApplication;
         private IApplication _currentApplication;
-        private readonly ObservableCollection<List<MatchCondition>> _priorityWindows = new ObservableCollection<List<MatchCondition>>();
+        private readonly ObservableCollection<IWindowRule> _priorityWindows = new ObservableCollection<IWindowRule>();
+        private readonly ObservableCollection<IWindowRule> _matchRules = new ObservableCollection<IWindowRule>();
 
         public ApplicationListViewItem ApplicationListViewItem
         {
@@ -89,15 +91,15 @@ namespace GestureSign.ControlPanel.Dialogs
                     LimitNumberOfFingersSlider.Minimum = 2;
                     LimitNumberOfFingersSlider.Value = globalApp.LimitNumberOfFingers;
                     List<FrameworkElement> elements =
-                        new List<FrameworkElement> { chCrosshair, ApplicationNameTextBox, ShowRunningButton, BrowseButton, matchConditionList };
+                        new List<FrameworkElement> { chCrosshair, ApplicationNameTextBox, ShowRunningButton, BrowseButton, MatchRulesPanel };
                     elements.ForEach(el => el.IsEnabled = false);
                     break;
             }
             if (!_newApplication)
             {
                 ApplicationNameTextBox.Text = _currentApplication.Name;
-                // 加载现有条件
-                matchConditionList.SetConditions(_currentApplication.MatchConditions);
+                // 加载现有窗口规则
+                InitializeMatchRules();
             }
             GroupComboBox.ItemsSource =
                 ApplicationManager.Instance.Applications.Where(app => !string.IsNullOrEmpty(app.Group))
@@ -113,8 +115,25 @@ namespace GestureSign.ControlPanel.Dialogs
             BlockTouchInputSlider.Visibility = BlockTouchInputInfoTextBlock.Visibility = BlockTouchInputTextBlock.Visibility =
                     AppConfig.UiAccess && isUserApp ? Visibility.Visible : Visibility.Collapsed;
 
+            // 初始化窗口规则列表
+            MatchRulesListBox.ItemsSource = _matchRules;
+
             // 初始化优先级窗口设置
             InitializePriorityWindowsSettings();
+        }
+
+        private void InitializeMatchRules()
+        {
+            _matchRules.Clear();
+
+            // 加载 MatchRules
+            if (_currentApplication.MatchRules != null && _currentApplication.MatchRules.Count > 0)
+            {
+                foreach (var rule in _currentApplication.MatchRules)
+                {
+                    _matchRules.Add(rule);
+                }
+            }
         }
 
         private void InitializePriorityWindowsSettings()
@@ -135,12 +154,12 @@ namespace GestureSign.ControlPanel.Dialogs
             _priorityWindows.Clear();
             if (_currentApplication.PriorityWindows != null)
             {
-                foreach (var window in _currentApplication.PriorityWindows)
+                foreach (var rule in _currentApplication.PriorityWindows)
                 {
-                    _priorityWindows.Add(new List<MatchCondition>(window));
+                    _priorityWindows.Add(rule);
                 }
             }
-            PriorityWindowsItemsControl.ItemsSource = _priorityWindows;
+            PriorityWindowsListBox.ItemsSource = _priorityWindows;
         }
 
         private void InitializeMouseWindowDetectionComboBox()
@@ -180,15 +199,29 @@ namespace GestureSign.ControlPanel.Dialogs
             };
             if (ofdExecutable.ShowDialog().Value)
             {
-                ApplicationNameTextBox.Text = System.IO.Path.GetFileNameWithoutExtension(ofdExecutable.FileName);
+                ApplicationNameTextBox.Text = Path.GetFileNameWithoutExtension(ofdExecutable.FileName);
 
-                // 使用新的条件列表方式
-                var info = new WindowMatchInfo
+                // 创建窗口规则
+                var rule = new WindowRule
                 {
-                    ProcessPath = ofdExecutable.FileName,
-                    ProcessName = ofdExecutable.SafeFileName
+                    Name = Path.GetFileNameWithoutExtension(ofdExecutable.FileName),
+                    ApplicationPath = ofdExecutable.FileName,
+                    Conditions = new List<MatchCondition>
+                    {
+                        new MatchCondition
+                        {
+                            Type = MatchConditionType.ProcessName,
+                            Value = ofdExecutable.SafeFileName
+                        }
+                    }
                 };
-                matchConditionList.PopulateFromWindowInfo(info);
+
+                // 弹出编辑对话框
+                var dialog = new WindowRuleDialog(rule) { Owner = this };
+                if (dialog.ShowDialog() == true && dialog.WindowRule != null)
+                {
+                    _matchRules.Add(dialog.WindowRule);
+                }
             }
         }
 
@@ -198,17 +231,51 @@ namespace GestureSign.ControlPanel.Dialogs
             if (dialog.ShowDialog() == true && dialog.SelectedWindow != null)
             {
                 var info = dialog.SelectedWindow;
-                UpdateFromWindowInfo(info);
+                AddMatchRuleFromWindowInfo(info);
             }
         }
 
-        private void UpdateFromWindowInfo(WindowMatchInfo info)
+        private void AddMatchRuleFromWindowInfo(WindowMatchInfo info)
         {
-            // 更新应用名称
-            ApplicationNameTextBox.Text = info.Title ?? info.FileName ?? string.Empty;
+            // 更新应用名称（如果为空）
+            if (string.IsNullOrWhiteSpace(ApplicationNameTextBox.Text))
+            {
+                ApplicationNameTextBox.Text = info.Title ?? info.FileName ?? string.Empty;
+            }
 
-            // 使用条件列表控件填充
-            matchConditionList.PopulateFromWindowInfo(info);
+            // 创建窗口规则
+            var rule = new WindowRule
+            {
+                Name = Path.GetFileNameWithoutExtension(info.FileName ?? info.ProcessName),
+                ApplicationPath = info.ProcessPath,
+                Conditions = new List<MatchCondition>()
+            };
+
+            // 添加条件
+            if (!string.IsNullOrEmpty(info.ClassName))
+            {
+                rule.Conditions.Add(new MatchCondition
+                {
+                    Type = MatchConditionType.ClassName,
+                    Value = info.ClassName
+                });
+            }
+
+            if (!string.IsNullOrEmpty(info.FileName))
+            {
+                rule.Conditions.Add(new MatchCondition
+                {
+                    Type = MatchConditionType.ProcessName,
+                    Value = info.FileName
+                });
+            }
+
+            // 弹出编辑对话框
+            var ruleDialog = new WindowRuleDialog(rule) { Owner = this };
+            if (ruleDialog.ShowDialog() == true && ruleDialog.WindowRule != null)
+            {
+                _matchRules.Add(ruleDialog.WindowRule);
+            }
 
             // 同时更新 ApplicationListViewItem 供绑定使用
             ApplicationListViewItem = new ApplicationListViewItem
@@ -221,6 +288,12 @@ namespace GestureSign.ControlPanel.Dialogs
                 AUMID = info.AUMID,
                 ProcessPath = info.ProcessPath
             };
+        }
+
+        private void UpdateFromWindowInfo(WindowMatchInfo info)
+        {
+            // 向后兼容方法，调用新的 AddMatchRuleFromWindowInfo
+            AddMatchRuleFromWindowInfo(info);
         }
 
         private void ChCrosshair_OnCrosshairDragging(object sender, MouseEventArgs e)
@@ -282,60 +355,221 @@ namespace GestureSign.ControlPanel.Dialogs
 
         private void AddPriorityWindow_Click(object sender, RoutedEventArgs e)
         {
-            // 添加一个空的优先级窗口条件组
-            _priorityWindows.Add(new List<MatchCondition>());
+            // 打开窗口规则编辑对话框
+            var dialog = new WindowRuleDialog { Owner = this };
+            if (dialog.ShowDialog() == true && dialog.WindowRule != null)
+            {
+                _priorityWindows.Add(dialog.WindowRule);
+            }
         }
 
         private void RemovePriorityWindow_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is FrameworkElement element && element.DataContext is List<MatchCondition> conditions)
+            if (PriorityWindowsListBox.SelectedItem is IWindowRule rule)
             {
-                _priorityWindows.Remove(conditions);
+                _priorityWindows.Remove(rule);
             }
         }
 
-        private void PriorityWindowCrosshair_CrosshairDragged(object sender, MouseButtonEventArgs e)
+        private void EditPriorityWindow_Click(object sender, RoutedEventArgs e)
         {
-            // 弹出窗口选择对话框
-            var dialog = new WindowSelectorDialog { Owner = this };
-            if (dialog.ShowDialog() == true && dialog.SelectedWindow != null)
+            if (PriorityWindowsListBox.SelectedItem is WindowRule windowRule)
             {
-                var info = dialog.SelectedWindow;
-                // 创建新的优先级窗口条件
-                var conditions = new List<MatchCondition>();
-
-                if (!string.IsNullOrEmpty(info.ClassName))
+                var dialog = new WindowRuleDialog(windowRule) { Owner = this };
+                if (dialog.ShowDialog() == true)
                 {
-                    conditions.Add(new MatchCondition
-                    {
-                        Type = MatchConditionType.ClassName,
-                        Value = info.ClassName
-                    });
+                    // 刷新列表显示
+                    var index = PriorityWindowsListBox.SelectedIndex;
+                    PriorityWindowsListBox.ItemsSource = null;
+                    PriorityWindowsListBox.ItemsSource = _priorityWindows;
+                    PriorityWindowsListBox.SelectedIndex = index;
                 }
-
-                if (!string.IsNullOrEmpty(info.FileName))
+            }
+            else if (PriorityWindowsListBox.SelectedItem is WindowRuleRef ruleRef)
+            {
+                // 编辑预置规则
+                EditPresetRule(ruleRef.PresetId, () =>
                 {
-                    conditions.Add(new MatchCondition
-                    {
-                        Type = MatchConditionType.ProcessName,
-                        Value = info.FileName
-                    });
-                }
-
-                if (conditions.Count > 0)
-                {
-                    _priorityWindows.Add(conditions);
-                }
+                    // 刷新列表显示
+                    var index = PriorityWindowsListBox.SelectedIndex;
+                    PriorityWindowsListBox.ItemsSource = null;
+                    PriorityWindowsListBox.ItemsSource = _priorityWindows;
+                    PriorityWindowsListBox.SelectedIndex = index;
+                });
             }
         }
 
-        private void PriorityWindowMatchConditionList_Loaded(object sender, RoutedEventArgs e)
+        private void ReferencePriorityWindowPreset_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is MatchConditionList matchConditionList && matchConditionList.Tag is List<MatchCondition> conditions)
+            if (WindowPresetManager.Instance.Presets.Count == 0)
             {
-                matchConditionList.SetConditions(conditions);
+                this.ShowModalMessageExternal("提示", "没有可用的预置规则，请先在预置窗口规则页面创建");
+                return;
+            }
+
+            var dialog = new SelectPresetDialog { Owner = this };
+            if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.SelectedPresetId))
+            {
+                _priorityWindows.Add(new WindowRuleRef { PresetId = dialog.SelectedPresetId });
             }
         }
+
+        private void PriorityWindowsListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            var hasSelection = PriorityWindowsListBox.SelectedItem != null;
+            EditPriorityWindowButton.IsEnabled = hasSelection;
+            DeletePriorityWindowButton.IsEnabled = hasSelection;
+        }
+
+        private void PriorityWindowsListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (PriorityWindowsListBox.SelectedItem != null)
+            {
+                EditPriorityWindow_Click(sender, e);
+            }
+        }
+
+        private async void SavePriorityWindowToPreset_Click(object sender, RoutedEventArgs e)
+        {
+            if (PriorityWindowsListBox.SelectedItem is WindowRule windowRule)
+            {
+                await SaveWindowRuleToPreset(windowRule);
+            }
+            else if (PriorityWindowsListBox.SelectedItem is WindowRuleRef)
+            {
+                await this.ShowMessageAsync("提示", "该项已经是预置规则引用");
+            }
+        }
+
+        private async System.Threading.Tasks.Task SaveWindowRuleToPreset(WindowRule rule)
+        {
+            // 弹出输入框获取预置名称
+            var suggestedName = rule.Name ?? rule.GetDisplayName();
+            var result = await this.ShowInputAsync(
+                LocalizationProvider.Instance.GetTextValue("WindowPresets.SaveToPreset"),
+                LocalizationProvider.Instance.GetTextValue("WindowPresets.EnterPresetName"),
+                new MetroDialogSettings { DefaultText = suggestedName });
+
+            if (string.IsNullOrWhiteSpace(result))
+                return;
+
+            // 检查是否已存在
+            var existing = WindowPresetManager.Instance.GetPresetByName(result);
+            if (existing != null)
+            {
+                var confirmResult = await this.ShowMessageAsync(
+                    "确认",
+                    $"预置规则 \"{result}\" 已存在，是否覆盖？",
+                    MessageDialogStyle.AffirmativeAndNegative);
+
+                if (confirmResult != MessageDialogResult.Affirmative)
+                    return;
+
+                WindowPresetManager.Instance.RemovePreset(result);
+            }
+
+            // 创建新的预置规则
+            var preset = new WindowRule
+            {
+                Name = result,
+                ApplicationPath = rule.ApplicationPath,
+                Conditions = rule.Conditions?.ToList() ?? new List<MatchCondition>()
+            };
+
+            WindowPresetManager.Instance.AddPreset(preset);
+            WindowPresetManager.Instance.SavePresets();
+        }
+
+        #region 窗口规则列表事件处理
+
+        private void MatchRulesListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            var hasSelection = MatchRulesListBox.SelectedItem != null;
+            EditMatchRuleButton.IsEnabled = hasSelection;
+            DeleteMatchRuleButton.IsEnabled = hasSelection;
+        }
+
+        private void MatchRulesListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (MatchRulesListBox.SelectedItem != null)
+            {
+                EditMatchRule_Click(sender, e);
+            }
+        }
+
+        private void AddMatchRule_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new WindowRuleDialog { Owner = this };
+            if (dialog.ShowDialog() == true && dialog.WindowRule != null)
+            {
+                _matchRules.Add(dialog.WindowRule);
+            }
+        }
+
+        private void EditMatchRule_Click(object sender, RoutedEventArgs e)
+        {
+            if (MatchRulesListBox.SelectedItem is WindowRule windowRule)
+            {
+                var dialog = new WindowRuleDialog(windowRule) { Owner = this };
+                if (dialog.ShowDialog() == true)
+                {
+                    // 刷新列表显示
+                    var index = MatchRulesListBox.SelectedIndex;
+                    MatchRulesListBox.ItemsSource = null;
+                    MatchRulesListBox.ItemsSource = _matchRules;
+                    MatchRulesListBox.SelectedIndex = index;
+                }
+            }
+            else if (MatchRulesListBox.SelectedItem is WindowRuleRef ruleRef)
+            {
+                // 编辑预置规则
+                EditPresetRule(ruleRef.PresetId, () =>
+                {
+                    // 刷新列表显示
+                    var index = MatchRulesListBox.SelectedIndex;
+                    MatchRulesListBox.ItemsSource = null;
+                    MatchRulesListBox.ItemsSource = _matchRules;
+                    MatchRulesListBox.SelectedIndex = index;
+                });
+            }
+        }
+
+        private void RemoveMatchRule_Click(object sender, RoutedEventArgs e)
+        {
+            if (MatchRulesListBox.SelectedItem is IWindowRule rule)
+            {
+                _matchRules.Remove(rule);
+            }
+        }
+
+        private void ReferenceMatchRulePreset_Click(object sender, RoutedEventArgs e)
+        {
+            if (WindowPresetManager.Instance.Presets.Count == 0)
+            {
+                this.ShowModalMessageExternal("提示", "没有可用的预置规则，请先在预置窗口规则页面创建");
+                return;
+            }
+
+            var dialog = new SelectPresetDialog { Owner = this };
+            if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.SelectedPresetId))
+            {
+                _matchRules.Add(new WindowRuleRef { PresetId = dialog.SelectedPresetId });
+            }
+        }
+
+        private async void SaveMatchRuleToPreset_Click(object sender, RoutedEventArgs e)
+        {
+            if (MatchRulesListBox.SelectedItem is WindowRule windowRule)
+            {
+                await SaveWindowRuleToPreset(windowRule);
+            }
+            else if (MatchRulesListBox.SelectedItem is WindowRuleRef)
+            {
+                await this.ShowMessageAsync("提示", "该项已经是预置规则引用");
+            }
+        }
+
+        #endregion
 
         protected override void OnDrop(DragEventArgs e)
         {
@@ -364,13 +598,27 @@ namespace GestureSign.ControlPanel.Dialogs
                             var versionInfo = FileVersionInfo.GetVersionInfo(targetFile);
                             ApplicationNameTextBox.Text = string.IsNullOrWhiteSpace(versionInfo.ProductName) ? Path.GetFileNameWithoutExtension(targetFile) : versionInfo.ProductName;
 
-                            // 使用新的条件列表方式
-                            var info = new WindowMatchInfo
+                            // 创建窗口规则
+                            var rule = new WindowRule
                             {
-                                ProcessPath = targetFile,
-                                ProcessName = Path.GetFileName(targetFile)
+                                Name = Path.GetFileNameWithoutExtension(targetFile),
+                                ApplicationPath = targetFile,
+                                Conditions = new List<MatchCondition>
+                                {
+                                    new MatchCondition
+                                    {
+                                        Type = MatchConditionType.ProcessName,
+                                        Value = Path.GetFileName(targetFile)
+                                    }
+                                }
                             };
-                            matchConditionList.PopulateFromWindowInfo(info);
+
+                            // 弹出编辑对话框
+                            var dialog = new WindowRuleDialog(rule) { Owner = this };
+                            if (dialog.ShowDialog() == true && dialog.WindowRule != null)
+                            {
+                                _matchRules.Add(dialog.WindowRule);
+                            }
                         }
                     }
                 }
@@ -442,9 +690,9 @@ namespace GestureSign.ControlPanel.Dialogs
                 return true;
             }
 
-            var conditions = matchConditionList.GetConditions();
+            var matchRules = GetMatchRulesFromUI();
 
-            if (conditions.Count == 0)
+            if (matchRules.Count == 0)
             {
                 return ShowErrorMessage(
                         LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.EmptyStringTitle"),
@@ -471,23 +719,13 @@ namespace GestureSign.ControlPanel.Dialogs
                             LimitNumberOfFingers = (int)LimitNumberOfFingersSlider.Value,
                             Name = name,
                             Group = groupName,
-                            MatchConditions = conditions,
+                            MatchRules = matchRules,
                             MouseWindowDetection = (MouseWindowDetectionMode)MouseWindowDetectionComboBox.SelectedValue,
                             PriorityWindows = GetPriorityWindowsFromUI()
                         };
 
                         if (_newApplication)
                         {
-                            // 检查是否存在相同条件的应用
-                            var sameMatchApplications = ApplicationManager.Instance.FindMatchApplications<UserApp>(conditions);
-                            if (sameMatchApplications.Length != 0)
-                            {
-                                string sameApp = sameMatchApplications.Aggregate<IApplication, string>(null, (current, app) => current + (app.Name + " "));
-                                return ShowErrorMessage(
-                                    LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.StringConflictTitle"),
-                                    string.Format(LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.ConditionConflict"), sameApp));
-                            }
-
                             if (ApplicationManager.Instance.ApplicationExists(name))
                                 return ShowErrorMessage(
                                         LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.AppExistsTitle"),
@@ -496,15 +734,6 @@ namespace GestureSign.ControlPanel.Dialogs
                         }
                         else
                         {
-                            var sameMatchApplications = ApplicationManager.Instance.FindMatchApplications<UserApp>(conditions, _currentApplication.Name);
-                            if (sameMatchApplications.Length != 0)
-                            {
-                                string sameApp = sameMatchApplications.Aggregate<IApplication, string>(null, (current, app) => current + (app.Name + " "));
-                                return ShowErrorMessage(
-                                    LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.StringConflictTitle"),
-                                    string.Format(LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.ConditionConflict"), sameApp));
-                            }
-
                             if (name != _currentApplication.Name && ApplicationManager.Instance.ApplicationExists(name))
                             {
                                 return ShowErrorMessage(
@@ -519,35 +748,19 @@ namespace GestureSign.ControlPanel.Dialogs
                     }
                 case IgnoredApp ignoredApp:
                     {
+                        // IgnoredApp 使用 MatchRules
                         if (string.IsNullOrEmpty(name))
                         {
-                            // 从第一个条件获取名称
-                            name = conditions.FirstOrDefault()?.Value ?? "Unknown";
+                            // 从第一个规则获取名称
+                            name = matchRules.FirstOrDefault()?.GetDisplayName() ?? "Unknown";
                         }
 
                         if (!_newApplication)
                         {
-                            var existingApp = ApplicationManager.Instance.FindMatchApplications<IgnoredApp>(conditions, _currentApplication.Name);
-                            if (existingApp.Length != 0)
-                            {
-                                return ShowErrorMessage(
-                                        LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.IgnoredAppExistsTitle"),
-                                        LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.IgnoredAppExists"));
-                            }
                             ApplicationManager.Instance.RemoveApplication(_currentApplication);
                         }
-                        else
-                        {
-                            var existingApp = ApplicationManager.Instance.FindMatchApplications<IgnoredApp>(conditions);
-                            if (existingApp.Length != 0)
-                            {
-                                return ShowErrorMessage(
-                                    LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.IgnoredAppExistsTitle"),
-                                    LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.IgnoredAppExists"));
-                            }
-                        }
 
-                        ApplicationManager.Instance.AddApplication(new IgnoredApp(name, conditions, true));
+                        ApplicationManager.Instance.AddApplication(new IgnoredApp(name, matchRules, true));
                         break;
                     }
             }
@@ -556,38 +769,20 @@ namespace GestureSign.ControlPanel.Dialogs
         }
 
         /// <summary>
+        /// 从 UI 获取窗口规则配置
+        /// </summary>
+        private List<IWindowRule> GetMatchRulesFromUI()
+        {
+            return _matchRules.ToList();
+        }
+
+        /// <summary>
         /// 从 UI 获取优先级窗口配置
         /// </summary>
-        private List<List<MatchCondition>> GetPriorityWindowsFromUI()
+        private List<IWindowRule> GetPriorityWindowsFromUI()
         {
-            var result = new List<List<MatchCondition>>();
-
-            // 遍历 ItemsControl 中的每个优先级窗口
-            foreach (var item in PriorityWindowsItemsControl.Items)
-            {
-                if (item is List<MatchCondition> conditionsList)
-                {
-                    // 获取对应的 MatchConditionList 控件
-                    var container = PriorityWindowsItemsControl.ItemContainerGenerator.ContainerFromItem(item) as FrameworkElement;
-                    var matchConditionList = FindVisualChild<MatchConditionList>(container);
-
-                    if (matchConditionList != null)
-                    {
-                        var conditions = matchConditionList.GetConditions();
-                        if (conditions != null && conditions.Count > 0)
-                        {
-                            result.Add(conditions);
-                        }
-                    }
-                    else if (conditionsList.Count > 0)
-                    {
-                        // 如果找不到控件，使用原始数据
-                        result.Add(new List<MatchCondition>(conditionsList));
-                    }
-                }
-            }
-
-            return result;
+            // 直接返回 ObservableCollection 中的规则列表
+            return _priorityWindows.ToList();
         }
 
         /// <summary>
@@ -619,7 +814,7 @@ namespace GestureSign.ControlPanel.Dialogs
         /// <summary>
         /// 比较两个优先级窗口列表是否相等
         /// </summary>
-        private static bool ArePriorityWindowsEqual(List<List<MatchCondition>> list1, List<List<MatchCondition>> list2)
+        private static bool ArePriorityWindowsEqual(List<IWindowRule> list1, List<IWindowRule> list2)
         {
             if (list1 == null && list2 == null) return true;
             if (list1 == null || list2 == null) return false;
@@ -627,36 +822,34 @@ namespace GestureSign.ControlPanel.Dialogs
 
             for (int i = 0; i < list1.Count; i++)
             {
-                if (list1[i].Count != list2[i].Count) return false;
-                for (int j = 0; j < list1[i].Count; j++)
-                {
-                    var c1 = list1[i][j];
-                    var c2 = list2[i][j];
-                    if (c1.Type != c2.Type || c1.Value != c2.Value || c1.IsRegex != c2.IsRegex)
-                        return false;
-                }
+                // 简单比较显示名称，如果需要更精确的比较可以扩展
+                if (list1[i].GetDisplayName() != list2[i].GetDisplayName())
+                    return false;
             }
             return true;
         }
 
         /// <summary>
-        /// 递归查找可视化子元素
+        /// 编辑预置规则
         /// </summary>
-        private static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+        private void EditPresetRule(string presetId, System.Action onSaved = null)
         {
-            if (parent == null) return null;
-
-            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+            var preset = WindowPresetManager.Instance.GetPresetById(presetId);
+            if (preset == null)
             {
-                var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
-                if (child is T result)
-                    return result;
-
-                var found = FindVisualChild<T>(child);
-                if (found != null)
-                    return found;
+                this.ShowModalMessageExternal(
+                    LocalizationProvider.Instance.GetTextValue("Common.Tip"),
+                    LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.PresetNotFound"));
+                return;
             }
-            return null;
+
+            var dialog = new WindowRuleDialog(preset) { Owner = this };
+            if (dialog.ShowDialog() == true)
+            {
+                // 保存预置规则
+                WindowPresetManager.Instance.SavePresets();
+                onSaved?.Invoke();
+            }
         }
 
         #endregion

@@ -62,6 +62,7 @@
   <!-- Content Files -->
   <ItemGroup>
     <Content Include="Languages\*.xml">
+      <Link>Languages\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

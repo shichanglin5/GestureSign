@@ -965,6 +965,83 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         #endregion
 
+        #region Gesture Context Menu (Copy/Cut/Paste)
+
+        private void CutGestureMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (SetGestureClipboard(sender))
+                _cutActionSource = (IApplication)lstAvailableApplication.SelectedItem;
+        }
+
+        private void CopyGestureMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            SetGestureClipboard(sender);
+            _cutActionSource = null;
+        }
+
+        private void PasteGestureMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (_commandClipboard.Count == 0) return;
+
+            var menuItem = sender as MenuItem;
+            var contextMenu = menuItem?.Parent as ContextMenu;
+            var button = contextMenu?.PlacementTarget as Button;
+            var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(button);
+            var group = groupItem?.Content as CollectionViewGroup;
+
+            if (group == null || group.Items.Count == 0) return;
+
+            var firstCommand = group.Items[0] as CommandInfo;
+            var targetAction = firstCommand?.Action;
+            var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+
+            if (targetAction == null || selectedApp == null) return;
+
+            foreach (var actionGroup in _commandClipboard.GroupBy(ci => ci.Action))
+            {
+                foreach (var info in actionGroup)
+                {
+                    if (_cutActionSource != null)
+                    {
+                        info.Action.RemoveCommand(info.Command);
+                    }
+
+                    var newCommand = ((Command)info.Command).Clone() as Command;
+                    targetAction.AddCommand(newCommand);
+                }
+            }
+
+            if (_cutActionSource != null)
+            {
+                _cutActionSource = null;
+                _commandClipboard.Clear();
+            }
+
+            ApplicationManager.Instance.SaveApplications();
+        }
+
+        private bool SetGestureClipboard(object sender)
+        {
+            _commandClipboard.Clear();
+
+            var menuItem = sender as MenuItem;
+            var contextMenu = menuItem?.Parent as ContextMenu;
+            var button = contextMenu?.PlacementTarget as Button;
+            var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(button);
+            var group = groupItem?.Content as CollectionViewGroup;
+
+            if (group == null) return false;
+
+            foreach (CommandInfo commandInfo in group.Items)
+            {
+                if (commandInfo?.Command != null)
+                    _commandClipboard.Add(commandInfo);
+            }
+            return _commandClipboard.Count != 0;
+        }
+
+        #endregion
+
         private void DeleteActionMenuItem_Click(object sender, RoutedEventArgs e)
         {
             var menuItem = sender as MenuItem;
