@@ -99,8 +99,7 @@ namespace GestureSign.Common.Applications
             {
                 Presets.Add(preset);
             }
-
-            OnPresetsChanged();
+            // 注意：不在这里触发事件，由 SavePresets() 统一触发
         }
 
         /// <summary>
@@ -112,7 +111,7 @@ namespace GestureSign.Common.Applications
             if (preset != null)
             {
                 Presets.Remove(preset);
-                OnPresetsChanged();
+                // 注意：不在这里触发事件，由 SavePresets() 统一触发
             }
         }
 
@@ -129,7 +128,7 @@ namespace GestureSign.Common.Applications
             {
                 existing.ApplicationPath = preset.ApplicationPath;
                 existing.Conditions = preset.Conditions;
-                OnPresetsChanged();
+                // 注意：不在这里触发事件，由 SavePresets() 统一触发
             }
         }
 
@@ -145,7 +144,13 @@ namespace GestureSign.Common.Applications
                 {
                     preset.EnsureId();
                 }
-                return FileManager.SaveObject(Presets, PresetsFilePath);
+                var result = FileManager.SaveObject(Presets, PresetsFilePath);
+                if (result)
+                {
+                    // 保存成功后触发事件，通知 Daemon 重新加载
+                    OnPresetsChanged();
+                }
+                return result;
             }
             catch (Exception ex)
             {
