@@ -670,14 +670,14 @@ namespace GestureSign.Common.Applications
 
         private IApplication[] FindMatchApplications(IEnumerable<IApplication> applications, WindowInfoCache windowInfo)
         {
-            var result = new List<IApplication>();
             foreach (var app in applications)
             {
                 try
                 {
                     if (app.IsMatch(windowInfo))
                     {
-                        result.Add(app);
+                        // 只返回第一个匹配的应用（应用列表已按优先级排序）
+                        return new[] { app };
                     }
                 }
                 catch
@@ -685,7 +685,7 @@ namespace GestureSign.Common.Applications
                     // ignored
                 }
             }
-            return result.ToArray();
+            return Array.Empty<IApplication>();
         }
 
 #pragma warning disable CS0618
