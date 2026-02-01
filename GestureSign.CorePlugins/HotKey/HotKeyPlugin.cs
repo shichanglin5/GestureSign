@@ -162,7 +162,7 @@ namespace GestureSign.CorePlugins.HotKey
 
                 // Win+L lockstation special handling
                 if (_Settings.Windows &&
-                  _Settings.KeyCode.Count != 0 && _Settings.KeyCode[0] == Keys.L)
+                    _Settings.KeyCode.Count != 0 && _Settings.KeyCode[0] == Keys.L)
                 {
                     LockWorkStation();
                     return true;

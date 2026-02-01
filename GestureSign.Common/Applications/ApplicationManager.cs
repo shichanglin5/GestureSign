@@ -559,7 +559,8 @@ namespace GestureSign.Common.Applications
                 var mouseWindow = GetWindowFromPoint(currentMousePosition);
                 if (mouseWindow != null && mouseWindow.IsValid())
                 {
-                    Logging.LogDebug($"[ApplicationManager] MouseWindowDetection: Mouse moved, using mouse window 0x{mouseWindow.HWnd:X} '{mouseWindow.Title}'");
+                    if (Logging.CurrentLogLevel >= LogLevel.Debug)
+                        Logging.LogDebug($"[ApplicationManager] MouseWindowDetection: Mouse moved, using mouse window 0x{mouseWindow.HWnd:X} '{mouseWindow.Title}'");
                     return mouseWindow;
                 }
             }
@@ -634,6 +635,9 @@ namespace GestureSign.Common.Applications
         /// </summary>
         private static void LogPriorityWindowMatch(SystemWindow priorityWindow, SystemWindow foregroundWindow, IWindowRule rule, string appName)
         {
+            if (Logging.CurrentLogLevel < LogLevel.Debug)
+                return;
+
             try
             {
                 var ruleInfo = rule.GetDisplayName();

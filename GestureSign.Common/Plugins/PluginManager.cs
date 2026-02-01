@@ -197,7 +197,7 @@ namespace GestureSign.Common.Plugins
                         }
 
                         pluginInfo.Plugin.Deserialize(command.CommandSettings);
-                        if (!command.PluginClass.EndsWith("InertialScrollPlugin"))
+                        if (Logging.CurrentLogLevel >= LogLevel.Debug && !command.PluginClass.EndsWith("InertialScrollPlugin"))
                         {
                             var fgWin = SystemWindow.ForegroundWindow;
                             var windowInfo = GetWindowInfo(fgWin);
