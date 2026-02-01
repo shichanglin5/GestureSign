@@ -178,6 +178,25 @@ namespace GestureSign.Common.Applications
             Applications.RemoveAll(app => app is IgnoredApp && app.Name == applicationName);
         }
 
+        /// <summary>
+        /// 移动应用程序到新位置（用于拖动排序）
+        /// </summary>
+        /// <param name="oldIndex">原位置索引</param>
+        /// <param name="newIndex">新位置索引</param>
+        public void MoveApplication(int oldIndex, int newIndex)
+        {
+            if (oldIndex < 0 || oldIndex >= Applications.Count ||
+                newIndex < 0 || newIndex >= Applications.Count ||
+                oldIndex == newIndex)
+                return;
+
+            var app = Applications[oldIndex];
+            Applications.RemoveAt(oldIndex);
+            Applications.Insert(newIndex, app);
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Move, app, newIndex, oldIndex));
+        }
+
         public bool SaveApplications()
         {
             TrimActions(Applications);

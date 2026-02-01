@@ -99,9 +99,6 @@
                 <CollectionViewSource.GroupDescriptions>
                     <PropertyGroupDescription PropertyName="Group" />
                 </CollectionViewSource.GroupDescriptions>
-                <CollectionViewSource.SortDescriptions>
-                    <componentmodel:SortDescription PropertyName="." />
-                </CollectionViewSource.SortDescriptions>
             </CollectionViewSource>
         </ResourceDictionary>
     </UserControl.Resources>
@@ -287,6 +284,16 @@
                             Value="Stretch" />
                     <Setter Property="VerticalContentAlignment"
                             Value="Stretch" />
+                    <Setter Property="AllowDrop"
+                            Value="True" />
+                    <EventSetter Event="PreviewMouseLeftButtonDown"
+                                 Handler="ApplicationItem_PreviewMouseLeftButtonDown" />
+                    <EventSetter Event="PreviewMouseMove"
+                                 Handler="ApplicationItem_PreviewMouseMove" />
+                    <EventSetter Event="Drop"
+                                 Handler="ApplicationItem_Drop" />
+                    <EventSetter Event="DragOver"
+                                 Handler="ApplicationItem_DragOver" />
                 </Style>
             </ListBox.ItemContainerStyle>
         </ListBox>

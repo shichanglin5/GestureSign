@@ -57,6 +57,31 @@ namespace GestureSign.ControlPanel.ViewModel
                 return;
             }
 
+            if (e.Action == NotifyCollectionChangedAction.Move)
+            {
+                // 处理应用移动（拖动排序）
+                if (e.NewItems != null && e.NewItems.Count > 0)
+                {
+                    var app = e.NewItems[0] as IApplication;
+                    if (app != null && !(app is IgnoredApp) && !(app is GlobalApp))
+                    {
+                        int oldIndex = ApplicationItems.IndexOf(app);
+                        if (oldIndex >= 0)
+                        {
+                            // 计算新索引（考虑 GlobalApp 在首位）
+                            int newIndex = e.NewIndex + 1; // +1 因为 GlobalApp 在 ApplicationItems 首位
+                            if (newIndex > ApplicationItems.Count - 1)
+                                newIndex = ApplicationItems.Count - 1;
+                            if (oldIndex != newIndex)
+                            {
+                                ApplicationItems.Move(oldIndex, newIndex);
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
             if (e.NewItems != null)
                 foreach (var item in e.NewItems)
                 {

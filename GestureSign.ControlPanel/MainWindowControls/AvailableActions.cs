@@ -1104,5 +1104,97 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 ApplicationManager.Instance.SaveApplications();
             }
         }
+
+        #region Application Drag and Drop
+
+        private Point _applicationDragStartPoint;
+        private IApplication _draggedApplication;
+
+        private void ApplicationItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _applicationDragStartPoint = e.GetPosition(null);
+            _draggedApplication = null;
+        }
+
+        private void ApplicationItem_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed && _draggedApplication == null)
+            {
+                Point mousePos = e.GetPosition(null);
+                Vector diff = _applicationDragStartPoint - mousePos;
+
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    var listBoxItem = sender as ListBoxItem;
+                    _draggedApplication = listBoxItem?.Content as IApplication;
+
+                    // 不允许拖动 GlobalApp
+                    if (_draggedApplication != null && !(_draggedApplication is GlobalApp))
+                    {
+                        DataObject dragData = new DataObject("GestureApplication", _draggedApplication);
+                        DragDrop.DoDragDrop(listBoxItem, dragData, DragDropEffects.Move);
+                    }
+                    else
+                    {
+                        _draggedApplication = null;
+                    }
+                }
+            }
+        }
+
+        private void ApplicationItem_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("GestureApplication"))
+            {
+                var sourceApp = e.Data.GetData("GestureApplication") as IApplication;
+                var listBoxItem = sender as ListBoxItem;
+                var targetApp = listBoxItem?.Content as IApplication;
+
+                // 不允许拖到 GlobalApp 上，但允许拖到其他位置
+                if (sourceApp != null && targetApp != null &&
+                    sourceApp != targetApp &&
+                    !(sourceApp is GlobalApp))
+                {
+                    // 计算在 Applications 列表中的索引（不含 GlobalApp）
+                    var apps = ApplicationManager.Instance.Applications;
+                    int sourceIndex = apps.IndexOf(sourceApp);
+                    int targetIndex = targetApp is GlobalApp ? 0 : apps.IndexOf(targetApp);
+
+                    if (sourceIndex >= 0 && targetIndex >= 0 && sourceIndex != targetIndex)
+                    {
+                        ApplicationManager.Instance.MoveApplication(sourceIndex, targetIndex);
+                        ApplicationManager.Instance.SaveApplications();
+                    }
+                }
+
+                e.Handled = true;
+            }
+        }
+
+        private void ApplicationItem_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent("GestureApplication"))
+            {
+                var sourceApp = e.Data.GetData("GestureApplication") as IApplication;
+
+                // 不允许拖动 GlobalApp
+                if (sourceApp is GlobalApp)
+                {
+                    e.Effects = DragDropEffects.None;
+                }
+                else
+                {
+                    e.Effects = DragDropEffects.Move;
+                }
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
+
+        #endregion
     }
 }
