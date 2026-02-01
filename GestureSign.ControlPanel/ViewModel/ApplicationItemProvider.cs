@@ -69,7 +69,7 @@ namespace GestureSign.ControlPanel.ViewModel
                         if (oldIndex >= 0)
                         {
                             // 计算新索引（考虑 GlobalApp 在首位）
-                            int newIndex = e.NewIndex + 1; // +1 因为 GlobalApp 在 ApplicationItems 首位
+                            int newIndex = e.NewStartingIndex + 1; // +1 因为 GlobalApp 在 ApplicationItems 首位
                             if (newIndex > ApplicationItems.Count - 1)
                                 newIndex = ApplicationItems.Count - 1;
                             if (oldIndex != newIndex)
