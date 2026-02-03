@@ -713,36 +713,42 @@ namespace GestureSign.ControlPanel.Dialogs
                                 LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.NoApplicationName"));
                         }
 
-                        var newApplication = new UserApp
-                        {
-                            BlockTouchInputThreshold = (int)BlockTouchInputSlider.Value,
-                            LimitNumberOfFingers = (int)LimitNumberOfFingersSlider.Value,
-                            Name = name,
-                            Group = groupName,
-                            MatchRules = matchRules,
-                            MouseWindowDetection = (MouseWindowDetectionMode)MouseWindowDetectionComboBox.SelectedValue,
-                            PriorityWindows = GetPriorityWindowsFromUI()
-                        };
-
                         if (_newApplication)
                         {
                             if (ApplicationManager.Instance.ApplicationExists(name))
                                 return ShowErrorMessage(
                                         LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.AppExistsTitle"),
                                         LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.AppExists"));
+
+                            var newApplication = new UserApp
+                            {
+                                BlockTouchInputThreshold = (int)BlockTouchInputSlider.Value,
+                                LimitNumberOfFingers = (int)LimitNumberOfFingersSlider.Value,
+                                Name = name,
+                                Group = groupName,
+                                MatchRules = matchRules,
+                                MouseWindowDetection = (MouseWindowDetectionMode)MouseWindowDetectionComboBox.SelectedValue,
+                                PriorityWindows = GetPriorityWindowsFromUI()
+                            };
                             ApplicationManager.Instance.AddApplication(newApplication);
                         }
                         else
                         {
-                            if (name != _currentApplication.Name && ApplicationManager.Instance.ApplicationExists(name))
+                            if (name != userApp.Name && ApplicationManager.Instance.ApplicationExists(name))
                             {
                                 return ShowErrorMessage(
                                     LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.AppExistsTitle"),
                                     LocalizationProvider.Instance.GetTextValue("ApplicationDialog.Messages.AppExists"));
                             }
 
-                            newApplication.Actions = _currentApplication.Actions;
-                            ApplicationManager.Instance.ReplaceApplication(_currentApplication, newApplication);
+                            // 直接修改现有对象的属性，保持在列表中的位置不变
+                            userApp.BlockTouchInputThreshold = (int)BlockTouchInputSlider.Value;
+                            userApp.LimitNumberOfFingers = (int)LimitNumberOfFingersSlider.Value;
+                            userApp.Name = name;
+                            userApp.Group = groupName;
+                            userApp.MatchRules = matchRules;
+                            userApp.MouseWindowDetection = (MouseWindowDetectionMode)MouseWindowDetectionComboBox.SelectedValue;
+                            userApp.PriorityWindows = GetPriorityWindowsFromUI();
                         }
                         break;
                     }
@@ -755,12 +761,16 @@ namespace GestureSign.ControlPanel.Dialogs
                             name = matchRules.FirstOrDefault()?.GetDisplayName() ?? "Unknown";
                         }
 
-                        if (!_newApplication)
+                        if (_newApplication)
                         {
-                            ApplicationManager.Instance.RemoveApplication(_currentApplication);
+                            ApplicationManager.Instance.AddApplication(new IgnoredApp(name, matchRules, true));
                         }
-
-                        ApplicationManager.Instance.AddApplication(new IgnoredApp(name, matchRules, true));
+                        else
+                        {
+                            // 直接修改现有对象的属性，保持在列表中的位置不变
+                            ignoredApp.Name = name;
+                            ignoredApp.MatchRules = matchRules;
+                        }
                         break;
                     }
             }

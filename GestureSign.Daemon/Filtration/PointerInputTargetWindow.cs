@@ -84,8 +84,12 @@ namespace GestureSign.Daemon.Filtration
                 }
                 else
                 {
-                    if (_isRegistered && NativeMethods.UnregisterPointerInputTarget(Handle, POINTER_INPUT_TYPE.TOUCH))
+                    if (_isRegistered)
                     {
+                        if (!NativeMethods.UnregisterPointerInputTarget(Handle, POINTER_INPUT_TYPE.TOUCH))
+                        {
+                            GestureSign.Common.Log.Logging.LogWarning("[PointerInputTargetWindow] UnregisterPointerInputTarget failed, forcing _isRegistered=false");
+                        }
                         _isRegistered = false;
                     }
                 }

@@ -341,6 +341,8 @@ namespace GestureSign.Daemon.Input
                     }
                     break;
                 case SessionSwitchReason.SessionLock:
+                    // 锁屏时注销 PointerInputTargetWindow，避免唤醒后残留注册导致阻止所有触摸输入
+                    ResetPointerInputTarget();
                     State = CaptureState.Disabled;
                     break;
                 default:
@@ -355,6 +357,9 @@ namespace GestureSign.Daemon.Input
                 var previousState = State;
                 Logging.LogInfo($"[PointCapture] PowerMode Resume, State: {previousState}");
 
+                // 唤醒时注销 PointerInputTargetWindow，避免残留注册导致阻止所有触摸输入
+                ResetPointerInputTarget();
+
                 // Reset state machine if stuck in non-Ready state during sleep
                 if (previousState != CaptureState.Ready && previousState != CaptureState.Disabled)
                 {
@@ -364,6 +369,20 @@ namespace GestureSign.Daemon.Input
                     _pendingFirstPoints = null;
                     State = CaptureState.Ready;
                 }
+            }
+            else if (e.Mode == PowerModes.Suspend)
+            {
+                // 睡眠时注销 PointerInputTargetWindow
+                ResetPointerInputTarget();
+            }
+        }
+
+        private void ResetPointerInputTarget()
+        {
+            if (_pointerInputTargetWindow != null)
+            {
+                Logging.LogDebug("[PointCapture] Resetting PointerInputTargetWindow registration");
+                _pointerInputTargetWindow.BlockTouchInputThreshold = 0;
             }
         }
 
