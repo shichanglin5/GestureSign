@@ -328,7 +328,7 @@ namespace GestureSign.Daemon.Input
 
         private void SystemEvents_SessionSwitch(object sender, SessionSwitchEventArgs e)
         {
-            GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] SessionSwitch event: {e.Reason}, Current State: {State}");
+            GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] SessionSwitch event: {e.Reason}, Current State: {State}");
 
             switch (e.Reason)
             {
@@ -348,6 +348,8 @@ namespace GestureSign.Daemon.Input
                 default:
                     break;
             }
+
+            GestureSign.Common.Log.Logging.LogDebug($"[PointCapture] SessionSwitch event: {e.Reason}, After State: {State}");
         }
 
         private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)

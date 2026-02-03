@@ -57,22 +57,22 @@ namespace GestureSign.Daemon.Input
 
         private void OnSessionSwitch(object sender, SessionSwitchEventArgs e)
         {
-            GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] SessionSwitch event received: {e.Reason}");
+            GestureSign.Common.Log.Logging.LogDebug($"[InputProvider] SessionSwitch event received: {e.Reason}");
 
             // We need to handle sleeping(and other related events)
             // This is so we never lose the lock on the touchpad hardware.
             switch (e.Reason)
             {
                 case SessionSwitchReason.SessionLogon:
-                    GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] User logged on, triggering UpdateDeviceState");
+                    GestureSign.Common.Log.Logging.LogDebug($"[InputProvider] User logged on, triggering UpdateDeviceState");
                     UpdateDeviceState();
                     break;
                 case SessionSwitchReason.SessionUnlock:
-                    GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] Session unlocked, triggering UpdateDeviceState");
+                    GestureSign.Common.Log.Logging.LogDebug($"[InputProvider] Session unlocked, triggering UpdateDeviceState");
                     UpdateDeviceState();
                     break;
                 case SessionSwitchReason.SessionLock:
-                    GestureSign.Common.Log.Logging.LogInfo($"[InputProvider] Session locked");
+                    GestureSign.Common.Log.Logging.LogDebug($"[InputProvider] Session locked");
                     break;
                 default:
                     GestureSign.Common.Log.Logging.LogDebug($"[InputProvider] SessionSwitch {e.Reason} - no action taken");
