@@ -618,8 +618,7 @@ namespace GestureSign.CorePlugins.ActivateApp
             GetWindowThreadProcessId(hwnd1, out int pid1);
             GetWindowThreadProcessId(hwnd2, out int pid2);
 
-            if (pid1 == pid2) return true;
-            if (pid1 == 0 || pid2 == 0) return false;
+            if (pid1 == 0 || pid2 == 0 || pid1 == pid2) return false;
 
             IntPtr snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
             if (snapshot == IntPtr.Zero || snapshot == new IntPtr(-1)) return false;
