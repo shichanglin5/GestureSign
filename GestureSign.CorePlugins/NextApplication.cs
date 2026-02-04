@@ -62,19 +62,23 @@ namespace GestureSign.CorePlugins
         [DllImport("user32.dll")]
         private static extern uint GetWindowLong(IntPtr hWnd, int nIndex);
 
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
-
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
 
         [DllImport("dwmapi.dll")]
         private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
 
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetAncestor(IntPtr hwnd, uint gaFlags);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetLastActivePopup(IntPtr hWnd);
+
         private const int GWL_EXSTYLE = -20;
         private const uint WS_EX_TOOLWINDOW = 0x00000080;
         private const uint WS_EX_APPWINDOW = 0x00040000;
-        private const uint GW_OWNER = 4;
+        private const uint WS_EX_NOACTIVATE = 0x08000000;
+        private const uint GA_ROOTOWNER = 3;
         private const int DWMWA_CLOAKED = 14;
 
         #endregion
@@ -174,6 +178,12 @@ namespace GestureSign.CorePlugins
                 {
                     ShowWindow(nextWindow, SW_RESTORE);
                 }
+
+                var nextTitle = GetWindowTitle(nextWindow);
+                StringBuilder nextClass = new StringBuilder(256);
+                GetClassName(nextWindow, nextClass, nextClass.Capacity);
+                Logging.LogDebug($"[NextApplication] Switching: current=0x{currentWindow.ToString("X")} → next=0x{nextWindow.ToString("X")} '{nextTitle}' (class={nextClass}, index={nextIndex}/{windows.Count})");
+
                 SystemWindow.ForegroundWindow = new SystemWindow(nextWindow);
                 return true;
             }
@@ -202,54 +212,44 @@ namespace GestureSign.CorePlugins
 
         private bool IsSwitchableWindow(IntPtr hWnd)
         {
-            bool visible = IsWindowVisible(hWnd);
-            bool iconic = IsIconic(hWnd);
-
-            // Must be visible (always required — invisible windows are background/internal windows)
-            if (!visible)
+            // Must be visible
+            if (!IsWindowVisible(hWnd))
                 return false;
 
             // Skip minimized windows only when configured to do so
-            if (_settings.SkipMinimizedWindows && iconic)
+            if (_settings.SkipMinimizedWindows && IsIconic(hWnd))
                 return false;
 
             // Must have a title
-            int length = GetWindowTextLength(hWnd);
-            if (length == 0)
+            if (GetWindowTextLength(hWnd) == 0)
                 return false;
 
-            string title = GetWindowTitle(hWnd);
-
-            // Skip windows with an owner (child windows like SubWebView)
-            // Alt+Tab doesn't show owned windows
-            IntPtr ownerWindow = GetWindow(hWnd, GW_OWNER);
-            if (ownerWindow != IntPtr.Zero)
-            {
+            // Alt+Tab algorithm: walk to root owner, then check last active popup
+            // See Raymond Chen's blog: "Which windows appear in the Alt+Tab list?"
+            IntPtr rootOwner = GetAncestor(hWnd, GA_ROOTOWNER);
+            if (rootOwner != IntPtr.Zero && GetLastActivePopup(rootOwner) != hWnd)
                 return false;
-            }
 
             // Check extended window styles
             uint exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
 
             // Skip tool windows unless they have WS_EX_APPWINDOW
             if ((exStyle & WS_EX_TOOLWINDOW) != 0 && (exStyle & WS_EX_APPWINDOW) == 0)
-            {
                 return false;
-            }
+
+            // Skip non-activatable windows (not shown in Alt+Tab)
+            if ((exStyle & WS_EX_NOACTIVATE) != 0)
+                return false;
 
             // Skip DWM cloaked windows (e.g. hidden UWP system apps like TextInputHost)
             if (DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0 && cloaked != 0)
-            {
                 return false;
-            }
 
             // Skip shell internal windows (e.g. taskbar tab proxy windows)
             StringBuilder className = new StringBuilder(256);
             GetClassName(hWnd, className, className.Capacity);
             if (className.ToString() == "Windows.Internal.Shell.TabProxyWindow")
-            {
                 return false;
-            }
 
             return true;
         }
