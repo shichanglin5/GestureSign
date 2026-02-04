@@ -8,6 +8,7 @@ using GestureSign.Common.Applications;
 using GestureSign.Common.Log;
 using GestureSign.Common.Plugins;
 using GestureSign.Common.Localization;
+using ManagedWinapi.Windows;
 
 #pragma warning disable CA1416 // Platform-specific API
 
@@ -64,10 +65,17 @@ namespace GestureSign.CorePlugins
         [DllImport("user32.dll")]
         private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
 
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+
         private const int GWL_EXSTYLE = -20;
         private const uint WS_EX_TOOLWINDOW = 0x00000080;
         private const uint WS_EX_APPWINDOW = 0x00040000;
         private const uint GW_OWNER = 4;
+        private const int DWMWA_CLOAKED = 14;
 
         #endregion
 
@@ -130,14 +138,22 @@ namespace GestureSign.CorePlugins
                     return false;
                 }
 
-                // Get current foreground window
+                // Get current foreground window, fall back to gesture capture window
                 IntPtr currentWindow = GetForegroundWindow();
-                bool foregroundMinimized = IsIconic(currentWindow);
+                if (currentWindow == IntPtr.Zero)
+                    currentWindow = ActionPoint.WindowHandle;
+                if (currentWindow == IntPtr.Zero)
+                    currentWindow = ApplicationManager.Instance.CaptureWindow?.HWnd ?? IntPtr.Zero;
+                // When foreground is unknown, assume topmost window (Z-order first from EnumWindows) is current
+                if (currentWindow == IntPtr.Zero)
+                    currentWindow = windows[0];
+
+                bool foregroundMinimized = currentWindow != IntPtr.Zero && IsIconic(currentWindow);
                 // If foreground is minimized, restore it directly (like Alt+Tab)
                 if (foregroundMinimized)
                 {
                     ShowWindow(currentWindow, SW_RESTORE);
-                    SetForegroundWindow(currentWindow);
+                    SystemWindow.ForegroundWindow = new SystemWindow(currentWindow);
                     return true;
                 }
 
@@ -158,7 +174,7 @@ namespace GestureSign.CorePlugins
                 {
                     ShowWindow(nextWindow, SW_RESTORE);
                 }
-                bool result = SetForegroundWindow(nextWindow);
+                SystemWindow.ForegroundWindow = new SystemWindow(nextWindow);
                 return true;
             }
             catch (Exception ex)
@@ -220,6 +236,21 @@ namespace GestureSign.CorePlugins
             {
                 return false;
             }
+
+            // Skip DWM cloaked windows (e.g. hidden UWP system apps like TextInputHost)
+            if (DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0 && cloaked != 0)
+            {
+                return false;
+            }
+
+            // Skip shell internal windows (e.g. taskbar tab proxy windows)
+            StringBuilder className = new StringBuilder(256);
+            GetClassName(hWnd, className, className.Capacity);
+            if (className.ToString() == "Windows.Internal.Shell.TabProxyWindow")
+            {
+                return false;
+            }
+
             return true;
         }
 

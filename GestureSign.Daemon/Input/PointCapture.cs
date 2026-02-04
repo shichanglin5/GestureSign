@@ -676,7 +676,7 @@ namespace GestureSign.Daemon.Input
                 // Auto-clear stuck gestures if no PointMove received for 100ms
                 if (State == CaptureState.Capturing || State == CaptureState.CapturingInvalid)
                 {
-                    GestureSign.Common.Log.Logging.LogWarning($"[PointCapture] Inactivity timeout (100ms) - Auto-clearing stuck gesture, State: {State}");
+                    // GestureSign.Common.Log.Logging.LogWarning($"[PointCapture] Inactivity timeout (100ms) - Auto-clearing stuck gesture, State: {State}");
 
                     // Force end capture to clear the gesture
                     try
@@ -690,7 +690,7 @@ namespace GestureSign.Daemon.Input
                         _featureFingerIds?.Clear();
                         _totalFingerCount = 0;
 
-                        GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] Stuck gesture cleared, State reset to Ready, surface cleared");
+                        // GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] Stuck gesture cleared, State reset to Ready, surface cleared");
                     }
                     catch (Exception ex)
                     {

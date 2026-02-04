@@ -342,16 +342,16 @@ namespace ManagedWinapi.Windows
                 bool attached1 = false, attached2 = false;
                 try
                 {
-                    if (currentThreadId != foregroundThreadId)
+                    if (foregroundThreadId != 0 && currentThreadId != foregroundThreadId)
                         attached1 = AttachThreadInput(currentThreadId, foregroundThreadId, true);
-                    if (foregroundThreadId != targetThreadId)
+                    if (foregroundThreadId != 0 && foregroundThreadId != targetThreadId)
                         attached2 = AttachThreadInput(foregroundThreadId, targetThreadId, true);
 
                     if (!method1Success)
                     {
-                        // 模拟空按键，让系统认为有用户输入
-                        keybd_event(0, 0, 0, UIntPtr.Zero);
-                        keybd_event(0, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        // 模拟 Alt 键按下释放，让系统认为有用户输入，获取前台窗口设置权限
+                        keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+                        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
                         SetForegroundWindow(hWnd);
                     }
 
@@ -1622,6 +1622,7 @@ namespace ManagedWinapi.Windows
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
         private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const byte VK_MENU = 0x12;
 
         [DllImport("user32.dll")]
         private static extern IntPtr SetFocus(IntPtr hWnd);
