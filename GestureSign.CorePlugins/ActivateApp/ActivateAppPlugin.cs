@@ -73,36 +73,6 @@ namespace GestureSign.CorePlugins.ActivateApp
         [DllImport("user32.dll")]
         private static extern bool IsWindow(IntPtr hWnd);
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);
-
-        [DllImport("kernel32.dll")]
-        private static extern bool Process32First(IntPtr hSnapshot, ref PROCESSENTRY32 lppe);
-
-        [DllImport("kernel32.dll")]
-        private static extern bool Process32Next(IntPtr hSnapshot, ref PROCESSENTRY32 lppe);
-
-        [DllImport("kernel32.dll")]
-        private static extern bool CloseHandle(IntPtr hObject);
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-        private struct PROCESSENTRY32
-        {
-            public uint dwSize;
-            public uint cntUsage;
-            public uint th32ProcessID;
-            public IntPtr th32DefaultHeapID;
-            public uint th32ModuleID;
-            public uint cntThreads;
-            public uint th32ParentProcessID;
-            public int pcPriClassBase;
-            public uint dwFlags;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
-            public string szExeFile;
-        }
-
-        private const uint TH32CS_SNAPPROCESS = 0x00000002;
-
         private const uint GW_OWNER = 4;
         private const uint GW_HWNDPREV = 3;
         private const int GWL_EXSTYLE = -20;
@@ -398,15 +368,6 @@ namespace GestureSign.CorePlugins.ActivateApp
                 return true;
             }
 
-            // If we're not the foreground, check if the foreground window's process is
-            // a child/parent of the target's process (e.g. WeChatAppEx is a child process
-            // of Weixin). This reliably detects related processes regardless of window title.
-            if (!isForeground && foregroundWindow != IntPtr.Zero && IsProcessRelated(foregroundWindow, hWnd))
-            {
-                Logging.LogDebug($"[ActivateApp] Foreground 0x{foregroundWindow:X} is related process to target 0x{hWnd:X}, treating as foreground");
-                isForeground = true;
-            }
-
             // Window is not minimized, check if it's the foreground window
             if (isForeground)
             {
@@ -605,71 +566,6 @@ namespace GestureSign.CorePlugins.ActivateApp
             }
 
             return zOrder;
-        }
-
-        /// <summary>
-        /// Check if two windows' processes have a parent-child relationship
-        /// with different executable names. Same-exe processes (e.g. multiple
-        /// msedge.exe instances for browser tabs and PWAs) are NOT considered
-        /// related, as they represent independent application windows.
-        /// </summary>
-        private bool IsProcessRelated(IntPtr hwnd1, IntPtr hwnd2)
-        {
-            GetWindowThreadProcessId(hwnd1, out int pid1);
-            GetWindowThreadProcessId(hwnd2, out int pid2);
-
-            if (pid1 == 0 || pid2 == 0 || pid1 == pid2) return false;
-
-            IntPtr snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-            if (snapshot == IntPtr.Zero || snapshot == new IntPtr(-1)) return false;
-
-            try
-            {
-                var processes = new Dictionary<uint, (uint parentId, string exeName)>();
-                var entry = new PROCESSENTRY32 { dwSize = (uint)Marshal.SizeOf<PROCESSENTRY32>() };
-
-                if (Process32First(snapshot, ref entry))
-                {
-                    do
-                    {
-                        processes[entry.th32ProcessID] = (entry.th32ParentProcessID, entry.szExeFile);
-                    } while (Process32Next(snapshot, ref entry));
-                }
-
-                // Get exe names for both processes
-                string exe1 = processes.TryGetValue((uint)pid1, out var info1) ? info1.exeName : null;
-                string exe2 = processes.TryGetValue((uint)pid2, out var info2) ? info2.exeName : null;
-
-                // Same executable name means independent instances (e.g. msedge.exe tabs/PWAs),
-                // not a host-embedded relationship — skip parent chain check
-                if (exe1 != null && exe2 != null &&
-                    string.Equals(exe1, exe2, StringComparison.OrdinalIgnoreCase))
-                    return false;
-
-                // Check if pid1 is ancestor of pid2
-                uint current = (uint)pid2;
-                for (int depth = 0; depth < 10 && current != 0; depth++)
-                {
-                    if (current == (uint)pid1) return true;
-                    if (!processes.TryGetValue(current, out var p)) break;
-                    current = p.parentId;
-                }
-
-                // Check if pid2 is ancestor of pid1
-                current = (uint)pid1;
-                for (int depth = 0; depth < 10 && current != 0; depth++)
-                {
-                    if (current == (uint)pid2) return true;
-                    if (!processes.TryGetValue(current, out var p)) break;
-                    current = p.parentId;
-                }
-            }
-            finally
-            {
-                CloseHandle(snapshot);
-            }
-
-            return false;
         }
 
         #endregion
