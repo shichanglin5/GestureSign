@@ -312,10 +312,10 @@ namespace GestureSign.Common.Applications
             {
                 return new List<IAction>();
             }
-            var recognizedActions = _recognizedApplication.Where(app => !(app is IgnoredApp) && app.Actions != null).SelectMany(app => app.Actions).Where(a => predicate(a)).ToList();
+            var recognizedActions = _recognizedApplication.Where(app => !(app is IgnoredApp) && app.Actions != null).SelectMany(app => app.Actions).Where(a => a.IsEnabled && predicate(a)).ToList();
             // If there is was no action found on given application, try to get an action for global application
             if (recognizedActions.Count == 0)
-                recognizedActions = GetGlobalApplication().Actions.Where(a => predicate(a)).ToList();
+                recognizedActions = GetGlobalApplication().Actions.Where(a => a.IsEnabled && predicate(a)).ToList();
 
             return recognizedActions;
         }
@@ -330,7 +330,7 @@ namespace GestureSign.Common.Applications
             var appActions = application
                 .Where(app => !(app is IgnoredApp) && app.Actions != null)
                 .SelectMany(app => app.Actions
-                    .Where(a => a.GestureName == gestureName && a.Commands != null && a.Commands.Any(com => com != null && com.IsEnabled))
+                    .Where(a => a.IsEnabled && a.GestureName == gestureName && a.Commands != null && a.Commands.Any(com => com != null && com.IsEnabled))
                     .Select(a => new { App = app, Action = a }))
                 .ToList();
 
@@ -339,7 +339,7 @@ namespace GestureSign.Common.Applications
             // If there is was no action found on given application, try to get an action for global application
             if (!finalAction.Any() && useGlobal)
             {
-                finalAction = GetGlobalApplication().Actions.Where(a => a.GestureName == gestureName);
+                finalAction = GetGlobalApplication().Actions.Where(a => a.IsEnabled && a.GestureName == gestureName);
             }
 
             // Return whatever the result was

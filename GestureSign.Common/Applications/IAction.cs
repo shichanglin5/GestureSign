@@ -8,6 +8,7 @@ namespace GestureSign.Common.Applications
 {
     public interface IAction : INotifyCollectionChanged
     {
+        bool IsEnabled { get; set; }
         string GestureName { get; set; }
         string Name { get; set; }
         string Condition { get; set; }

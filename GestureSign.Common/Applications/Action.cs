@@ -11,15 +11,29 @@ using System.Linq;
 
 namespace GestureSign.Common.Applications
 {
-    public class Action : IAction, ICloneable, INotifyCollectionChanged
+    public class Action : IAction, ICloneable, INotifyCollectionChanged, INotifyPropertyChanged
     {
         #region Private Variable
 
         private List<ICommand> _commands;
+        private bool _isEnabled = true;
 
         #endregion
 
         #region Public Properties
+
+        public bool IsEnabled
+        {
+            get => _isEnabled;
+            set
+            {
+                if (_isEnabled != value)
+                {
+                    _isEnabled = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEnabled)));
+                }
+            }
+        }
 
         public string Name { get; set; }
 
@@ -51,6 +65,7 @@ namespace GestureSign.Common.Applications
         public Devices IgnoredDevices { get; set; }
 
         public event NotifyCollectionChangedEventHandler CollectionChanged;
+        public event PropertyChangedEventHandler PropertyChanged;
 
         #endregion
 
@@ -83,6 +98,7 @@ namespace GestureSign.Common.Applications
         {
             Action action = (Action)MemberwiseClone();
             action.CollectionChanged = null;
+            action.PropertyChanged = null;
 
             action.Name = Name == null ? null : string.Copy(Name);
             action.GestureName = GestureName == null ? null : string.Copy(GestureName);

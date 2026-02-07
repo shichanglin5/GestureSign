@@ -26,6 +26,8 @@ namespace GestureSign.ControlPanel.MainWindowControls
     /// </summary>
     public partial class AvailableActions : UserControl
     {
+        private bool _isUpdatingToggleAllSwitch;
+
         // public static event EventHandler StartCapture;
         public AvailableActions()
         {
@@ -215,6 +217,18 @@ namespace GestureSign.ControlPanel.MainWindowControls
             if (info == null) return;
             info.Command.IsEnabled = (sender as ToggleSwitch).IsOn;
             ApplicationManager.Instance.SaveApplications();
+        }
+
+        private void ActionToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+        {
+            var toggleSwitch = sender as ToggleSwitch;
+            var groupItem = UIHelper.GetParentDependencyObject<GroupItem>(toggleSwitch);
+            var group = groupItem?.Content as CollectionViewGroup;
+            if (group?.Name is IAction action)
+            {
+                action.IsEnabled = toggleSwitch.IsOn;
+                ApplicationManager.Instance.SaveApplications();
+            }
         }
 
         private void btnAddAction_Click(object sender, RoutedEventArgs e)
@@ -587,7 +601,15 @@ namespace GestureSign.ControlPanel.MainWindowControls
             }
 
             ToggleAllActionsToggleSwitch.IsEnabled = true;
-            ToggleAllActionsToggleSwitch.IsOn = selectedApp.Actions.SelectMany(a => a.Commands).All(c => c.IsEnabled);
+            _isUpdatingToggleAllSwitch = true;
+            try
+            {
+                ToggleAllActionsToggleSwitch.IsOn = selectedApp.Actions.All(a => a.IsEnabled);
+            }
+            finally
+            {
+                _isUpdatingToggleAllSwitch = false;
+            }
 
             Dispatcher.InvokeAsync(() => lstAvailableApplication.ScrollIntoView(selectedApp), DispatcherPriority.Background);
         }
@@ -658,22 +680,19 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void ToggleAllActionsToggleSwitch_Click(object sender, RoutedEventArgs e)
         {
+            if (_isUpdatingToggleAllSwitch) return;
+
             try
             {
                 var toggleSwitch = ((ToggleSwitch)sender);
 
                 IApplication app = lstAvailableApplication.SelectedItem as IApplication;
                 if (app == null) return;
-                foreach (var command in app.Actions.SelectMany(a => a.Commands))
+                foreach (var action in app.Actions)
                 {
-                    command.IsEnabled = toggleSwitch.IsOn;
+                    action.IsEnabled = toggleSwitch.IsOn;
                 }
                 ApplicationManager.Instance.SaveApplications();
-
-                foreach (CommandInfo ai in lstAvailableActions.Items)
-                {
-                    ai.IsEnabled = toggleSwitch.IsOn;
-                }
             }
             catch { }
         }

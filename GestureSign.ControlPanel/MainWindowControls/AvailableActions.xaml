@@ -409,8 +409,7 @@
                                                     </ContextMenu>
                                                 </Button.ContextMenu>
                                                 <Grid x:Name="GestureImageGrid"
-                                                      VerticalAlignment="Top"
-                                                      Height="96">
+                                                      VerticalAlignment="Top">
                                                     <Grid.RowDefinitions>
                                                         <RowDefinition Height="76" />
                                                         <RowDefinition Height="20" />
@@ -461,6 +460,13 @@
                                                                VerticalAlignment="Center" />
                                                 </Grid>
                                             </Button>
+                                            <controls:ToggleSwitch DockPanel.Dock="Left"
+                                                                   IsOn="{Binding Path=Name.IsEnabled, Mode=OneWay}"
+                                                                   Toggled="ActionToggleSwitch_Toggled"
+                                                                   HorizontalAlignment="Center"
+                                                                   Margin="0,0,5,0"
+                                                                   OffContent=""
+                                                                   OnContent="" />
                                             <ItemsPresenter DockPanel.Dock="Right" />
                                         </DockPanel>
                                     </ControlTemplate>
