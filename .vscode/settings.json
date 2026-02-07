@@ -66,5 +66,175 @@
   "files.insertFinalNewline": true,
   "files.encoding": "utf8",
   "files.eol": "\n",
-  "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true
+  "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true,
+  "saveEditorLayout.list": [
+    {
+      "name": "LHHDZ",
+      "documents": [
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Daemon\\Triggers\\HotKeyManager.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\ApplicationManager.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Log\\Logging.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\.vscode\\tasks.json",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Daemon\\Filtration\\PointerInputTargetWindow.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Daemon\\Input\\InputProvider.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Daemon\\Input\\PointCapture.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "c:\\Users\\shich\\AppData\\Local\\Temp\\MetadataAsSource\\bedf0a42b0c146999c0a294587203ac0\\DecompilationMetadataAsSourceFileProvider\\b63eb80fc3184f97b0bada787679e7c0\\StringBuilder.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\docs\\修复窗口切换在前台窗口为0时失败的问题.md",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\docs\\激活应用窗口插件设计文档.md",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\IApplication.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\IApplicationManager.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\IWindowRule.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\WindowRule.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\WindowPresetManager.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\WindowRuleRef.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\.vscode\\launch.json",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\Action.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\ICommand.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\Command.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.CorePlugins\\ActivateApp\\ActivateAppSettings.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\WindowMatcher.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\WindowInfoCache.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.CorePlugins\\ActivateApp\\ActivateAppPlugin.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\ApplicationBase.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Applications\\IAction.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.ControlPanel\\ViewModel\\CommandInfo.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Plugins\\IPluginInfo.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Common\\Plugins\\IPlugin.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.CorePlugins\\HotKey\\HotKeyPlugin.cs",
+          "column": 1,
+          "pinned": false
+        },
+        {
+          "fsPath": "d:\\wd\\repos\\c#\\GestureSign\\GestureSign.Daemon\\Triggers\\ContinuousGestureTrigger.cs",
+          "column": 1,
+          "pinned": false
+        }
+      ],
+      "layout": {
+        "orientation": 1,
+        "groups": [
+          {
+            "size": 516
+          }
+        ]
+      }
+    }
+  ]
 }
