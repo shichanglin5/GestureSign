@@ -51,14 +51,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 MinimumFingerCountForVisualFeedbackSlider.Value = AppConfig.MinimumFingerCountForVisualFeedback;
                 MinimumPointDistanceSlider.Value = AppConfig.MinimumPointDistance;
                 TapDistanceThresholdSlider.Value = AppConfig.TapDistanceThreshold;
-                FeatureFingerIndexSlider.Value = AppConfig.FeatureFingerIndex;
-
-                // Initialize FeatureFingerIndex display
-                var displayValue = GetOrdinalString(AppConfig.FeatureFingerIndex + 1);
-                FeatureFingerIndexText.Text = string.Format(
-                    LocalizationProvider.Instance.GetTextValue("Options.FeatureFingerIndex"),
-                    displayValue);
-
                 GestureMatchProbabilitySlider.Value = AppConfig.GestureMatchProbability;
                 MultiFingerDelaySlider.Value = AppConfig.MultiFingerDelay;
                 OpacitySlider.Value = AppConfig.Opacity;
@@ -163,45 +155,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var newValue = (int)Math.Round(e.NewValue);
             if (newValue == AppConfig.TapDistanceThreshold || (int)e.OldValue == 0) return;
             AppConfig.TapDistanceThreshold = newValue;
-        }
-
-        private void FeatureFingerIndexSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            var newValue = (int)Math.Round(e.NewValue);
-
-            // Skip only during initialization (OldValue and NewValue both 0, and matches config)
-            if ((int)e.OldValue == 0 && newValue == 0 && newValue == AppConfig.FeatureFingerIndex)
-                return;
-
-            // Skip if value didn't actually change
-            if (newValue == AppConfig.FeatureFingerIndex && (int)e.OldValue != 0)
-                return;
-
-            AppConfig.FeatureFingerIndex = newValue;
-
-            // Update display: show "1st", "2nd", "3rd", etc. instead of 0-based index
-            var displayValue = GetOrdinalString(newValue + 1);
-            FeatureFingerIndexText.Text = string.Format(
-                LocalizationProvider.Instance.GetTextValue("Options.FeatureFingerIndex"),
-                displayValue);
-        }
-
-        private string GetOrdinalString(int number)
-        {
-            // For English: 1st, 2nd, 3rd, 4th, 5th
-            // For Chinese: just return the number
-            if (AppConfig.CultureName.StartsWith("en"))
-            {
-                string suffix = "th";
-                if (number % 10 == 1 && number % 100 != 11) suffix = "st";
-                else if (number % 10 == 2 && number % 100 != 12) suffix = "nd";
-                else if (number % 10 == 3 && number % 100 != 13) suffix = "rd";
-                return number + suffix;
-            }
-            else
-            {
-                return number.ToString();
-            }
         }
 
         private void GestureMatchProbabilitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)

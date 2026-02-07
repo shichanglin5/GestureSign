@@ -753,13 +753,12 @@ namespace GestureSign.Daemon.Input
             // (firstPoint may have fewer elements if some fingers have State=None)
             _totalFingerCount = totalFingerCount;
 
-            // Select feature finger based on configuration
-            // FeatureFingerIndex: 0-based index (0=leftmost, 1=2nd from left, etc.)
+            // Select feature finger based on finger count
+            // <=2 fingers: use leftmost (index 0), >2 fingers: use 2nd from left (index 1)
             List<InputPoint> featureFingers;
             var sortedByX = firstPoint.OrderBy(p => p.Point.X).ToList();
 
-            // Get configured feature finger index, bounded by actual finger count
-            int configuredIndex = AppConfig.FeatureFingerIndex;
+            int configuredIndex = _totalFingerCount <= 2 ? 0 : 1;
             int actualIndex = Math.Min(configuredIndex, sortedByX.Count - 1);
 
             featureFingers = new List<InputPoint> { sortedByX[actualIndex] };

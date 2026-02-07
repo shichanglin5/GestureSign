@@ -12,7 +12,7 @@
              Width="380"
              Initialized="UserControl_Initialized">
     <ScrollViewer PanningMode="VerticalFirst">
-        <StackPanel Margin="0,0,0.4,0" HorizontalAlignment="Center">
+        <StackPanel Width="450" HorizontalAlignment="Center">
             <StackPanel.Resources>
                 <ResourceDictionary>
                     <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -22,23 +22,137 @@
                                 Value="{StaticResource DefaultFont}" />
                         <Setter Property="Margin"
                                 Value="0,10,0,0" />
-                        <Setter Property="Width"
-                                Value="300" />
+                        <Setter Property="HorizontalAlignment"
+                                Value="Stretch" />
                         <Setter Property="FontWeight"
-                                Value="Bold" />
+                                Value="Normal" />
                         <Setter Property="FontSize"
                                 Value="14" />
+                        <Setter Property="HorizontalContentAlignment"
+                                Value="Stretch" />
+                        <Setter Property="ContentDirection"
+                                Value="LeftToRight" />
+                        <Setter Property="OnContent"
+                                Value="{x:Null}" />
+                        <Setter Property="OffContent"
+                                Value="{x:Null}" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="{x:Type controls:ToggleSwitch}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ContentPresenter Grid.Column="0"
+                                                          HorizontalAlignment="Left"
+                                                          VerticalAlignment="Center"
+                                                          Content="{TemplateBinding Content}"
+                                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                          ContentTemplateSelector="{TemplateBinding ContentTemplateSelector}"
+                                                          TextElement.FontFamily="{TemplateBinding FontFamily}"
+                                                          TextElement.FontSize="{TemplateBinding FontSize}"
+                                                          TextElement.FontWeight="{TemplateBinding FontWeight}"
+                                                          TextElement.Foreground="{TemplateBinding Foreground}" />
+                                        <Grid x:Name="Switch"
+                                              Grid.Column="1"
+                                              Width="44"
+                                              Height="20"
+                                              Margin="12,5"
+                                              VerticalAlignment="Center">
+                                            <Rectangle x:Name="OuterBorder"
+                                                       Fill="{DynamicResource MahApps.Brushes.ToggleSwitch.FillOff}"
+                                                       RadiusX="10"
+                                                       RadiusY="10"
+                                                       Stroke="{DynamicResource MahApps.Brushes.ToggleSwitch.StrokeOff}"
+                                                       StrokeThickness="2" />
+                                            <Rectangle x:Name="SwitchKnobBounds"
+                                                       Fill="{DynamicResource MahApps.Brushes.ToggleSwitch.FillOn}"
+                                                       Opacity="0"
+                                                       RadiusX="10"
+                                                       RadiusY="10"
+                                                       Stroke="{DynamicResource MahApps.Brushes.ToggleSwitch.StrokeOn}"
+                                                       StrokeThickness="0" />
+                                            <Grid x:Name="SwitchKnob"
+                                                  Width="20"
+                                                  Height="20"
+                                                  HorizontalAlignment="Left">
+                                                <Ellipse x:Name="SwitchKnobOn"
+                                                         Width="10"
+                                                         Height="10"
+                                                         Fill="{DynamicResource MahApps.Brushes.ToggleSwitch.KnobFillOn}"
+                                                         Opacity="0" />
+                                                <Ellipse x:Name="SwitchKnobOff"
+                                                         Width="10"
+                                                         Height="10"
+                                                         Fill="{DynamicResource MahApps.Brushes.ToggleSwitch.KnobFillOff}" />
+                                                <Grid.RenderTransform>
+                                                    <TranslateTransform x:Name="KnobTranslateTransform" />
+                                                </Grid.RenderTransform>
+                                            </Grid>
+                                            <Thumb x:Name="SwitchThumb">
+                                                <Thumb.Template>
+                                                    <ControlTemplate TargetType="Thumb">
+                                                        <Rectangle Fill="Transparent" />
+                                                    </ControlTemplate>
+                                                </Thumb.Template>
+                                            </Thumb>
+                                        </Grid>
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsOn" Value="True">
+                                            <Setter TargetName="SwitchKnobBounds" Property="Opacity" Value="1" />
+                                            <Setter TargetName="OuterBorder" Property="Opacity" Value="0" />
+                                            <Setter TargetName="SwitchKnobOn" Property="Opacity" Value="1" />
+                                            <Setter TargetName="SwitchKnobOff" Property="Opacity" Value="0" />
+                                            <Trigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetName="SwitchKnob"
+                                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                                         To="24" Duration="0" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </Trigger.EnterActions>
+                                            <Trigger.ExitActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetName="SwitchKnob"
+                                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                                         To="0" Duration="0" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </Trigger.ExitActions>
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="OuterBorder" Property="Fill" Value="{DynamicResource MahApps.Brushes.ToggleSwitch.FillOffPointerOver}" />
+                                            <Setter TargetName="OuterBorder" Property="Stroke" Value="{DynamicResource MahApps.Brushes.ToggleSwitch.StrokeOffPointerOver}" />
+                                            <Setter TargetName="SwitchKnobBounds" Property="Fill" Value="{DynamicResource MahApps.Brushes.ToggleSwitch.FillOnPointerOver}" />
+                                            <Setter TargetName="SwitchKnobBounds" Property="Stroke" Value="{DynamicResource MahApps.Brushes.ToggleSwitch.StrokeOnPointerOver}" />
+                                            <Setter TargetName="SwitchKnobOff" Property="Fill" Value="{DynamicResource MahApps.Brushes.ToggleSwitch.KnobFillOffPointerOver}" />
+                                            <Setter TargetName="SwitchKnobOn" Property="Fill" Value="{DynamicResource MahApps.Brushes.ToggleSwitch.KnobFillOnPointerOver}" />
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter TargetName="OuterBorder" Property="Fill" Value="{DynamicResource MahApps.Brushes.ToggleSwitch.FillOffDisabled}" />
+                                            <Setter TargetName="OuterBorder" Property="Stroke" Value="{DynamicResource MahApps.Brushes.ToggleSwitch.StrokeOffDisabled}" />
+                                            <Setter TargetName="SwitchKnobBounds" Property="Fill" Value="{DynamicResource MahApps.Brushes.ToggleSwitch.FillOnDisabled}" />
+                                            <Setter TargetName="SwitchKnobBounds" Property="Stroke" Value="{DynamicResource MahApps.Brushes.ToggleSwitch.StrokeOnDisabled}" />
+                                            <Setter TargetName="SwitchKnobOff" Property="Fill" Value="{DynamicResource MahApps.Brushes.ToggleSwitch.KnobFillOffDisabled}" />
+                                            <Setter TargetName="SwitchKnobOn" Property="Fill" Value="{DynamicResource MahApps.Brushes.ToggleSwitch.KnobFillOnDisabled}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
                     </Style>
                     <Style TargetType="Slider"
                            BasedOn="{StaticResource {x:Type Slider}}">
-                        <Setter Property="Width"
-                                Value="300" />
                         <Setter Property="Height"
                                 Value="24" />
                         <Setter Property="Margin"
                                 Value="0,5" />
                         <Setter Property="HorizontalAlignment"
-                                Value="Center" />
+                                Value="Stretch" />
                         <Setter Property="IsMoveToPointEnabled"
                                 Value="True" />
                         <Setter Property="common:SliderTools.MoveToPointOnDrag"
@@ -47,14 +161,11 @@
                 </ResourceDictionary>
             </StackPanel.Resources>
             <controls:ToggleSwitch x:Name="GestureTrailSwitch"
-                                   Header="{localization:LocalisedText Options.GestureTrail}"
-                                   OnContent="{localization:LocalisedText Options.OnLabel}"
-                                   OffContent="{localization:LocalisedText Options.OffLabel}"
+                                   Content="{localization:LocalisedText Options.GestureTrail}"
                                    Toggled="GestureTrailSwitch_Click" />
             <StackPanel Visibility="{Binding ElementName=GestureTrailSwitch,Path=IsChecked,Converter={StaticResource BooleanToVisibilityConverter}}"
                         Margin="0,10,0,0">
-                <DockPanel HorizontalAlignment="Center"
-                           Width="300">
+                <DockPanel HorizontalAlignment="Stretch">
                     <Button x:Name="btnPickColor"
                             Content="{localization:LocalisedText Options.PickColor}"
                             Click="btnPickColor_Click"
@@ -85,7 +196,7 @@
                       VerticalAlignment="Center"
                       HorizontalAlignment="Center" />
                 <TextBlock x:Name="OpacityText"
-                           HorizontalAlignment="Center"
+                           HorizontalAlignment="Left"
                            TextWrapping="Wrap"
                            VerticalAlignment="Top"
                            Margin="15,5,0,3"
@@ -95,7 +206,7 @@
                         ValueChanged="OpacitySlider_ValueChanged"
                         Maximum="1" />
                 <TextBlock x:Name="VisualFeedbackWidthText"
-                           HorizontalAlignment="Center"
+                           HorizontalAlignment="Left"
                            TextWrapping="Wrap"
                            VerticalAlignment="Top"
                            Margin="15,15,5,3"
@@ -105,7 +216,7 @@
                         ValueChanged="VisualFeedbackWidthSlider_ValueChanged"
                         SmallChange="1" />
                 <TextBlock x:Name="MinimumFingerCountForVisualFeedbackText"
-                           HorizontalAlignment="Center"
+                           HorizontalAlignment="Left"
                            TextWrapping="Wrap"
                            Text="{Binding ElementName=MinimumFingerCountForVisualFeedbackSlider, Path=Value, StringFormat={localization:LocalisedText Options.MinimumFingerCountForVisualFeedback}}"
                            VerticalAlignment="Top"
@@ -118,7 +229,7 @@
                         SmallChange="1" />
             </StackPanel>
             <TextBlock x:Name="MinimumPointDistanceText"
-                       HorizontalAlignment="Center"
+                       HorizontalAlignment="Left"
                        TextWrapping="Wrap"
                        Text="{Binding ElementName=MinimumPointDistanceSlider, Path=Value, StringFormat={localization:LocalisedText Options.MinimumPointDistance}}"
                        VerticalAlignment="Top"
@@ -129,7 +240,7 @@
                     Minimum="3"
                     ValueChanged="MinimumPointDistanceSlider_ValueChanged" />
             <TextBlock x:Name="TapDistanceThresholdText"
-                       HorizontalAlignment="Center"
+                       HorizontalAlignment="Left"
                        TextWrapping="Wrap"
                        Text="{Binding ElementName=TapDistanceThresholdSlider, Path=Value, StringFormat={localization:LocalisedText Options.TapDistanceThreshold}}"
                        VerticalAlignment="Top"
@@ -142,21 +253,8 @@
                     IsSnapToTickEnabled="True"
                     TickFrequency="5"
                     ValueChanged="TapDistanceThresholdSlider_ValueChanged" />
-            <TextBlock x:Name="FeatureFingerIndexText"
-                       HorizontalAlignment="Center"
-                       TextWrapping="Wrap"
-                       VerticalAlignment="Top"
-                       Margin="15,15,5,3"
-                       FontSize="14" />
-            <Slider x:Name="FeatureFingerIndexSlider"
-                    Maximum="4"
-                    Minimum="0"
-                    SmallChange="1"
-                    IsSnapToTickEnabled="True"
-                    TickFrequency="1"
-                    ValueChanged="FeatureFingerIndexSlider_ValueChanged" />
             <TextBlock x:Name="GestureMatchProbabilityText"
-                       HorizontalAlignment="Center"
+                       HorizontalAlignment="Left"
                        TextWrapping="Wrap"
                        Text="{Binding ElementName=GestureMatchProbabilitySlider, Path=Value, StringFormat={localization:LocalisedText Options.GestureMatchProbability}}"
                        VerticalAlignment="Top"
@@ -170,7 +268,7 @@
                     TickFrequency="1"
                     ValueChanged="GestureMatchProbabilitySlider_ValueChanged" />
             <TextBlock x:Name="MultiFingerDelayText"
-                       HorizontalAlignment="Center"
+                       HorizontalAlignment="Left"
                        TextWrapping="Wrap"
                        Text="{Binding ElementName=MultiFingerDelaySlider, Path=Value, StringFormat={localization:LocalisedText Options.MultiFingerDelay}}"
                        VerticalAlignment="Top"
@@ -184,45 +282,40 @@
                     TickFrequency="10"
                     ValueChanged="MultiFingerDelaySlider_ValueChanged" />
             <TextBlock Text="{localization:LocalisedText Options.Language}"
-                       HorizontalAlignment="Center"
+                       HorizontalAlignment="Left"
                        VerticalAlignment="Top"
                        FontSize="14"
                        Margin="0,20,0,5" />
             <ComboBox x:Name="LanguageComboBox"
-                      HorizontalAlignment="Center"
-                      Width="300"
+                      HorizontalAlignment="Stretch"
                       FontSize="14"
                       Margin="0,5"
                       DisplayMemberPath="Value"
                       SelectedValuePath="Key"
                       DropDownClosed="LanguageComboBox_DropDownClosed" />
             <controls:ToggleSwitch x:Name="TouchScreenSwitch"
-                                   OnContent="{localization:LocalisedText Options.OnLabel}"
-                                   OffContent="{localization:LocalisedText Options.OffLabel}"
                                    Toggled="TouchScreenSwitch_Click">
-                <controls:ToggleSwitch.Header>
-                    <TextBlock FontSize="{StaticResource ToggleSwitchHeaderFontSize}"
+                <controls:ToggleSwitch.Content>
+                    <TextBlock FontSize="14"
                                FontWeight="Normal">
                         <Run Text="{localization:LocalisedText Options.TouchScreen}" />
                         <Run Name="TouchScreenNotFoundText"
                              Foreground="{StaticResource MahApps.Brushes.Accent}"
                              Text="{localization:LocalisedText Options.DeviceNotFound}" />
                     </TextBlock>
-                </controls:ToggleSwitch.Header>
+                </controls:ToggleSwitch.Content>
             </controls:ToggleSwitch>
             <controls:ToggleSwitch x:Name="TouchPadSwitch"
-                                   OnContent="{localization:LocalisedText Options.OnLabel}"
-                                   OffContent="{localization:LocalisedText Options.OffLabel}"
                                    Toggled="TouchPadSwitch_Click">
-                <controls:ToggleSwitch.Header>
-                    <TextBlock FontSize="{StaticResource ToggleSwitchHeaderFontSize}"
+                <controls:ToggleSwitch.Content>
+                    <TextBlock FontSize="14"
                                FontWeight="Normal">
                         <Run Text="{localization:LocalisedText Options.TouchPad}" />
                         <Run Name="TouchPadNotFoundText"
                              Foreground="{StaticResource MahApps.Brushes.Accent}"
                              Text="{localization:LocalisedText Options.DeviceNotFound}" />
                     </TextBlock>
-                </controls:ToggleSwitch.Header>
+                </controls:ToggleSwitch.Content>
             </controls:ToggleSwitch>
 
             <!-- 焦点窗口规则标题 -->
@@ -230,17 +323,16 @@
                        FontSize="16"
                        FontWeight="Bold"
                        Margin="0,20,0,10"
-                       HorizontalAlignment="Center" />
+                       HorizontalAlignment="Left" />
 
             <!-- 触摸板窗口目标模式 -->
             <TextBlock Text="{localization:LocalisedText Options.TouchPadWindowTarget}"
-                       HorizontalAlignment="Center"
+                       HorizontalAlignment="Left"
                        VerticalAlignment="Top"
                        FontSize="14"
                        Margin="0,10,0,5" />
             <ComboBox x:Name="TouchPadWindowTargetComboBox"
-                      HorizontalAlignment="Center"
-                      Width="300"
+                      HorizontalAlignment="Stretch"
                       FontSize="14"
                       Margin="0,5,0,0"
                       SelectionChanged="TouchPadWindowTargetComboBox_SelectionChanged">
@@ -251,13 +343,12 @@
 
             <!-- 触摸屏窗口目标模式 -->
             <TextBlock Text="{localization:LocalisedText Options.TouchScreenWindowTarget}"
-                       HorizontalAlignment="Center"
+                       HorizontalAlignment="Left"
                        VerticalAlignment="Top"
                        FontSize="14"
                        Margin="0,15,0,5" />
             <ComboBox x:Name="TouchScreenWindowTargetComboBox"
-                      HorizontalAlignment="Center"
-                      Width="300"
+                      HorizontalAlignment="Stretch"
                       FontSize="14"
                       Margin="0,5,0,10"
                       SelectionChanged="TouchScreenWindowTargetComboBox_SelectionChanged">
@@ -268,18 +359,16 @@
 
             <CheckBox x:Name="ReFetchTargetWindowCheckBox"
                       Content="{localization:LocalisedText Options.ReFetchTargetWindowOnExecution}"
-                      HorizontalAlignment="Center"
+                      HorizontalAlignment="Left"
                       FontSize="14"
                       Margin="0,10,0,0"
                       Checked="ReFetchTargetWindowCheckBox_Changed"
                       Unchecked="ReFetchTargetWindowCheckBox_Changed" />
 
             <controls:ToggleSwitch x:Name="InitialTimeoutSwitch"
-                                   Header="{localization:LocalisedText Options.InitialTimeoutTitle}"
-                                   OnContent="{localization:LocalisedText Options.OnLabel}"
-                                   OffContent="{localization:LocalisedText Options.OffLabel}"
+                                   Content="{localization:LocalisedText Options.InitialTimeoutTitle}"
                                    Toggled="InitialTimeoutSwitch_Click" />
-            <TextBlock HorizontalAlignment="Center"
+            <TextBlock HorizontalAlignment="Left"
                        Visibility="{Binding ElementName=InitialTimeoutSwitch,Path=IsChecked,Converter={StaticResource BooleanToVisibilityConverter}}"
                        Text="{Binding ElementName=InitialTimeoutSlider, Path=Value, StringFormat={localization:LocalisedText Options.InitialTimeout}}"
                        FontSize="14"
@@ -291,9 +380,7 @@
                     IsSnapToTickEnabled="True"
                     ValueChanged="InitialTimeoutSlider_ValueChanged" />
             <controls:ToggleSwitch x:Name="StartupSwitch"
-                                   Header="{localization:LocalisedText Options.WindowsStartup.Header}"
-                                   OnContent="{localization:LocalisedText Options.OnLabel}"
-                                   OffContent="{localization:LocalisedText Options.OffLabel}"
+                                   Content="{localization:LocalisedText Options.WindowsStartup.Header}"
                                    Toggled="StartupSwitch_OnClick" />
             <CheckBox x:Name="RunAsAdminCheckBox"
                       Visibility="{Binding ElementName=StartupSwitch,Path=IsChecked,Converter={StaticResource BooleanToVisibilityConverter}}"
@@ -301,26 +388,18 @@
                       Margin="0,10,0,0"
                       FontSize="14"
                       Content="{localization:LocalisedText Options.RunAsAdmin}"
-                      HorizontalAlignment="Center" />
+                      HorizontalAlignment="Left" />
             <controls:ToggleSwitch x:Name="IgnoreFullScreenSwitch"
-                                   Header="{localization:LocalisedText Options.IgnoreFullScreen.Header}"
-                                   OnContent="{localization:LocalisedText Options.OnLabel}"
-                                   OffContent="{localization:LocalisedText Options.OffLabel}"
+                                   Content="{localization:LocalisedText Options.IgnoreFullScreen.Header}"
                                    Toggled="IgnoreFullScreenSwitch_Click" />
             <controls:ToggleSwitch x:Name="BlockWindowsGesturesSwitch"
-                                   Header="{localization:LocalisedText Options.BlockWindowsGestures.Header}"
-                                   OnContent="{localization:LocalisedText Options.OnLabel}"
-                                   OffContent="{localization:LocalisedText Options.OffLabel}"
+                                   Content="{localization:LocalisedText Options.BlockWindowsGestures.Header}"
                                    Toggled="BlockWindowsGesturesSwitch_Click" />
             <controls:ToggleSwitch x:Name="ShowTrayIconSwitch"
-                                   Header="{localization:LocalisedText Options.ShowTrayIconSwitch.Header}"
-                                   OnContent="{localization:LocalisedText Options.ShowTrayIconSwitch.OnLabel}"
-                                   OffContent="{localization:LocalisedText Options.ShowTrayIconSwitch.OffLabel}"
+                                   Content="{localization:LocalisedText Options.ShowTrayIconSwitch.Header}"
                                    Toggled="ShowTrayIconSwitch_Toggled" />
             <controls:ToggleSwitch x:Name="SendLogToggleSwitch"
-                                   Header="{localization:LocalisedText Options.ErrorLogPrompt}"
-                                   OnContent="{localization:LocalisedText Options.OnLabel}"
-                                   OffContent="{localization:LocalisedText Options.OffLabel}"
+                                   Content="{localization:LocalisedText Options.ErrorLogPrompt}"
                                    Toggled="SendLogToggleSwitch_Toggled" />
             <TextBlock Text="{localization:LocalisedText Options.LogLevel}"
                        FontSize="16"
