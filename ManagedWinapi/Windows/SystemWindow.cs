@@ -349,9 +349,10 @@ namespace ManagedWinapi.Windows
 
                     if (!method1Success)
                     {
-                        // 模拟 Alt 键按下释放，让系统认为有用户输入，获取前台窗口设置权限
-                        keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
-                        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        // 注入零位移鼠标移动事件，让系统认为有用户输入，获取前台窗口设置权限
+                        // 使用 mouse_event 替代 keybd_event(VK_MENU)，避免 Alt 键状态在
+                        // AttachThreadInput/DetachThreadInput 过程中残留，导致后续快捷键失效
+                        mouse_event(MOUSEEVENTF_MOVE, 0, 0, 0, UIntPtr.Zero);
                         SetForegroundWindow(hWnd);
                     }
 
@@ -1623,6 +1624,11 @@ namespace ManagedWinapi.Windows
 
         private const uint KEYEVENTF_KEYUP = 0x0002;
         private const byte VK_MENU = 0x12;
+
+        [DllImport("user32.dll")]
+        private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+
+        private const uint MOUSEEVENTF_MOVE = 0x0001;
 
         [DllImport("user32.dll")]
         private static extern IntPtr SetFocus(IntPtr hWnd);

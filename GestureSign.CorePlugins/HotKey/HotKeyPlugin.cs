@@ -269,6 +269,8 @@ namespace GestureSign.CorePlugins.HotKey
             // Use keybd_event API (KeyboardKey) for safe mode - more reliable than SendInput
             // This ensures each key event is processed individually without batching
 
+            ClearResidualModifierKeys(settings);
+
             KeyboardKey winKey = null;
             KeyboardKey controlKey = null;
             KeyboardKey altKey = null;
@@ -357,6 +359,8 @@ namespace GestureSign.CorePlugins.HotKey
 
         private void SendShortcutKeys(HotKeySettings settings)
         {
+            ClearResidualModifierKeys(settings);
+
             if (settings.SendByKeybdEvent)
             {
 
@@ -435,20 +439,47 @@ namespace GestureSign.CorePlugins.HotKey
                 {
                     if (keys.Count != 0)
                     {
-                        simulator.Keyboard.KeyPress(keys.ToArray()).Sleep(30);
+                        simulator.Keyboard.KeyPress(keys.ToArray());
                     }
                 }
                 else
                 {
                     if (keys.Count != 0)
                     {
-                        simulator.Keyboard.ModifiedKeyStroke(modifiedKeys, keys).Sleep(30);
+                        simulator.Keyboard.ModifiedKeyStroke(modifiedKeys, keys);
                     }
                     else
                     {
-                        simulator.Keyboard.KeyPress(modifiedKeys.ToArray()).Sleep(30);
+                        simulator.Keyboard.KeyPress(modifiedKeys.ToArray());
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// 清理可能残留的修饰键状态，避免干扰后续的 SendInput 调用。
+        /// 只清理本次快捷键不需要的修饰键。
+        /// </summary>
+        private static void ClearResidualModifierKeys(HotKeySettings settings)
+        {
+            CheckAndReleaseKey(Keys.LMenu, settings.Alt);
+            CheckAndReleaseKey(Keys.RMenu, settings.Alt);
+            CheckAndReleaseKey(Keys.LControlKey, settings.Control);
+            CheckAndReleaseKey(Keys.RControlKey, settings.Control);
+            CheckAndReleaseKey(Keys.LShiftKey, settings.Shift);
+            CheckAndReleaseKey(Keys.RShiftKey, settings.Shift);
+            CheckAndReleaseKey(Keys.LWin, settings.Windows);
+            CheckAndReleaseKey(Keys.RWin, settings.Windows);
+        }
+
+        private static void CheckAndReleaseKey(Keys key, bool isIntendedModifier)
+        {
+            if (isIntendedModifier) return;
+            var kbKey = new KeyboardKey(key);
+            if (kbKey.IsGloballyPressed)
+            {
+                Logging.LogDebug($"[HotKeyPlugin] Clearing residual modifier key: {key}");
+                kbKey.Release();
             }
         }
 
