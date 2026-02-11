@@ -16,6 +16,7 @@ namespace GestureSign.Daemon.Filtration
         private int _blockTouchInputThreshold;
         private Dictionary<int, int> _pointerIdList = new Dictionary<int, int>(10);
         private Queue<int> _idPool = new Queue<int>(10);
+        private HashSet<int> _blockedPointerIds = new HashSet<int>();
         private bool _isInitialized = false;
         private bool _tempDisable;
         private int _lastFrameID;
@@ -37,16 +38,18 @@ namespace GestureSign.Daemon.Filtration
                     return;
                 }
 
-                _blockTouchInputThreshold = value;
-
-                bool flag = _blockTouchInputThreshold >= 2;
-
-                // GestureSign.Common.Log.Logging.LogDebug($"[PointerInputTargetWindow] Setting threshold={value}, needRegister={flag}, InvokeRequired={InvokeRequired}");
-
+                // threshold 修改和注册状态变更必须在 UI 线程上原子执行
+                // 避免 _blockTouchInputThreshold 被非 UI 线程修改后、注册状态尚未同步时
+                // WndProc 中的 ProcessPointerMessage 读到不一致的 threshold 值
                 if (InvokeRequired)
-                    Invoke(new Action(() => IsRegistered = flag));
-                else
-                    IsRegistered = flag;
+                {
+                    Invoke(new Action(() => BlockTouchInputThreshold = value));
+                    return;
+                }
+
+                _blockTouchInputThreshold = value;
+                bool flag = _blockTouchInputThreshold >= 2;
+                IsRegistered = flag;
             }
         }
 
@@ -151,25 +154,18 @@ namespace GestureSign.Daemon.Filtration
 
         private void ProcessPointerMessage(Message message)
         {
-            POINTER_INFO[] pointerInfos = GetPointerInfos(message);
+            POINTER_TOUCH_INFO[] touchInfos = GetPointerTouchInfos(message);
 
-            if (pointerInfos.Length == 0 || pointerInfos[0].FrameID == _lastFrameID) return;
-            _lastFrameID = pointerInfos[0].FrameID;
+            if (touchInfos.Length == 0 || touchInfos[0].PointerInfo.FrameID == _lastFrameID) return;
+            _lastFrameID = touchInfos[0].PointerInfo.FrameID;
 
-            List<POINTER_TOUCH_INFO> ptis = GenerateInput(pointerInfos);
+            bool shouldInject = touchInfos.Length < _blockTouchInputThreshold || _tempDisable;
 
-            if (pointerInfos.Length != ptis.Count) return;
+            GestureSign.Common.Log.Logging.LogTrace($"[PointerInputTargetWindow] ProcessPointerMessage: fingers={touchInfos.Length}, threshold={_blockTouchInputThreshold}, tempDisable={_tempDisable}, shouldInject={shouldInject}");
 
-            // Decide whether to inject touch input back to Windows
-            // Block conditions:
-            // 1. Finger count >= threshold AND
-            // 2. Currently capturing (including CapturingInvalid state) AND
-            // 3. Not temporarily disabled
-            bool shouldInject = pointerInfos.Length < _blockTouchInputThreshold || _tempDisable;
+            // 传入 shouldInject 决定是否为 BLOCKED 帧，GenerateInput 内部会跟踪被 BLOCKED 的手指
+            List<POINTER_TOUCH_INFO> ptis = GenerateInput(touchInfos, shouldInject);
 
-            GestureSign.Common.Log.Logging.LogTrace($"[PointerInputTargetWindow] ProcessPointerMessage: fingers={pointerInfos.Length}, threshold={_blockTouchInputThreshold}, tempDisable={_tempDisable}, shouldInject={shouldInject}");
-
-            // If capturing but finger count is enough to block, don't inject
             if (shouldInject)
             {
                 if (ptis.Count != 0)
@@ -179,35 +175,41 @@ namespace GestureSign.Daemon.Filtration
             }
             else
             {
-                // Input is blocked - not forwarded to Windows
-                // This prevents the underlying application from receiving touch events
-                GestureSign.Common.Log.Logging.LogDebug($"[PointerInputTargetWindow] BLOCKED: {pointerInfos.Length} fingers (threshold={_blockTouchInputThreshold})");
+                GestureSign.Common.Log.Logging.LogDebug($"[PointerInputTargetWindow] BLOCKED: {touchInfos.Length} fingers (threshold={_blockTouchInputThreshold})");
             }
         }
 
-        private POINTER_INFO[] GetPointerInfos(Message message)
+        private POINTER_TOUCH_INFO[] GetPointerTouchInfos(Message message)
         {
             int pointerId = (int)(message.WParam.ToInt64() & 0xffff);
             int pCount = 0;
-            if (!NativeMethods.GetPointerFrameInfo(pointerId, ref pCount, null))
+            if (!NativeMethods.GetPointerFrameTouchInfo(pointerId, ref pCount, null))
             {
                 CheckLastError();
             }
-            POINTER_INFO[] pointerInfos = new POINTER_INFO[pCount];
-            if (!NativeMethods.GetPointerFrameInfo(pointerId, ref pCount, pointerInfos))
+            POINTER_TOUCH_INFO[] touchInfos = new POINTER_TOUCH_INFO[pCount];
+            if (!NativeMethods.GetPointerFrameTouchInfo(pointerId, ref pCount, touchInfos))
             {
                 CheckLastError();
             }
-            return pointerInfos;
+            return touchInfos;
         }
 
-        private List<POINTER_TOUCH_INFO> GenerateInput(POINTER_INFO[] pointerInfos)
+        /// <summary>
+        /// 生成待注入的触摸事件，管理 PointerID 映射和 BLOCKED 手指跟踪。
+        /// 当 shouldInject=false 时（BLOCKED 帧），记录 DOWN 事件的手指到 _blockedPointerIds。
+        /// 当 shouldInject=true 时（注入帧），跳过之前被 BLOCKED 的手指（其 DOWN 未注入）。
+        /// </summary>
+        private List<POINTER_TOUCH_INFO> GenerateInput(POINTER_TOUCH_INFO[] touchInfos, bool shouldInject)
         {
-            List<POINTER_TOUCH_INFO> ptis = new List<POINTER_TOUCH_INFO>(pointerInfos.Length);
+            List<POINTER_TOUCH_INFO> ptis = new List<POINTER_TOUCH_INFO>(touchInfos.Length);
             int upFlagCount = 0;
 
-            foreach (var currentPointerInfo in pointerInfos)
+            foreach (var currentTouchInfo in touchInfos)
             {
+                var currentPointerInfo = currentTouchInfo.PointerInfo;
+                bool isBlockedFinger = _blockedPointerIds.Contains(currentPointerInfo.PointerID);
+
                 POINTER_INFO pointerInfo = new POINTER_INFO()
                 {
                     pointerType = POINTER_INPUT_TYPE.TOUCH,
@@ -223,6 +225,9 @@ namespace GestureSign.Daemon.Filtration
                         pointerInfo.PointerID = id;
                     }
                     else continue;
+
+                    // 被 BLOCKED 的手指的 UPDATE 事件：保持 ID 映射但不生成注入事件
+                    if (isBlockedFinger) continue;
                 }
                 else if (currentPointerInfo.PointerFlags.HasFlag(POINTER_FLAGS.UP))
                 {
@@ -241,6 +246,13 @@ namespace GestureSign.Daemon.Filtration
                         }
                     }
                     else continue;
+
+                    // 被 BLOCKED 的手指的 UP 事件：清理跟踪状态但不生成注入事件
+                    if (isBlockedFinger)
+                    {
+                        _blockedPointerIds.Remove(currentPointerInfo.PointerID);
+                        continue;
+                    }
                 }
                 else if (currentPointerInfo.PointerFlags.HasFlag(POINTER_FLAGS.DOWN))
                 {
@@ -253,6 +265,13 @@ namespace GestureSign.Daemon.Filtration
                         pointerInfo.PointerID = _idPool.Dequeue();
                         _pointerIdList.Add(currentPointerInfo.PointerID, pointerInfo.PointerID);
                     }
+
+                    // BLOCKED 帧中的 DOWN 事件：记录该手指为 BLOCKED，不生成注入事件
+                    if (!shouldInject)
+                    {
+                        _blockedPointerIds.Add(currentPointerInfo.PointerID);
+                        continue;
+                    }
                 }
                 else continue;
 
@@ -264,9 +283,10 @@ namespace GestureSign.Daemon.Filtration
                 ptis.Add(pti);
             }
 
-            if (upFlagCount == pointerInfos.Length)
+            if (upFlagCount == touchInfos.Length)
             {
                 _pointerIdList.Clear();
+                _blockedPointerIds.Clear();
                 ResetIdPool();
                 if (_tempDisable)
                 {

@@ -411,9 +411,9 @@ namespace GestureSign.Daemon.Input
                     threshold = 2;
                 }
 
+                // Logging.LogDebug($"[PointCapture] ForegroundApplicationsChanged: threshold={threshold}, BlockWindowsGestures={AppConfig.BlockWindowsGestures}, userAppCount={userAppList.Count}");
                 if (threshold > 0)
                 {
-                    // Logging.LogDebug($"[PointCapture] ForegroundApplicationsChanged: Pre-registering with threshold={threshold}");
                     UpdateBlockTouchInputThreshold(threshold);
                 }
             }
@@ -802,8 +802,13 @@ namespace GestureSign.Daemon.Input
                 }
             }
 
-            // Logging.LogDebug($"[PointCapture] UpdateBlockTouchInputThreshold: totalFingers={_totalFingerCount}, blockThreshold={blockThreshold}, BlockWindowsGestures={AppConfig.BlockWindowsGestures}, appThreshold={captureStartedArgs.BlockTouchInputThreshold}");
-            UpdateBlockTouchInputThreshold(blockThreshold);
+            // Logging.LogDebug($"[PointCapture] TryBeginCapture: totalFingers={_totalFingerCount}, blockThreshold={blockThreshold}, BlockWindowsGestures={AppConfig.BlockWindowsGestures}, appThreshold={captureStartedArgs.BlockTouchInputThreshold}, Cancel={captureStartedArgs.Cancel}");
+            // 单指时不改变 PointerInputTargetWindow 注册状态，避免破坏预注册
+            // 预注册保持有效时，单指触摸经过截获→注入的完整路径，PointerID 一致，应用能正常处理
+            if (_totalFingerCount >= 2)
+            {
+                UpdateBlockTouchInputThreshold(blockThreshold);
+            }
 
             if (captureStartedArgs.Cancel)
             {

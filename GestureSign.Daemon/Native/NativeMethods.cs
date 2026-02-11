@@ -130,6 +130,9 @@ namespace GestureSign.Daemon.Native
         internal static extern bool GetPointerFrameInfo(int pointerID, ref int pointerCount, [MarshalAs(UnmanagedType.LPArray), In, Out] POINTER_INFO[] pointerInfo);
 
         [DllImport("user32.dll", SetLastError = true)]
+        internal static extern bool GetPointerFrameTouchInfo(int pointerId, ref int pointerCount, [MarshalAs(UnmanagedType.LPArray), In, Out] POINTER_TOUCH_INFO[] touchInfo);
+
+        [DllImport("user32.dll", SetLastError = true)]
         internal static extern bool InitializeTouchInjection(int maxCount, TOUCH_FEEDBACK feedbackMode);
 
         [DllImport("user32.dll", SetLastError = true)]
