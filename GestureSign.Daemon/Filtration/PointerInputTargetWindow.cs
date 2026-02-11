@@ -175,7 +175,7 @@ namespace GestureSign.Daemon.Filtration
             }
             else
             {
-                GestureSign.Common.Log.Logging.LogDebug($"[PointerInputTargetWindow] BLOCKED: {touchInfos.Length} fingers (threshold={_blockTouchInputThreshold})");
+                GestureSign.Common.Log.Logging.LogTrace($"[PointerInputTargetWindow] BLOCKED: {touchInfos.Length} fingers (threshold={_blockTouchInputThreshold})");
             }
         }
 
@@ -197,13 +197,27 @@ namespace GestureSign.Daemon.Filtration
 
         /// <summary>
         /// 生成待注入的触摸事件，管理 PointerID 映射和 BLOCKED 手指跟踪。
-        /// 当 shouldInject=false 时（BLOCKED 帧），记录 DOWN 事件的手指到 _blockedPointerIds。
-        /// 当 shouldInject=true 时（注入帧），跳过之前被 BLOCKED 的手指（其 DOWN 未注入）。
+        /// BLOCKED 帧中新手指的 DOWN 不注入，记入 _blockedPointerIds；
+        /// 已注入 DOWN 但未在 _blockedPointerIds 中的手指，在 BLOCKED 帧中也标记为 BLOCKED，
+        /// 使其后续 UPDATE/UP 不再注入（应用端的孤立 DOWN 不会被识别为 tap）。
         /// </summary>
         private List<POINTER_TOUCH_INFO> GenerateInput(POINTER_TOUCH_INFO[] touchInfos, bool shouldInject)
         {
             List<POINTER_TOUCH_INFO> ptis = new List<POINTER_TOUCH_INFO>(touchInfos.Length);
             int upFlagCount = 0;
+
+            // BLOCKED 帧中，将所有已注入 DOWN 但未标记为 BLOCKED 的手指也标记为 BLOCKED
+            // 这样它们的后续 UPDATE/UP 不会被注入，应用端只收到孤立 DOWN（不会被识别为 tap）
+            if (!shouldInject && _pointerIdList.Count > 0)
+            {
+                foreach (var kvp in _pointerIdList)
+                {
+                    if (!_blockedPointerIds.Contains(kvp.Key))
+                    {
+                        _blockedPointerIds.Add(kvp.Key);
+                    }
+                }
+            }
 
             foreach (var currentTouchInfo in touchInfos)
             {

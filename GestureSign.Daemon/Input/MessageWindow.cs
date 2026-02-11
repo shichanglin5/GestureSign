@@ -307,7 +307,7 @@ namespace GestureSign.Daemon.Input
                     return;
                 if (usage == NativeMethods.TouchScreenUsage)
                 {
-                    if (_sourceDevice == Devices.None)
+                    if (_sourceDevice == Devices.None || (_sourceDevice != Devices.TouchScreen && _requiringContactCount == 0))
                     {
                         _currentScr = Screen.FromPoint(Cursor.Position);
                         if (_currentScr == null)
@@ -355,7 +355,7 @@ namespace GestureSign.Daemon.Input
                 }
                 else if (usage == NativeMethods.TouchPadUsage)
                 {
-                    if (_sourceDevice == Devices.None)
+                    if (_sourceDevice == Devices.None || (_sourceDevice != Devices.TouchPad && _requiringContactCount == 0))
                     {
                         _currentScr = Screen.FromPoint(Cursor.Position);
                         if (_currentScr == null)
