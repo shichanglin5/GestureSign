@@ -157,6 +157,7 @@ QQ交流群：576981420
   </ActionDialog>
   <ContinuousGesture>
     <Title>双指连续手势</Title>
+    <SectionTitle>连续手势</SectionTitle>
     <Configure>配置</Configure>
     <ConfigTitle>连续手势配置</ConfigTitle>
     <Inherit>继承全局</Inherit>
@@ -164,7 +165,30 @@ QQ交流群：576981420
     <Zoom>连续缩放</Zoom>
     <ScrollAndZoom>滑动和缩放</ScrollAndZoom>
     <None>无</None>
+    <InertialScroll>惯性滚动</InertialScroll>
+    <Custom>自定义</Custom>
     <ZoomSpeed>缩放速度</ZoomSpeed>
+    <ScrollSettings>滚动设置</ScrollSettings>
+    <ScrollDirection>方向</ScrollDirection>
+    <DirectionBoth>双向</DirectionBoth>
+    <DirectionVertical>仅垂直</DirectionVertical>
+    <DirectionHorizontal>仅水平</DirectionHorizontal>
+    <PixelsPerScroll>像素/滚动单位</PixelsPerScroll>
+    <AccelerationFactor>加速因子</AccelerationFactor>
+    <ReverseDirection>反转垂直方向</ReverseDirection>
+    <ReverseHorizontal>反转水平方向</ReverseHorizontal>
+    <WinUIDetection>WinUI 检测</WinUIDetection>
+    <DirectionCommands>方向命令</DirectionCommands>
+    <DirUp>上</DirUp>
+    <DirDown>下</DirDown>
+    <DirLeft>左</DirLeft>
+    <DirRight>右</DirRight>
+    <NotConfigured>（未配置）</NotConfigured>
+    <InheritTitle>继承全局设置</InheritTitle>
+    <InheritDescription>选择哪些手指数继承全局应用的连续手势设置：</InheritDescription>
+    <Inherit2Finger>2 指手势</Inherit2Finger>
+    <Inherit3Finger>3 指手势</Inherit3Finger>
+    <Inherit4Finger>4 指手势</Inherit4Finger>
   </ContinuousGesture>
   <CommandDialog>
     <EditCommandTitle>编辑命令</EditCommandTitle>
@@ -191,6 +215,7 @@ QQ交流群：576981420
     <ApplicationFile>GestureSign程序文件</ApplicationFile>
     <ArchiveFile>GestureSign文件</ArchiveFile>
     <ActionCount>  ( {0}个动作 )</ActionCount>
+    <NormalGestureSection>普通手势</NormalGestureSection>
     <AppCount>{0} ({1}程序)</AppCount>
     <DefaultGroup>(默认)</DefaultGroup>
     <CutAction>剪切</CutAction>

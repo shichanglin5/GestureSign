@@ -74,9 +74,9 @@ namespace GestureSign.Daemon.Native
         [MarshalAs(UnmanagedType.Struct)]
         public POINT PtPixelLocation;
         [MarshalAs(UnmanagedType.Struct)]
-        public POINT PtPixelLocationRaw;
-        [MarshalAs(UnmanagedType.Struct)]
         public POINT PtHimetricLocation;
+        [MarshalAs(UnmanagedType.Struct)]
+        public POINT PtPixelLocationRaw;
         [MarshalAs(UnmanagedType.Struct)]
         public POINT PtHimetricLocationRaw;
         public uint Time;

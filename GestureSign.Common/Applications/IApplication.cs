@@ -30,6 +30,8 @@ namespace GestureSign.Common.Applications
         ContinuousGestureMode ContinuousGestureMode { get; set; }
         double ZoomSpeed { get; set; }
 
+        ContinuousGestureSettings ContinuousGestures { get; set; }
+
         void AddAction(IAction Action);
         void Insert(int index, IAction action);
         void RemoveAction(IAction Action);

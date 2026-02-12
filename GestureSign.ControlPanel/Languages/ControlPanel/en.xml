@@ -153,6 +153,7 @@ Email:ccfyzh@gmail.com
   </ActionDialog>
   <ContinuousGesture>
     <Title>Two-finger Continuous</Title>
+    <SectionTitle>Continuous Gestures</SectionTitle>
     <Configure>Config</Configure>
     <ConfigTitle>Continuous Gesture Config</ConfigTitle>
     <Inherit>Inherit Global</Inherit>
@@ -160,7 +161,30 @@ Email:ccfyzh@gmail.com
     <Zoom>Continuous Zoom</Zoom>
     <ScrollAndZoom>Scroll and Zoom</ScrollAndZoom>
     <None>None</None>
+    <InertialScroll>Inertial Scroll</InertialScroll>
+    <Custom>Custom</Custom>
     <ZoomSpeed>Zoom Speed</ZoomSpeed>
+    <ScrollSettings>Scroll Settings</ScrollSettings>
+    <ScrollDirection>Direction</ScrollDirection>
+    <DirectionBoth>Both</DirectionBoth>
+    <DirectionVertical>Vertical</DirectionVertical>
+    <DirectionHorizontal>Horizontal</DirectionHorizontal>
+    <PixelsPerScroll>Pixels/Scroll</PixelsPerScroll>
+    <AccelerationFactor>Acceleration</AccelerationFactor>
+    <ReverseDirection>Reverse Vertical</ReverseDirection>
+    <ReverseHorizontal>Reverse Horizontal</ReverseHorizontal>
+    <WinUIDetection>WinUI Detection</WinUIDetection>
+    <DirectionCommands>Direction Commands</DirectionCommands>
+    <DirUp>Up</DirUp>
+    <DirDown>Down</DirDown>
+    <DirLeft>Left</DirLeft>
+    <DirRight>Right</DirRight>
+    <NotConfigured>(Not configured)</NotConfigured>
+    <InheritTitle>Inherit Global Settings</InheritTitle>
+    <InheritDescription>Select which finger counts inherit continuous gesture settings from the global application:</InheritDescription>
+    <Inherit2Finger>2-finger gestures</Inherit2Finger>
+    <Inherit3Finger>3-finger gestures</Inherit3Finger>
+    <Inherit4Finger>4-finger gestures</Inherit4Finger>
   </ContinuousGesture>
   <CommandDialog>
     <EditCommandTitle>Edit Command</EditCommandTitle>
@@ -187,6 +211,7 @@ Email:ccfyzh@gmail.com
     <ApplicationFile>GestureSign Applications</ApplicationFile>
     <ArchiveFile>GestureSign Archive File</ArchiveFile>
     <ActionCount>  ( {0} Actions )</ActionCount>
+    <NormalGestureSection>Normal Gestures</NormalGestureSection>
     <AppCount>{0} ({1})</AppCount>
     <DefaultGroup>(Default)</DefaultGroup>
     <CutAction>Cut</CutAction>

@@ -45,6 +45,9 @@ namespace GestureSign.Common.Applications
 
         public virtual double ZoomSpeed { get; set; }
 
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public virtual ContinuousGestureSettings ContinuousGestures { get; set; } = new ContinuousGestureSettings();
+
         [JsonProperty(ItemTypeNameHandling = TypeNameHandling.None)]
         public virtual IEnumerable<IAction> Actions
         {

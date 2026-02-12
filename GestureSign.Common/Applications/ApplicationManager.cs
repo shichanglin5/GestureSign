@@ -228,6 +228,7 @@ namespace GestureSign.Common.Applications
                             if (!LoadLegacy())
                                 if (!LoadDefaults())
                                     _applications = new List<IApplication>();
+
                     OnLoadApplicationsCompleted?.Invoke(this, EventArgs.Empty);
                 };
 
@@ -851,7 +852,6 @@ namespace GestureSign.Common.Applications
                 emptyActions.ForEach(a => app.RemoveAction(a));
             }
         }
-
         #endregion
 
         #region P/Invoke

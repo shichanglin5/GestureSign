@@ -318,55 +318,117 @@
                                    OffContent=""
                                    OnContent="" />
         </Grid>
-        <Border x:Name="ContinuousGesturePanel"
-                Grid.Row="0"
-                Grid.Column="1"
-                Background="{StaticResource MahApps.Brushes.Accent2}"
-                Height="30"
-                VerticalAlignment="Top"
-                Margin="0,27,0,0"
-                Visibility="Collapsed">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="ContinuousGestureLabel"
-                           Text="{localization:LocalisedText ContinuousGesture.Title}"
-                           Foreground="White"
-                           VerticalAlignment="Center"
-                           Margin="10,0,0,0"
-                           FontSize="13" />
-                <ComboBox x:Name="ContinuousGestureModeComboBox"
-                          Grid.Column="1"
-                          VerticalAlignment="Center"
-                          HorizontalAlignment="Center"
-                          Width="140"
-                          FontSize="12"
-                          SelectionChanged="ContinuousGestureModeComboBox_SelectionChanged" />
-                <Button x:Name="ContinuousGestureConfigButton"
-                        Grid.Column="2"
-                        Content="{localization:LocalisedText ContinuousGesture.Configure}"
-                        VerticalAlignment="Center"
-                        Margin="0,0,10,0"
-                        Click="ContinuousGestureConfigButton_Click"
-                        Padding="8,2"
-                        FontSize="12" />
-            </Grid>
-        </Border>
-        <ListBox x:Name="lstAvailableActions"
-                 ItemsSource="{Binding Source={StaticResource ActionsViewSource}}"
-                 SelectedValuePath="CommandName"
-                 PreviewKeyDown="lstAvailableActions_PreviewKeyDown"
-                 ContextMenuOpening="LstAvailableActions_OnContextMenuOpening"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                 SelectionChanged="lstAvailableActions_SelectionChanged"
-                 Grid.Row="0"
-                 Grid.Column="1"
-                 BorderBrush="{StaticResource MahApps.Brushes.Accent}"
-                 Margin="0,57,0,0"
-                 SelectionMode="Extended">
+        <ScrollViewer Grid.Row="0"
+                      Grid.RowSpan="2"
+                      Grid.Column="1"
+                      Margin="0,27,0,0"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <!-- 连续手势栏目 -->
+                <Border x:Name="ContinuousGesturePanel"
+                        Visibility="Collapsed">
+                    <StackPanel>
+                        <Grid Height="32"
+                              Background="{StaticResource MahApps.Brushes.Accent2}">
+                            <TextBlock Text="{localization:LocalisedText ContinuousGesture.SectionTitle}"
+                                       Foreground="White"
+                                       VerticalAlignment="Center"
+                                       Margin="10,0,0,0"
+                                       FontSize="15"
+                                       FontWeight="Bold" />
+                            <StackPanel Orientation="Horizontal"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Margin="0,0,10,0">
+                                <Button x:Name="InheritConfigButton"
+                                        Click="InheritConfigButton_Click"
+                                        Padding="0"
+                                        BorderThickness="0"
+                                        Background="Transparent"
+                                        Margin="0,0,8,0"
+                                        Visibility="Collapsed">
+                                    <Rectangle Width="16"
+                                               Height="16"
+                                               Fill="White">
+                                        <Rectangle.OpacityMask>
+                                            <VisualBrush Stretch="Uniform"
+                                                         Visual="{StaticResource EditIcon}" />
+                                        </Rectangle.OpacityMask>
+                                    </Rectangle>
+                                </Button>
+                                <Button x:Name="AddContinuousGestureButton"
+                                        Click="AddContinuousGestureButton_Click"
+                                        Padding="0"
+                                        BorderThickness="0"
+                                        Background="Transparent">
+                                    <Rectangle Width="16"
+                                               Height="16"
+                                               Fill="White">
+                                        <Rectangle.OpacityMask>
+                                            <VisualBrush Stretch="Uniform"
+                                                         Visual="{StaticResource PlusIcon}" />
+                                        </Rectangle.OpacityMask>
+                                    </Rectangle>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                        <ItemsControl x:Name="ContinuousGestureItemsControl"
+                                      Margin="5,0,5,5" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 普通手势栏目标题 -->
+                <Grid Height="32"
+                      Background="{StaticResource MahApps.Brushes.Accent2}">
+                    <TextBlock Text="{localization:LocalisedText Action.NormalGestureSection}"
+                               Foreground="White"
+                               VerticalAlignment="Center"
+                               Margin="10,0,0,0"
+                               FontSize="15"
+                               FontWeight="Bold" />
+                    <Button x:Name="AddNormalGestureButton"
+                            Click="btnAddAction_Click"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Margin="0,0,10,0"
+                            Padding="0"
+                            BorderThickness="0"
+                            Background="Transparent">
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem x:Name="NewCommandMenuItem2"
+                                          Header="{localization:LocalisedText Action.NewCommand}"
+                                          FontSize="16"
+                                          Click="NewCommandMenuItem_Click" />
+                                <MenuItem x:Name="FromSelectedMenuItem2"
+                                          Header="{localization:LocalisedText Action.FromSelected}"
+                                          FontSize="16"
+                                          Click="FromSelectedMenuItem_Click" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                        <Rectangle Width="16"
+                                   Height="16"
+                                   Fill="White">
+                            <Rectangle.OpacityMask>
+                                <VisualBrush Stretch="Uniform"
+                                             Visual="{StaticResource PlusIcon}" />
+                            </Rectangle.OpacityMask>
+                        </Rectangle>
+                    </Button>
+                </Grid>
+
+                <!-- 普通手势列表 -->
+                <ListBox x:Name="lstAvailableActions"
+                         ItemsSource="{Binding Source={StaticResource ActionsViewSource}}"
+                         SelectedValuePath="CommandName"
+                         PreviewKeyDown="lstAvailableActions_PreviewKeyDown"
+                         ContextMenuOpening="LstAvailableActions_OnContextMenuOpening"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                         SelectionChanged="lstAvailableActions_SelectionChanged"
+                         BorderBrush="{StaticResource MahApps.Brushes.Accent}"
+                         SelectionMode="Extended">
             <ListBox.GroupStyle>
                 <!-- First level: FingerCount grouping -->
                 <GroupStyle>
@@ -614,114 +676,8 @@
                 </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
         </ListBox>
-        <Button x:Name="btnAddAction"
-                Style="{DynamicResource MetroCircleButtonStyle}"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Height="50"
-                Width="50"
-                Margin="0,0,120,10"
-                Click="btnAddAction_Click"
-                Grid.Row="2"
-                Grid.Column="1">
-            <Button.ContextMenu>
-                <ContextMenu>
-                    <MenuItem  x:Name="NewCommandMenuItem"
-                               Header="{localization:LocalisedText Action.NewCommand}"
-                               FontSize="16"
-                               Click="NewCommandMenuItem_Click" />
-                    <MenuItem  x:Name="FromSelectedMenuItem"
-                               Header="{localization:LocalisedText Action.FromSelected}"
-                               FontSize="16"
-                               Click="FromSelectedMenuItem_Click" />
-                </ContextMenu>
-            </Button.ContextMenu>
-            <Rectangle Width="20"
-                       Height="20">
-                <Rectangle.Fill>
-                    <VisualBrush Visual="{StaticResource PlusIcon}" />
-                </Rectangle.Fill>
-            </Rectangle>
-        </Button>
-        <Button x:Name="cmdEdit"
-                Style="{DynamicResource MetroCircleButtonStyle}"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Height="50"
-                Width="50"
-                Click="cmdEditCommand_Click"
-                Margin="0,0,65,10"
-                Grid.Row="2"
-                Grid.Column="1"
-                IsEnabled="False">
-            <Rectangle Width="20"
-                       Height="20"
-                       Fill="{Binding Path=Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Button}}}">
-                <Rectangle.OpacityMask>
-                    <VisualBrush Stretch="Fill"
-                                 Visual="{StaticResource EditIcon}" />
-                </Rectangle.OpacityMask>
-            </Rectangle>
-        </Button>
-        <Button x:Name="cmdDelete"
-                Style="{DynamicResource MetroCircleButtonStyle}"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Height="50"
-                Width="50"
-                Margin="0,0,10,10"
-                Click="cmdDeleteCommand_Click"
-                Grid.Row="2"
-                Grid.Column="1"
-                IsEnabled="False">
-            <Rectangle Width="18"
-                       Height="20"
-                       Fill="{Binding Path=Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Button}}}">
-                <Rectangle.OpacityMask>
-                    <VisualBrush Visual="{StaticResource DeleteIcon}" />
-                </Rectangle.OpacityMask>
-            </Rectangle>
-        </Button>
-        <Button x:Name="MoveUpButton"
-                Style="{DynamicResource MetroCircleButtonStyle}"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Height="50"
-                Width="50"
-                Margin="0,0,247,10"
-                Grid.Row="2"
-                Grid.Column="1"
-                Click="MoveUpButton_Click"
-                IsEnabled="False">
-            <Rectangle Width="20"
-                       Height="20"
-                       Fill="{Binding Path=Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Button}}}">
-                <Rectangle.OpacityMask>
-                    <VisualBrush Visual="{StaticResource Chevron-Up}"
-                                 Stretch="Uniform" />
-                </Rectangle.OpacityMask>
-            </Rectangle>
-        </Button>
-        <Button x:Name="MoveDownButton"
-                Style="{DynamicResource MetroCircleButtonStyle}"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom"
-                Height="50"
-                Width="50"
-                Margin="0,0,192,10"
-                Grid.Row="2"
-                Grid.Column="1"
-                Click="MoveDownButton_Click"
-                IsEnabled="False">
-            <Rectangle Width="20"
-                       Height="20"
-                       Fill="{Binding Path=Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Button}}}">
-                <Rectangle.OpacityMask>
-                    <VisualBrush Visual="{StaticResource Chevron-Down}"
-                                 Stretch="Uniform" />
-                </Rectangle.OpacityMask>
-            </Rectangle>
-        </Button>
+            </StackPanel>
+        </ScrollViewer>
         <Button x:Name="ExportButton"
                 Style="{DynamicResource MetroCircleButtonStyle}"
                 HorizontalAlignment="Left"

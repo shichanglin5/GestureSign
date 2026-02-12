@@ -228,6 +228,56 @@ namespace GestureSign.Common.Plugins
             }
         }
 
+        /// <summary>
+        /// 执行命令列表（供连续手势 Custom 模式使用）
+        /// 复用任务队列保证串行执行，并检查 UserDisabled 模式
+        /// </summary>
+        public void ExecuteCommands(IEnumerable<ICommand> commands, PointInfo pointInfo, CaptureMode mode)
+        {
+            if (commands == null || !commands.Any())
+                return;
+
+            // 训练模式下不执行
+            if (mode == CaptureMode.Training)
+                return;
+
+            var action = new Action<object>(o =>
+            {
+                foreach (var command in commands)
+                {
+                    if (command == null || !command.IsEnabled)
+                        continue;
+
+                    // 禁用模式下只允许 ToggleDisableGestures
+                    if (mode == CaptureMode.UserDisabled && !"GestureSign.CorePlugins.ToggleDisableGestures".Equals(command.PluginClass))
+                        continue;
+
+                    IPluginInfo pluginInfo = FindPluginByClassAndFilename(command.PluginClass, command.PluginFilename);
+                    if (pluginInfo == null)
+                        continue;
+
+                    pluginInfo.Plugin.Deserialize(command.CommandSettings);
+                    pluginInfo.Plugin.Gestured(pointInfo);
+                }
+            });
+
+            var observeExceptions = new Action<Task>(t =>
+            {
+                Logging.LogException(t.Exception.InnerException);
+            });
+
+            if (_lastActionTask == null)
+            {
+                _lastActionTask = Task.Factory.StartNew(action, null);
+                _lastActionTask.ContinueWith(observeExceptions, TaskContinuationOptions.OnlyOnFaulted);
+            }
+            else
+            {
+                _lastActionTask = _lastActionTask.ContinueWith(action);
+                _lastActionTask.ContinueWith(observeExceptions, TaskContinuationOptions.OnlyOnFaulted);
+            }
+        }
+
         public bool LoadPlugins(IHostControl host)
         {
             // Default return value to failure

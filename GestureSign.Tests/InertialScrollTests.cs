@@ -28,8 +28,8 @@ namespace GestureSign.Tests
         [TestMethod]
         public void InertialScrollSettings_DefaultValues_AreCorrect()
         {
-            var settings = new InertialScrollSettings();
-            Assert.AreEqual(ScrollDirection.Vertical, settings.Direction);
+            var settings = new GestureSign.CorePlugins.InertialScroll.InertialScrollSettings();
+            Assert.AreEqual(GestureSign.CorePlugins.InertialScroll.ScrollDirection.Vertical, settings.Direction);
             Assert.AreEqual(30.0, settings.PixelsPerScrollUnit, 0.01);
             Assert.AreEqual(1.0, settings.AccelerationFactor, 0.01);
             Assert.IsFalse(settings.ReverseDirection);

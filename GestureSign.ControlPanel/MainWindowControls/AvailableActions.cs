@@ -297,18 +297,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void EnableRelevantButtons()
         {
-            cmdDelete.IsEnabled = cmdEdit.IsEnabled = lstAvailableActions.SelectedItems.Count != 0;
-
-            var selectedInfo = (lstAvailableActions.SelectedItem as CommandInfo);
-            if (selectedInfo == null)
-                MoveUpButton.IsEnabled = MoveDownButton.IsEnabled = false;
-            else
-            {
-                int index = selectedInfo.Action.Commands.ToList().IndexOf(selectedInfo.Command);
-
-                MoveUpButton.IsEnabled = index > 0;
-                MoveDownButton.IsEnabled = index < selectedInfo.Action.Commands.Count() - 1;
-            }
+            // 底部按钮已移除，保留方法签名以供 SelectionChanged 调用
         }
 
         private bool SetClipboardAction()
@@ -574,7 +563,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 return;
             }
 
-            UpdateContinuousGestureModeComboBox(selectedApp);
+            RefreshContinuousGesturePanel(selectedApp);
 
             var commandInfoProvider = ((ObjectDataProvider)Resources["CommandInfoProvider"]).ObjectInstance as CommandInfoProvider;
             if (commandInfoProvider == null) return;
@@ -1127,100 +1116,297 @@ namespace GestureSign.ControlPanel.MainWindowControls
             }
         }
 
-        #region Continuous Gesture Mode
+        #region Continuous Gesture
 
-        private bool _isUpdatingContinuousGestureMode;
-
-        private void UpdateContinuousGestureModeComboBox(IApplication app)
+        private void RefreshContinuousGesturePanel(IApplication app)
         {
             if (app is IgnoredApp)
             {
                 ContinuousGesturePanel.Visibility = Visibility.Collapsed;
-                lstAvailableActions.Margin = new Thickness(0, 27, 0, 0);
                 return;
             }
 
             ContinuousGesturePanel.Visibility = Visibility.Visible;
-            lstAvailableActions.Margin = new Thickness(0, 57, 0, 0);
+            ContinuousGestureItemsControl.Items.Clear();
 
-            _isUpdatingContinuousGestureMode = true;
-            try
+            // 非全局应用显示继承配置按钮
+            InheritConfigButton.Visibility = app is GlobalApp ? Visibility.Collapsed : Visibility.Visible;
+
+            var settings = app.ContinuousGestures;
+            if (settings == null) return;
+
+            foreach (var config in settings.Configs)
             {
-                ContinuousGestureModeComboBox.Items.Clear();
-
-                bool isGlobal = app is GlobalApp;
-
-                if (!isGlobal)
-                    ContinuousGestureModeComboBox.Items.Add(new ComboBoxItem
-                    {
-                        Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Inherit"),
-                        Tag = ContinuousGestureMode.Inherit
-                    });
-
-                ContinuousGestureModeComboBox.Items.Add(new ComboBoxItem
-                {
-                    Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Scroll"),
-                    Tag = ContinuousGestureMode.Scroll
-                });
-                ContinuousGestureModeComboBox.Items.Add(new ComboBoxItem
-                {
-                    Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Zoom"),
-                    Tag = ContinuousGestureMode.Zoom
-                });
-                ContinuousGestureModeComboBox.Items.Add(new ComboBoxItem
-                {
-                    Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.ScrollAndZoom"),
-                    Tag = ContinuousGestureMode.ScrollAndZoom
-                });
-                ContinuousGestureModeComboBox.Items.Add(new ComboBoxItem
-                {
-                    Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.None"),
-                    Tag = ContinuousGestureMode.None
-                });
-
-                var currentMode = app.ContinuousGestureMode;
-                // GlobalApp 不应为 Inherit，视为 Scroll
-                if (isGlobal && currentMode == ContinuousGestureMode.Inherit)
-                    currentMode = ContinuousGestureMode.Scroll;
-
-                foreach (ComboBoxItem item in ContinuousGestureModeComboBox.Items)
-                {
-                    if ((ContinuousGestureMode)item.Tag == currentMode)
-                    {
-                        ContinuousGestureModeComboBox.SelectedItem = item;
-                        break;
-                    }
-                }
-
-                if (ContinuousGestureModeComboBox.SelectedItem == null)
-                    ContinuousGestureModeComboBox.SelectedIndex = 0;
-            }
-            finally
-            {
-                _isUpdatingContinuousGestureMode = false;
+                AddContinuousGestureRow(config);
             }
         }
 
-        private void ContinuousGestureModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void AddContinuousGestureRow(ContinuousGestureConfig config)
         {
-            if (_isUpdatingContinuousGestureMode) return;
+            var row = new Border
+            {
+                BorderBrush = (Brush)FindResource("MahApps.Brushes.Accent3"),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(5, 4, 5, 4),
+                Tag = config,
+                Opacity = config.IsEnabled ? 1.0 : 0.5,
+            };
 
+            var stack = new StackPanel();
+
+            // 第一行：启用开关、手指数、缩放、模式、配置、删除
+            var topRow = new Grid { Height = 28 };
+            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 启用
+            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 手指数
+            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 缩放
+            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 模式
+            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 配置
+            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 删除
+
+            // 启用 ToggleSwitch
+            var enableToggle = new ToggleSwitch
+            {
+                IsOn = config.IsEnabled,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 5, 0),
+                OnContent = "",
+                OffContent = "",
+                Tag = config
+            };
+            enableToggle.Toggled += EnableToggle_Toggled;
+            Grid.SetColumn(enableToggle, 0);
+            topRow.Children.Add(enableToggle);
+
+            // 手指数 ComboBox
+            var fingerCombo = new ComboBox
+            {
+                Width = 50,
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 5, 0),
+                Tag = config
+            };
+            fingerCombo.Items.Add(2);
+            fingerCombo.Items.Add(3);
+            fingerCombo.Items.Add(4);
+            fingerCombo.SelectedItem = config.ContactCount;
+            fingerCombo.SelectionChanged += FingerCountComboBox_SelectionChanged;
+            Grid.SetColumn(fingerCombo, 1);
+            topRow.Children.Add(fingerCombo);
+
+            // 缩放 CheckBox（仅 2 指显示）
+            var zoomCheck = new CheckBox
+            {
+                Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Zoom"),
+                IsChecked = config.EnableZoom,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
+                FontSize = 12,
+                Visibility = config.ContactCount == 2 ? Visibility.Visible : Visibility.Collapsed,
+                Tag = config
+            };
+            zoomCheck.Checked += ContinuousGesturePropertyChanged;
+            zoomCheck.Unchecked += ContinuousGesturePropertyChanged;
+            Grid.SetColumn(zoomCheck, 2);
+            topRow.Children.Add(zoomCheck);
+
+            // 模式 ComboBox
+            var modeCombo = new ComboBox
+            {
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 5, 0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Tag = config
+            };
+            modeCombo.Items.Add(new ComboBoxItem
+            {
+                Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.InertialScroll"),
+                Tag = ContinuousScrollMode.InertialScroll
+            });
+            modeCombo.Items.Add(new ComboBoxItem
+            {
+                Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Custom"),
+                Tag = ContinuousScrollMode.Custom
+            });
+            foreach (ComboBoxItem item in modeCombo.Items)
+            {
+                if ((ContinuousScrollMode)item.Tag == config.ScrollMode)
+                {
+                    modeCombo.SelectedItem = item;
+                    break;
+                }
+            }
+            if (modeCombo.SelectedItem == null)
+                modeCombo.SelectedIndex = 0;
+            modeCombo.SelectionChanged += ScrollModeComboBox_SelectionChanged;
+            Grid.SetColumn(modeCombo, 3);
+            topRow.Children.Add(modeCombo);
+
+            // 配置按钮
+            var configBtn = new Button
+            {
+                Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Configure"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Padding = new Thickness(6, 1, 6, 1),
+                FontSize = 11,
+                Margin = new Thickness(0, 0, 3, 0),
+                Tag = config
+            };
+            configBtn.Click += ContinuousGestureConfigButton_Click;
+            Grid.SetColumn(configBtn, 4);
+            topRow.Children.Add(configBtn);
+
+            // 删除按钮
+            var delBtn = new Button
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Padding = new Thickness(0),
+                BorderThickness = new Thickness(0),
+                Background = System.Windows.Media.Brushes.Transparent,
+                Width = 20,
+                Height = 20,
+                Tag = config
+            };
+            var delRect = new System.Windows.Shapes.Rectangle
+            {
+                Width = 12,
+                Height = 14,
+                Fill = (Brush)FindResource("MahApps.Brushes.ThemeForeground")
+            };
+            delRect.OpacityMask = new VisualBrush { Visual = (Visual)FindResource("DeleteIcon") };
+            delBtn.Content = delRect;
+            delBtn.Click += DeleteContinuousGestureButton_Click;
+            Grid.SetColumn(delBtn, 5);
+            topRow.Children.Add(delBtn);
+
+            stack.Children.Add(topRow);
+            row.Child = stack;
+            ContinuousGestureItemsControl.Items.Add(row);
+        }
+
+        private void AddContinuousGestureButton_Click(object sender, RoutedEventArgs e)
+        {
             var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
             if (selectedApp == null) return;
 
-            var selectedItem = ContinuousGestureModeComboBox.SelectedItem as ComboBoxItem;
+            if (selectedApp.ContinuousGestures == null)
+                selectedApp.ContinuousGestures = new ContinuousGestureSettings();
+
+            var configs = selectedApp.ContinuousGestures.Configs;
+
+            // 查找还未配置的最小手指数
+            int fingerCount = 2;
+            var existing = configs.Select(c => c.ContactCount).ToHashSet();
+            while (existing.Contains(fingerCount) && fingerCount <= 4) fingerCount++;
+            if (fingerCount > 4) return;
+
+            var config = new ContinuousGestureConfig
+            {
+                ContactCount = fingerCount,
+                ScrollMode = ContinuousScrollMode.InertialScroll
+            };
+            configs.Add(config);
+            AddContinuousGestureRow(config);
+            ApplicationManager.Instance.SaveApplications();
+        }
+
+        private void DeleteContinuousGestureButton_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as Button;
+            var config = button?.Tag as ContinuousGestureConfig;
+            if (config == null) return;
+
+            var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+            if (selectedApp?.ContinuousGestures == null) return;
+
+            selectedApp.ContinuousGestures.Configs.Remove(config);
+            ApplicationManager.Instance.SaveApplications();
+            RefreshContinuousGesturePanel(selectedApp);
+        }
+
+        private void EnableToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            var toggle = sender as ToggleSwitch;
+            var config = toggle?.Tag as ContinuousGestureConfig;
+            if (config == null) return;
+
+            config.IsEnabled = toggle.IsOn;
+            ApplicationManager.Instance.SaveApplications();
+
+            // 更新行的透明度
+            var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+            if (selectedApp != null)
+                RefreshContinuousGesturePanel(selectedApp);
+        }
+
+        private void FingerCountComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var combo = sender as ComboBox;
+            var config = combo?.Tag as ContinuousGestureConfig;
+            if (config == null || combo.SelectedItem == null) return;
+
+            config.ContactCount = (int)combo.SelectedItem;
+
+            var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+            if (selectedApp != null)
+            {
+                ApplicationManager.Instance.SaveApplications();
+                RefreshContinuousGesturePanel(selectedApp);
+            }
+        }
+
+        private void ScrollModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var combo = sender as ComboBox;
+            var config = combo?.Tag as ContinuousGestureConfig;
+            if (config == null) return;
+
+            var selectedItem = combo.SelectedItem as ComboBoxItem;
             if (selectedItem == null) return;
 
-            selectedApp.ContinuousGestureMode = (ContinuousGestureMode)selectedItem.Tag;
+            config.ScrollMode = (ContinuousScrollMode)selectedItem.Tag;
+            ApplicationManager.Instance.SaveApplications();
+        }
+
+        private void ContinuousGesturePropertyChanged(object sender, RoutedEventArgs e)
+        {
+            var checkBox = sender as CheckBox;
+            var config = checkBox?.Tag as ContinuousGestureConfig;
+            if (config == null) return;
+
+            config.EnableZoom = checkBox.IsChecked == true;
             ApplicationManager.Instance.SaveApplications();
         }
 
         private void ContinuousGestureConfigButton_Click(object sender, RoutedEventArgs e)
         {
+            var button = sender as Button;
+            var config = button?.Tag as ContinuousGestureConfig;
+            if (config == null) return;
+
             var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
             if (selectedApp == null) return;
 
-            var dialog = new Dialogs.ContinuousGestureConfigDialog(selectedApp);
+            var dialog = new Dialogs.ContinuousGestureConfigDialog(config);
+            if (dialog.ShowDialog() == true)
+            {
+                ApplicationManager.Instance.SaveApplications();
+                RefreshContinuousGesturePanel(selectedApp);
+            }
+        }
+
+        private async void InheritConfigButton_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+            if (selectedApp == null || selectedApp is GlobalApp) return;
+
+            if (selectedApp.ContinuousGestures == null)
+                selectedApp.ContinuousGestures = new ContinuousGestureSettings();
+
+            var settings = selectedApp.ContinuousGestures;
+
+            var dialog = new Dialogs.InheritConfigDialog(settings);
             if (dialog.ShowDialog() == true)
             {
                 ApplicationManager.Instance.SaveApplications();
