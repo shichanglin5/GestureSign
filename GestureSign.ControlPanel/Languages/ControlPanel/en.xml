@@ -149,6 +149,17 @@ Email:ccfyzh@gmail.com
       <ConditionError>Condition Error</ConditionError>
     </Messages>
   </ActionDialog>
+  <ContinuousGesture>
+    <Title>Two-finger Continuous</Title>
+    <Configure>Config</Configure>
+    <ConfigTitle>Continuous Gesture Config</ConfigTitle>
+    <Inherit>Inherit Global</Inherit>
+    <Scroll>Continuous Scroll</Scroll>
+    <Zoom>Continuous Zoom</Zoom>
+    <ScrollAndZoom>Scroll and Zoom</ScrollAndZoom>
+    <None>None</None>
+    <ZoomSpeed>Zoom Speed</ZoomSpeed>
+  </ContinuousGesture>
   <CommandDialog>
     <EditCommandTitle>Edit Command</EditCommandTitle>
     <SelectCommand>Select Command</SelectCommand>

@@ -31,4 +31,13 @@ namespace GestureSign.Common.Applications
         Vertical = (Up | Down),
         All = (Horizontal | Vertical)
     }
+
+    public enum ContinuousGestureMode
+    {
+        Inherit = 0,
+        Scroll = 1,
+        Zoom = 2,
+        ScrollAndZoom = 3,
+        None = 4
+    }
 }

@@ -318,6 +318,43 @@
                                    OffContent=""
                                    OnContent="" />
         </Grid>
+        <Border x:Name="ContinuousGesturePanel"
+                Grid.Row="0"
+                Grid.Column="1"
+                Background="{StaticResource MahApps.Brushes.Accent2}"
+                Height="30"
+                VerticalAlignment="Top"
+                Margin="0,27,0,0"
+                Visibility="Collapsed">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="ContinuousGestureLabel"
+                           Text="{localization:LocalisedText ContinuousGesture.Title}"
+                           Foreground="White"
+                           VerticalAlignment="Center"
+                           Margin="10,0,0,0"
+                           FontSize="13" />
+                <ComboBox x:Name="ContinuousGestureModeComboBox"
+                          Grid.Column="1"
+                          VerticalAlignment="Center"
+                          HorizontalAlignment="Center"
+                          Width="140"
+                          FontSize="12"
+                          SelectionChanged="ContinuousGestureModeComboBox_SelectionChanged" />
+                <Button x:Name="ContinuousGestureConfigButton"
+                        Grid.Column="2"
+                        Content="{localization:LocalisedText ContinuousGesture.Configure}"
+                        VerticalAlignment="Center"
+                        Margin="0,0,10,0"
+                        Click="ContinuousGestureConfigButton_Click"
+                        Padding="8,2"
+                        FontSize="12" />
+            </Grid>
+        </Border>
         <ListBox x:Name="lstAvailableActions"
                  ItemsSource="{Binding Source={StaticResource ActionsViewSource}}"
                  SelectedValuePath="CommandName"
@@ -328,7 +365,7 @@
                  Grid.Row="0"
                  Grid.Column="1"
                  BorderBrush="{StaticResource MahApps.Brushes.Accent}"
-                 Margin="0,27,0,0"
+                 Margin="0,57,0,0"
                  SelectionMode="Extended">
             <ListBox.GroupStyle>
                 <!-- First level: FingerCount grouping -->

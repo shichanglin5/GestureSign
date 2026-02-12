@@ -27,6 +27,9 @@ namespace GestureSign.Common.Applications
         /// </summary>
         List<IWindowRule> PriorityWindows { get; set; }
 
+        ContinuousGestureMode ContinuousGestureMode { get; set; }
+        double ZoomSpeed { get; set; }
+
         void AddAction(IAction Action);
         void Insert(int index, IAction action);
         void RemoveAction(IAction Action);
