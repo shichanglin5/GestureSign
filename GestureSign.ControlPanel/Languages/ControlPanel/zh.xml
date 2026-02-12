@@ -37,6 +37,8 @@
     <Export>导出...</Export>
     <Reset>重置</Reset>
     <AUMID>应用ID</AUMID>
+    <FocusedTextInput>文本输入焦点</FocusedTextInput>
+    <UseUIAutomation>UI Automation</UseUIAutomation>
     <ClassAndPath>类名+路径</ClassAndPath>
     <Add>添加</Add>
     <On>开</On>
@@ -270,6 +272,25 @@ QQ交流群：576981420
     <NoSelection>未选择窗口</NoSelection>
     <SelectWindowFirst>请先选择一个窗口</SelectWindowFirst>
   </WindowSelector>
+  <WindowDetails>
+    <Title>窗口详情</Title>
+    <BasicInfo>基本信息</BasicInfo>
+    <ProcessInfo>进程信息</ProcessInfo>
+    <ProcessId>进程 ID</ProcessId>
+    <WindowProperties>窗口属性</WindowProperties>
+    <WindowRect>窗口位置</WindowRect>
+    <WindowStyle>窗口样式</WindowStyle>
+    <ExtendedStyle>扩展样式</ExtendedStyle>
+    <FocusInfo>焦点控件</FocusInfo>
+    <FocusHandle>焦点句柄</FocusHandle>
+    <FocusClassName>焦点类名</FocusClassName>
+    <CaretHandle>光标句柄</CaretHandle>
+    <IsTextInput>文本输入框 (Win32)</IsTextInput>
+    <IsTextInputUIA>文本输入框 (UIA)</IsTextInputUIA>
+    <ParentInfo>父窗口 / 所有者</ParentInfo>
+    <ParentHandle>父窗口句柄</ParentHandle>
+    <OwnerHandle>所有者句柄</OwnerHandle>
+  </WindowDetails>
   <GestureDefinition>
     <Edit>重画手势</Edit>
     <ExistingGesture>已保存有相似的手势，是否使用该手势？</ExistingGesture>

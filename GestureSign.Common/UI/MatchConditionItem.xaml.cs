@@ -56,6 +56,7 @@ namespace GestureSign.Common.UI
                         "ProcessName" => MatchConditionType.ProcessName,
                         "ProcessPath" => MatchConditionType.ProcessPath,
                         "AUMID" => MatchConditionType.AUMID,
+                        "FocusedTextInput" => MatchConditionType.FocusedTextInput,
                         _ => MatchConditionType.ClassName
                     };
                 }
@@ -70,6 +71,7 @@ namespace GestureSign.Common.UI
                     MatchConditionType.ProcessName => 2,
                     MatchConditionType.ProcessPath => 3,
                     MatchConditionType.AUMID => 4,
+                    MatchConditionType.FocusedTextInput => 5,
                     _ => 0
                 };
                 TypeComboBox.SelectedIndex = index;
@@ -103,6 +105,17 @@ namespace GestureSign.Common.UI
             if (ShowCheckBox && !IsConditionEnabled)
                 return null;
 
+            // FocusedTextInput 类型不需要用户输入值
+            if (ConditionType == MatchConditionType.FocusedTextInput)
+            {
+                string value = UIACheckBox.IsChecked == true ? "true,uia" : "true";
+                return new MatchCondition
+                {
+                    Type = MatchConditionType.FocusedTextInput,
+                    Value = value
+                };
+            }
+
             if (string.IsNullOrWhiteSpace(ConditionValue))
                 return null;
 
@@ -120,16 +133,30 @@ namespace GestureSign.Common.UI
                 return;
 
             ConditionType = condition.Type;
-            ConditionValue = condition.Value;
+
+            if (condition.Type == MatchConditionType.FocusedTextInput)
+            {
+                // 解析 Value 中的 UIA 标记
+                WindowMatcher.ParseFocusedTextInputValue(condition.Value, out _, out bool useUIA);
+                UIACheckBox.IsChecked = useUIA;
+                ConditionValue = string.Empty;
+            }
+            else
+            {
+                ConditionValue = condition.Value;
+            }
+
             IsRegex = condition.IsRegex;
             IsConditionEnabled = isEnabled;
         }
 
         private void TypeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // 初始化时 RegexCheckBox 可能还未创建
-            if (RegexCheckBox == null)
+            // 初始化时控件可能还未创建
+            if (RegexCheckBox == null || UIACheckBox == null)
                 return;
+
+            bool isFocusedTextInput = ConditionType == MatchConditionType.FocusedTextInput;
 
             // 只有 Title 类型支持正则
             RegexCheckBox.Visibility = ConditionType == MatchConditionType.Title
@@ -140,6 +167,10 @@ namespace GestureSign.Common.UI
             {
                 RegexCheckBox.IsChecked = false;
             }
+
+            // FocusedTextInput 类型：隐藏值输入框，显示 UIA 复选框
+            UIACheckBox.Visibility = isFocusedTextInput ? Visibility.Visible : Visibility.Collapsed;
+            ValueTextBox.Visibility = isFocusedTextInput ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void DeleteButton_Click(object sender, RoutedEventArgs e)

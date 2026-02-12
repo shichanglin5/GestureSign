@@ -152,6 +152,11 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,10,0,0">
+            <Button x:Name="DetailsButton"
+                    Content="{localization:LocalisedText WindowSelector.Details}"
+                    Click="DetailsButton_Click"
+                    Padding="15,8"
+                    Margin="0,0,10,0" />
             <Button x:Name="CopyButton"
                     Content="{localization:LocalisedText WindowSelector.CopyInfo}"
                     Click="CopyButton_Click"

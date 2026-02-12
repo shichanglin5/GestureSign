@@ -165,6 +165,16 @@ namespace GestureSign.Common.UI
             ToggleTracking();
         }
 
+        private void DetailsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedWindow == null || _selectedWindow.Handle == IntPtr.Zero)
+                return;
+
+            var dialog = new WindowDetailsDialog { Owner = this };
+            dialog.LoadWindowInfo(_selectedWindow.Handle);
+            dialog.ShowDialog();
+        }
+
         private void CopyButton_Click(object sender, RoutedEventArgs e)
         {
             if (_selectedWindow == null) return;

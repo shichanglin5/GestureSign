@@ -349,3 +349,31 @@ public interface IPlugin
 ### 构建规范
 
 - 构建使用 `uiAccessRelease` 配置: `dotnet build GestureSign.sln -c uiAccessRelease`
+
+### uiAccessRelease 完整构建部署流程
+
+完整流程包含多个步骤（停止进程、构建、签名、复制、启动），涉及管理员提权和文件覆盖。**执行前必须请求用户确认同意。**
+
+脚本位于 [scripts/](scripts/) 目录，按以下顺序执行：
+
+```bash
+# 1. 停止运行中的 GestureSign 进程（可能需要管理员提权）
+powershell -NoProfile -File scripts/Stop-GestureSign.ps1
+
+# 2. 删除旧日志
+powershell -NoProfile -File scripts/Manage-Log.ps1 -Action delete
+
+# 3. 构建 uiAccessRelease
+dotnet build GestureSign.sln -c uiAccessRelease -v minimal
+
+# 4. 代码签名（自动创建/复用自签名证书，需要管理员提权）
+powershell -NoProfile -File scripts/Sign-Code.ps1
+
+# 5. 复制构建输出到 C:\Program Files\GestureSign\
+powershell -NoProfile -File scripts/Copy-ToProgramFiles.ps1
+
+# 6. 启动 UIAccess Daemon
+powershell -NoProfile -File scripts/Run-GestureSign.ps1 -Config uiaccess
+```
+
+对应 VSCode tasks.json 中的 `workflow: uiaccess` 任务。

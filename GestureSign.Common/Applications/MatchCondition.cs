@@ -33,7 +33,12 @@ namespace GestureSign.Common.Applications
         /// <summary>
         /// 应用 ID（UWP/PWA）
         /// </summary>
-        AUMID = 4
+        AUMID = 4,
+
+        /// <summary>
+        /// 焦点控件是否为文本输入框
+        /// </summary>
+        FocusedTextInput = 5
     }
 
     /// <summary>
@@ -69,7 +74,8 @@ namespace GestureSign.Common.Applications
                 MatchConditionType.Title => 1,
                 MatchConditionType.ProcessName => 2,
                 MatchConditionType.ProcessPath => 3,
-                MatchConditionType.AUMID => 4,        // 最慢
+                MatchConditionType.AUMID => 4,
+                MatchConditionType.FocusedTextInput => 5, // 需要跨线程检测
                 _ => 99
             };
         }

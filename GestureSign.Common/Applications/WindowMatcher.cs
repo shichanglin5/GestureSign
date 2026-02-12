@@ -6,8 +6,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Windows.Automation;
 using GestureSign.Common.Log;
 using ManagedWinapi.Windows;
 
@@ -70,6 +72,29 @@ namespace GestureSign.Common.Applications
             [FieldOffset(0)] public ushort vt;
             [FieldOffset(8)] public IntPtr pwszVal;
         }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct GUITHREADINFO
+        {
+            public int cbSize;
+            public int flags;
+            public IntPtr hwndActive;
+            public IntPtr hwndFocus;
+            public IntPtr hwndCapture;
+            public IntPtr hwndMenuOwner;
+            public IntPtr hwndMoveSize;
+            public IntPtr hwndCaret;
+            public int rcCaretLeft;
+            public int rcCaretTop;
+            public int rcCaretRight;
+            public int rcCaretBottom;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern bool GetGUIThreadInfo(uint idThread, ref GUITHREADINFO lpgui);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
 
         #endregion
 
@@ -312,8 +337,36 @@ namespace GestureSign.Common.Applications
                     MatchProcessPathValue(windowInfo.GetProcessPath(), windowInfo.GetProcessName(), condition.Value),
                 MatchConditionType.AUMID =>
                     MatchValue(windowInfo.GetAUMID(), condition.Value),
+                MatchConditionType.FocusedTextInput =>
+                    MatchFocusedTextInput(windowInfo, condition.Value),
                 _ => false
             };
+        }
+
+        /// <summary>
+        /// 解析 FocusedTextInput 的 Value 并匹配
+        /// </summary>
+        private static bool MatchFocusedTextInput(Applications.WindowInfoCache windowInfo, string value)
+        {
+            ParseFocusedTextInputValue(value, out bool expected, out bool useUIA);
+            bool isTextInput = windowInfo.GetIsFocusedTextInput(useUIA);
+            return isTextInput == expected;
+        }
+
+        /// <summary>
+        /// 解析 FocusedTextInput 的配置值
+        /// </summary>
+        internal static void ParseFocusedTextInputValue(string value, out bool expected, out bool useUIA)
+        {
+            useUIA = false;
+            expected = true;
+
+            if (string.IsNullOrEmpty(value))
+                return;
+
+            var parts = value.Split(',');
+            expected = string.Equals(parts[0].Trim(), "true", StringComparison.OrdinalIgnoreCase);
+            useUIA = parts.Length > 1 && string.Equals(parts[1].Trim(), "uia", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool MatchValue(string actualValue, string expectedValue)
@@ -378,6 +431,154 @@ namespace GestureSign.Common.Applications
 
         #endregion
 
+        #region Focused Text Input Detection
+
+        /// <summary>
+        /// 已知的文本输入框类名（不区分大小写）
+        /// </summary>
+        private static readonly HashSet<string> TextInputClassNames =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                "Edit",                // 标准 Win32 Edit 控件
+                "RichEdit20W",         // RichEdit 2.0
+                "RichEdit50W",         // RichEdit 5.0 (MS Office)
+                "RICHEDIT60W",         // RichEdit 6.0
+                "RichEditD2DPT",       // DirectWrite RichEdit
+                "TextBox",             // WinForms TextBox
+                "RichTextBox",         // WinForms RichTextBox
+                "TextBoxView",         // WPF TextBox 内部
+                "_WwG",                // MS Word 编辑区
+                "Scintilla",           // Scintilla 编辑器控件
+                "ConsoleWindowClass",  // 控制台窗口
+            };
+
+        /// <summary>
+        /// 检测指定窗口线程的焦点控件是否为文本输入框（三级检测）
+        /// </summary>
+        /// <param name="hWnd">目标窗口句柄</param>
+        /// <param name="useUIA">是否启用 UI Automation 回退检测</param>
+        public static bool DetectFocusedTextInput(IntPtr hWnd, bool useUIA = false)
+        {
+            try
+            {
+                GetWindowThreadProcessId(hWnd, out int pid);
+                if (pid == 0) return false;
+
+                var info = new GUITHREADINFO();
+                info.cbSize = Marshal.SizeOf(info);
+
+                // 获取目标窗口所在线程的 GUI 信息
+                uint threadId = (uint)GetWindowThreadProcessId(hWnd, out _);
+                if (!GetGUIThreadInfo(threadId, ref info))
+                    return useUIA && DetectTextInputViaUIA();
+
+                // 第一级：ClassName + Caret 检测（~2μs）
+                if (info.hwndFocus != IntPtr.Zero)
+                {
+                    string? focusedClassName = GetWindowClassNameSafe(info.hwndFocus);
+                    if (!string.IsNullOrEmpty(focusedClassName) && IsTextInputClassName(focusedClassName))
+                        return true;
+
+                    // Caret 辅助判据：光标必须在焦点窗口上才可信
+                    // 避免 Chrome/Electron 等应用的隐藏 IME 光标导致误报
+                    if (info.hwndCaret != IntPtr.Zero && info.hwndCaret == info.hwndFocus)
+                        return true;
+                }
+
+                // 第三级：UIA 回退（~1-50ms，仅当启用时）
+                if (useUIA)
+                    return DetectTextInputViaUIA();
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logging.LogTrace($"[WindowMatcher] DetectFocusedTextInput error: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 获取窗口类名（安全版本，不抛异常）
+        /// </summary>
+        private static string? GetWindowClassNameSafe(IntPtr hWnd)
+        {
+            var sb = new StringBuilder(256);
+            int result = GetClassName(hWnd, sb, sb.Capacity);
+            return result > 0 ? sb.ToString() : null;
+        }
+
+        private static bool IsTextInputClassName(string className)
+        {
+            if (TextInputClassNames.Contains(className))
+                return true;
+
+            // 前缀匹配：RichEdit 系列可能有版本变体
+            if (className.StartsWith("RichEdit", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// 通过 UI Automation 检测焦点元素是否为文本输入框
+        /// </summary>
+        private static bool DetectTextInputViaUIA()
+        {
+            try
+            {
+                var focusedElement = AutomationElement.FocusedElement;
+                if (focusedElement == null)
+                    return false;
+
+                var controlType = focusedElement.Current.ControlType;
+
+                // ControlType.Edit 是文本输入框的标准类型
+                if (controlType == ControlType.Edit)
+                    return true;
+
+                // ControlType.Document 且支持编辑
+                if (controlType == ControlType.Document)
+                {
+                    if ((bool)focusedElement.GetCurrentPropertyValue(
+                        AutomationElement.IsValuePatternAvailableProperty))
+                        return true;
+
+                    if ((bool)focusedElement.GetCurrentPropertyValue(
+                        AutomationElement.IsTextPatternAvailableProperty))
+                        return true;
+                }
+
+                // 自定义控件：可键盘聚焦 + ValuePattern + 类名含 text/edit
+                if (controlType == ControlType.Custom)
+                {
+                    bool isKeyboardFocusable = focusedElement.Current.IsKeyboardFocusable;
+                    bool hasValuePattern = (bool)focusedElement.GetCurrentPropertyValue(
+                        AutomationElement.IsValuePatternAvailableProperty);
+                    if (isKeyboardFocusable && hasValuePattern)
+                    {
+                        string automationClassName = focusedElement.Current.ClassName ?? "";
+                        if (automationClassName.Contains("text", StringComparison.OrdinalIgnoreCase) ||
+                            automationClassName.Contains("edit", StringComparison.OrdinalIgnoreCase) ||
+                            (bool)focusedElement.GetCurrentPropertyValue(
+                                AutomationElement.IsTextPatternAvailableProperty))
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logging.LogTrace($"[WindowMatcher] DetectTextInputViaUIA error: {ex.Message}");
+                return false;
+            }
+        }
+
+        #endregion
+
         #region Private Methods
 
         /// <summary>
@@ -395,8 +596,16 @@ namespace GestureSign.Common.Applications
                 MatchConditionType.ProcessName => MatchProcessName(hWnd, cache, condition.Value),
                 MatchConditionType.ProcessPath => MatchProcessPath(hWnd, cache, condition.Value),
                 MatchConditionType.AUMID => MatchAUMID(hWnd, condition.Value),
+                MatchConditionType.FocusedTextInput => MatchFocusedTextInputDirect(hWnd, condition.Value),
                 _ => false
             };
+        }
+
+        private static bool MatchFocusedTextInputDirect(IntPtr hWnd, string value)
+        {
+            ParseFocusedTextInputValue(value, out bool expected, out bool useUIA);
+            bool isTextInput = DetectFocusedTextInput(hWnd, useUIA);
+            return isTextInput == expected;
         }
 
         private static bool MatchClassName(string windowClassName, string expectedClassName)

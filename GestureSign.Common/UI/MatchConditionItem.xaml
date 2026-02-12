@@ -37,6 +37,7 @@
             <ComboBoxItem Content="{localization:LocalisedText Common.ProcessName}" Tag="ProcessName" />
             <ComboBoxItem Content="{localization:LocalisedText Common.ProcessPath}" Tag="ProcessPath" />
             <ComboBoxItem Content="{localization:LocalisedText Common.AUMID}" Tag="AUMID" />
+            <ComboBoxItem Content="{localization:LocalisedText Common.FocusedTextInput}" Tag="FocusedTextInput" />
         </ComboBox>
 
         <TextBox x:Name="ValueTextBox"
@@ -47,6 +48,13 @@
         <CheckBox x:Name="RegexCheckBox"
                   Grid.Column="3"
                   Content="{localization:LocalisedText ApplicationDialog.UsingRegularExpression}"
+                  VerticalAlignment="Center"
+                  Margin="0,0,5,0"
+                  Visibility="Collapsed" />
+
+        <CheckBox x:Name="UIACheckBox"
+                  Grid.Column="3"
+                  Content="{localization:LocalisedText Common.UseUIAutomation}"
                   VerticalAlignment="Center"
                   Margin="0,0,5,0"
                   Visibility="Collapsed" />

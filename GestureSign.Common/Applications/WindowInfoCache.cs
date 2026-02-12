@@ -20,6 +20,10 @@ namespace GestureSign.Common.Applications
         private string _processPath;
         private string _aumid;
 
+        // 焦点文本输入框缓存（null = 未检测）
+        private bool? _isFocusedTextInput;
+        private bool? _isFocusedTextInputUIA;
+
         private const string EmptyMarker = "\0EMPTY\0";  // 内部标记，不会与配置值匹配
 
         public WindowInfoCache(SystemWindow window)
@@ -80,6 +84,21 @@ namespace GestureSign.Common.Applications
                 catch { _aumid = EmptyMarker; }
             }
             return _aumid == EmptyMarker ? null : _aumid;
+        }
+
+        /// <summary>
+        /// 检测当前焦点控件是否为文本输入框
+        /// </summary>
+        /// <param name="useUIA">是否启用 UI Automation 回退检测</param>
+        public bool GetIsFocusedTextInput(bool useUIA)
+        {
+            ref bool? cache = ref (useUIA ? ref _isFocusedTextInputUIA : ref _isFocusedTextInput);
+            if (cache == null)
+            {
+                try { cache = WindowMatcher.DetectFocusedTextInput(_hWnd, useUIA); }
+                catch { cache = false; }
+            }
+            return cache.Value;
         }
     }
 }

@@ -35,6 +35,8 @@ This may lead to function failure(e.g. Start application at Windows startup).
     <Export>Export...</Export>
     <Reset>Reset</Reset>
     <AUMID>App ID</AUMID>
+    <FocusedTextInput>Text Input Focus</FocusedTextInput>
+    <UseUIAutomation>UI Automation</UseUIAutomation>
     <ClassAndPath>Class+Path</ClassAndPath>
     <Add>Add</Add>
     <On>On</On>
@@ -266,6 +268,25 @@ Email:ccfyzh@gmail.com
     <NoSelection>No Window Selected</NoSelection>
     <SelectWindowFirst>Please select a window first</SelectWindowFirst>
   </WindowSelector>
+  <WindowDetails>
+    <Title>Window Details</Title>
+    <BasicInfo>Basic Information</BasicInfo>
+    <ProcessInfo>Process Information</ProcessInfo>
+    <ProcessId>Process ID</ProcessId>
+    <WindowProperties>Window Properties</WindowProperties>
+    <WindowRect>Window Rect</WindowRect>
+    <WindowStyle>Window Style</WindowStyle>
+    <ExtendedStyle>Extended Style</ExtendedStyle>
+    <FocusInfo>Focus Control</FocusInfo>
+    <FocusHandle>Focus Handle</FocusHandle>
+    <FocusClassName>Focus Class Name</FocusClassName>
+    <CaretHandle>Caret Handle</CaretHandle>
+    <IsTextInput>Is Text Input (Win32)</IsTextInput>
+    <IsTextInputUIA>Is Text Input (UIA)</IsTextInputUIA>
+    <ParentInfo>Parent / Owner</ParentInfo>
+    <ParentHandle>Parent Handle</ParentHandle>
+    <OwnerHandle>Owner Handle</OwnerHandle>
+  </WindowDetails>
   <GestureDefinition>
     <Edit>Redraw Gesture</Edit>
     <ExistingGesture>Exist similar gesture.Use it?</ExistingGesture>
