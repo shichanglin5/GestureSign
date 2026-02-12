@@ -1,17 +1,13 @@
-﻿using GestureSign.Common.Applications;
-using GestureSign.Common.Gestures;
+using GestureSign.Common.Applications;
 using GestureSign.Common.Input;
 using GestureSign.Common.Log;
 using GestureSign.Daemon.Input;
 using GestureSign.Daemon.Native;
 using GestureSign.PointPatterns;
-using ManagedWinapi.Hooks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
-
 namespace GestureSign.Daemon.Triggers
 {
     class ContinuousGestureTrigger : Trigger
@@ -20,11 +16,16 @@ namespace GestureSign.Daemon.Triggers
         private float _motionThreshold;
         private Stopwatch _stopwatch = new Stopwatch();
         private List<Point> _lastPoints;
-        private VelocityVector? _lastVelocity;  // 新增:存储最后计算的速度
+        private VelocityVector? _lastVelocity;
 
         // 速度计算专用变量（与手势触发分离）
         private Stopwatch _velocityStopwatch = new Stopwatch();
         private List<Point> _velocityLastPoints;
+
+        // 两指缩放相关变量
+        private double _lastFingerDistance;
+        private bool _isZooming;
+        private readonly PinchZoomInjector _pinchZoomInjector = new PinchZoomInjector();
 
         public ContinuousGestureTrigger()
         {
@@ -40,102 +41,48 @@ namespace GestureSign.Daemon.Triggers
             _lastPoints = null;
             _velocityStopwatch.Stop();
             _velocityLastPoints = null;
+            _lastFingerDistance = 0;
+            if (_isZooming)
+            {
+                _pinchZoomInjector.Stop();
+                _isZooming = false;
+            }
         }
 
         private void PointCapture_PointCaptured(object sender, PointsCapturedEventArgs e)
         {
-            // 使用 FingerCount 而不是 Points.Count，因为可能只有部分手指有移动轨迹
             int fingerCount = e.FingerCount > 0 ? e.FingerCount : e.Points.Count;
 
-            // 连续手势支持 Capturing 和 CapturingInvalid 两种状态
-            // CapturingInvalid 表示正在捕获但还没有足够的移动距离形成有效手势
-            // 对于连续手势，我们不需要等待绘制完成，只要在捕获中就可以响应
             var state = PointCapture.Instance.State;
             if ((state != CaptureState.Capturing && state != CaptureState.CapturingInvalid) || fingerCount < 2)
             {
                 return;
             }
 
-            // 先获取匹配的连续手势动作（ApplicationManager 会优先返回当前应用的，如果没有再返回全局的）
-            // 早期退出：只查找与当前手指数匹配的连续手势
-            var actionsWithContinuousGesture = ApplicationManager.Instance.GetRecognizedDefinedAction(
-                a => a != null && a.ContinuousGesture != null &&
-                     a.ContinuousGesture.ContactCount == fingerCount);
-            if (actionsWithContinuousGesture == null || actionsWithContinuousGesture.Count == 0)
-            {
-                // Use LogTrace to avoid flooding logs - this is called on every PointCaptured event
-                Logging.LogTrace($"[ContinuousGestureTrigger] No {fingerCount}-finger continuous gesture configured, skip");
-                return;
-            }
+            // 获取当前应用的有效连续手势模式
+            var mode = GetEffectiveMode();
+            bool enableScroll = mode == ContinuousGestureMode.Scroll || mode == ContinuousGestureMode.ScrollAndZoom;
+            bool enableZoom = mode == ContinuousGestureMode.Zoom || mode == ContinuousGestureMode.ScrollAndZoom;
 
-            // 检查找到的连续手势是否来自当前应用（非全局）
-            var recognizedApps = ApplicationManager.Instance.RecognizedApplication;
-            bool hasCurrentAppContinuousGesture = false;
-            if (recognizedApps != null && recognizedApps.Any())
-            {
-                hasCurrentAppContinuousGesture = recognizedApps
-                    .Where(app => !(app is GlobalApp) && !(app is IgnoredApp) && app.Actions != null)
-                    .SelectMany(app => app.Actions)
-                    .Any(a => a != null && a.ContinuousGesture != null);
-            }
+            if (!enableScroll && !enableZoom) return;
 
-            // 新逻辑：只有当全局配置的是N指连续手势时，且当前应用也配置了N指手势（连续或绘制）
-            // 才完全忽略全局连续手势，以应用的为准
-            if (!hasCurrentAppContinuousGesture && recognizedApps != null && recognizedApps.Any())
-            {
-                // 获取当前应用的所有动作
-                var currentAppActions = recognizedApps
-                    .Where(app => !(app is GlobalApp) && !(app is IgnoredApp) && app.Actions != null)
-                    .SelectMany(app => app.Actions)
-                    .ToList();
-
-                bool hasCurrentAppGesture = false;
-
-                // 检查当前应用是否有同手指数的连续手势
-                if (currentAppActions.Any(a => a != null && a.ContinuousGesture != null &&
-                                               a.ContinuousGesture.ContactCount == fingerCount))
-                {
-                    hasCurrentAppGesture = true;
-                    Logging.LogDebug($"[ContinuousGestureTrigger] Current app has {fingerCount}-finger continuous gesture");
-                }
-                // 检查当前应用是否有同手指数的绘制手势
-                else
-                {
-                    foreach (var action in currentAppActions.Where(a => a != null && !string.IsNullOrEmpty(a.GestureName)))
-                    {
-                        var gesture = GestureManager.Instance.GetNewestGestureSample(action.GestureName);
-                        if (gesture != null && gesture.FingerCount == fingerCount)
-                        {
-                            hasCurrentAppGesture = true;
-                            break;
-                        }
-                    }
-                }
-
-                // 如果当前应用有同手指数的任意手势，则忽略全局的连续手势
-                if (hasCurrentAppGesture)
-                {
-                    // Logging.LogDebug($"[ContinuousGestureTrigger] Skip: Current app has {fingerCount}-finger gesture, ignore global continuous gesture");
-                    return;
-                }
-            }
-
-            // 继续执行连续手势逻辑
+            // 初始化跟踪变量（首帧或手指数变化时）
             if (_lastPoints == null || _lastPoints.Count != e.FirstCapturedPoints.Count)
             {
                 _startPoint = e.FirstCapturedPoints[0];
                 _lastPoints = e.FirstCapturedPoints;
                 _stopwatch.Restart();
-                _lastVelocity = null;  // 重置速度
+                _lastVelocity = null;
                 _velocityLastPoints = e.FirstCapturedPoints;
                 _velocityStopwatch.Restart();
+                if (e.FirstCapturedPoints.Count == 2)
+                    _lastFingerDistance = PointPatternMath.GetDistance(e.FirstCapturedPoints[0], e.FirstCapturedPoints[1]);
                 return;
             }
 
-            // 计算当前速度（使用独立的 stopwatch 和 lastPoints，避免与手势触发逻辑干扰）
+            // 计算当前速度
             var velocity = CalculateVelocity(e.FirstCapturedPoints, _velocityLastPoints, _velocityStopwatch.ElapsedMilliseconds);
             _lastVelocity = velocity;
-            // 每帧都更新速度相关变量
             _velocityLastPoints = e.FirstCapturedPoints;
             _velocityStopwatch.Restart();
 
@@ -147,6 +94,50 @@ namespace GestureSign.Daemon.Triggers
             }
             deltaX /= _lastPoints.Count;
             deltaY /= _lastPoints.Count;
+
+            // 两指缩放检测
+            if (enableZoom && fingerCount == 2 && e.FirstCapturedPoints.Count == 2 && _lastFingerDistance > 0)
+            {
+                double currentDist = PointPatternMath.GetDistance(e.FirstCapturedPoints[0], e.FirstCapturedPoints[1]);
+                double distDelta = currentDist - _lastFingerDistance;
+                double avgMove = Math.Sqrt((double)deltaX * deltaX + (double)deltaY * deltaY);
+
+                // 滞回：已进入缩放模式后保持，避免每帧重新判定导致丢帧
+                bool isPinchZoom = _isZooming
+                    || (Math.Abs(distDelta) > avgMove * 1.5 && Math.Abs(distDelta) > _motionThreshold * 0.3);
+
+                if (isPinchZoom)
+                {
+                    if (!_isZooming)
+                    {
+                        _pinchZoomInjector.Start(System.Windows.Forms.Cursor.Position);
+                        _isZooming = true;
+                    }
+                    else
+                    {
+                        double zoomSpeed = GetEffectiveZoomSpeed();
+                        _pinchZoomInjector.Update(distDelta, zoomSpeed);
+                    }
+
+                    _lastFingerDistance = currentDist;
+                    _lastPoints = e.FirstCapturedPoints;
+                    _stopwatch.Restart();
+                    return;
+                }
+
+                _lastFingerDistance = currentDist;
+            }
+
+            // 连续滑动逻辑
+            if (!enableScroll) return;
+
+            // 查找匹配的连续滑动动作
+            var actionsWithContinuousGesture = ApplicationManager.Instance.GetRecognizedDefinedAction(
+                a => a != null && a.ContinuousGesture != null &&
+                     a.ContinuousGesture.ContactCount == fingerCount);
+            if (actionsWithContinuousGesture == null || actionsWithContinuousGesture.Count == 0)
+                return;
+
             int deltaXAbs = Math.Abs(deltaX);
             int deltaYAbs = Math.Abs(deltaY);
             bool isHorizontal = deltaXAbs > deltaYAbs;
@@ -178,14 +169,64 @@ namespace GestureSign.Daemon.Triggers
             }
         }
 
+        private static ContinuousGestureMode GetEffectiveMode()
+        {
+            var recognizedApps = ApplicationManager.Instance.RecognizedApplication;
+            ContinuousGestureMode globalMode = ContinuousGestureMode.Inherit;
+
+            if (recognizedApps != null)
+            {
+                foreach (var app in recognizedApps)
+                {
+                    if (app is IgnoredApp) continue;
+
+                    if (app is GlobalApp)
+                    {
+                        globalMode = app.ContinuousGestureMode;
+                        continue;
+                    }
+
+                    // 非全局应用显式指定了模式
+                    if (app.ContinuousGestureMode != ContinuousGestureMode.Inherit)
+                        return app.ContinuousGestureMode;
+                }
+            }
+
+            // 所有非全局应用都是 Inherit，回退到 GlobalApp 设置
+            return globalMode == ContinuousGestureMode.Inherit ? ContinuousGestureMode.Scroll : globalMode;
+        }
+
+        private double GetEffectiveZoomSpeed()
+        {
+            var recognizedApps = ApplicationManager.Instance.RecognizedApplication;
+
+            if (recognizedApps != null)
+            {
+                foreach (var app in recognizedApps)
+                {
+                    if (app is IgnoredApp) continue;
+
+                    if (app is GlobalApp) continue;
+
+                    if (app.ZoomSpeed > 0)
+                        return app.ZoomSpeed;
+                }
+            }
+
+            var globalApp = ApplicationManager.Instance.GetGlobalApplication();
+            if (globalApp.ZoomSpeed > 0)
+                return globalApp.ZoomSpeed;
+
+            return 1.0;
+        }
+
         private void OnGesturerRecognized(int contactCount, Gestures gesture)
         {
-            // Use bitwise AND to match gesture flags (supports Gestures.All, Gestures.Vertical, etc.)
             var actions = ApplicationManager.Instance.GetRecognizedDefinedAction(a => a.ContinuousGesture != null &&
                 a.ContinuousGesture.ContactCount == contactCount &&
                 (a.ContinuousGesture.Gesture & gesture) != Gestures.None);
             if (actions.Count > 0)
-                OnTriggerFired(new TriggerFiredEventArgs(actions, _startPoint, _lastVelocity));  // 传递速度信息
+                OnTriggerFired(new TriggerFiredEventArgs(actions, _startPoint, _lastVelocity));
         }
 
         private double GetRateOfFire(int distance)
@@ -207,19 +248,11 @@ namespace GestureSign.Daemon.Triggers
             }
         }
 
-        /// <summary>
-        /// 计算手势滑动速度
-        /// </summary>
-        /// <param name="currentPoints">当前触点位置</param>
-        /// <param name="previousPoints">上次触点位置</param>
-        /// <param name="deltaTimeMs">时间间隔(毫秒)</param>
-        /// <returns>速度向量（包含位移信息）</returns>
         private VelocityVector CalculateVelocity(List<Point> currentPoints, List<Point> previousPoints, long deltaTimeMs)
         {
             if (previousPoints == null || currentPoints.Count != previousPoints.Count || deltaTimeMs < 2)
                 return new VelocityVector();
 
-            // 计算所有手指的平均位移（使用浮点数避免整数除法截断）
             double deltaX = 0, deltaY = 0;
             for (int i = 0; i < currentPoints.Count; i++)
             {
@@ -229,11 +262,9 @@ namespace GestureSign.Daemon.Triggers
             deltaX /= currentPoints.Count;
             deltaY /= currentPoints.Count;
 
-            // 转换为像素/秒
             double velocityX = (deltaX / deltaTimeMs) * 1000;
             double velocityY = (deltaY / deltaTimeMs) * 1000;
 
-            // 返回包含位移信息的速度向量
             return new VelocityVector(velocityX, velocityY, deltaX, deltaY);
         }
     }

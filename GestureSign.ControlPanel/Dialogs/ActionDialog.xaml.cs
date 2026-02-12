@@ -75,44 +75,13 @@ namespace GestureSign.ControlPanel.Dialogs
                 TouchScreenCheckBox.IsChecked = !_sourceAction.IgnoredDevices.HasFlag(Devices.TouchScreen);
                 TouchPadCheckBox.IsChecked = !_sourceAction.IgnoredDevices.HasFlag(Devices.TouchPad);
 
-                // Check if this is a Continuous Gesture action
-                if (_sourceAction.ContinuousGesture != null)
-                {
-                    ContinuousGestureRadio.IsChecked = true;
-
-                    // Set contact count
-                    int contactCount = _sourceAction.ContinuousGesture.ContactCount;
-                    if (contactCount >= 1 && contactCount <= 5)
-                        ContactCountComboBox.SelectedIndex = contactCount - 1;
-                }
-                else
-                {
-                    DrawnGestureRadio.IsChecked = true;
-                    var gesture = GestureManager.Instance.GetNewestGestureSample(_sourceAction.GestureName);
-                    if (gesture != null)
-                        CurrentGesture = gesture;
-                }
+                var gesture = GestureManager.Instance.GetNewestGestureSample(_sourceAction.GestureName);
+                if (gesture != null)
+                    CurrentGesture = gesture;
 
                 var hotkey = _sourceAction.Hotkey;
                 if (hotkey != null)
                     HotKeyTextBox.HotKey = new HotKey(KeyInterop.KeyFromVirtualKey(hotkey.KeyCode), (ModifierKeys)hotkey.ModifierKeys);
-            }
-        }
-
-        private void TriggerTypeRadio_Checked(object sender, RoutedEventArgs e)
-        {
-            if (DrawnGestureRadio == null || ContinuousGestureRadio == null)
-                return;
-
-            if (DrawnGestureRadio.IsChecked == true)
-            {
-                DrawnGesturePanel.Visibility = Visibility.Visible;
-                ContinuousGesturePanel.Visibility = Visibility.Collapsed;
-            }
-            else if (ContinuousGestureRadio.IsChecked == true)
-            {
-                DrawnGesturePanel.Visibility = Visibility.Collapsed;
-                ContinuousGesturePanel.Visibility = Visibility.Visible;
             }
         }
 
@@ -195,22 +164,7 @@ namespace GestureSign.ControlPanel.Dialogs
                 }
                 : null;
 
-            // Save trigger configuration
-            if (ContinuousGestureRadio.IsChecked == true)
-            {
-                // Continuous Gesture configuration - supports all directions
-                int contactCount = int.Parse(((System.Windows.Controls.ComboBoxItem)ContactCountComboBox.SelectedItem).Tag.ToString());
-
-                // Use Gestures.All to support all swipe directions (Up/Down/Left/Right)
-                NewAction.ContinuousGesture = new ContinuousGesture(contactCount, Gestures.All);
-                NewAction.GestureName = string.Empty; // Clear drawn gesture
-            }
-            else
-            {
-                // Drawn Gesture configuration
-                NewAction.GestureName = CurrentGesture?.Name ?? string.Empty;
-                NewAction.ContinuousGesture = null;
-            }
+            NewAction.GestureName = CurrentGesture?.Name ?? string.Empty;
 
             Devices ignoredDevices = Devices.None;
             if (!TouchScreenCheckBox.IsChecked.GetValueOrDefault())

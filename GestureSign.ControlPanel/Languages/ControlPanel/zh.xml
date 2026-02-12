@@ -155,6 +155,17 @@ QQ交流群：576981420
       <ConditionError>条件错误</ConditionError>
     </Messages>
   </ActionDialog>
+  <ContinuousGesture>
+    <Title>双指连续手势</Title>
+    <Configure>配置</Configure>
+    <ConfigTitle>连续手势配置</ConfigTitle>
+    <Inherit>继承全局</Inherit>
+    <Scroll>连续滑动</Scroll>
+    <Zoom>连续缩放</Zoom>
+    <ScrollAndZoom>滑动和缩放</ScrollAndZoom>
+    <None>无</None>
+    <ZoomSpeed>缩放速度</ZoomSpeed>
+  </ContinuousGesture>
   <CommandDialog>
     <EditCommandTitle>编辑命令</EditCommandTitle>
     <SelectCommand>选择命令</SelectCommand>

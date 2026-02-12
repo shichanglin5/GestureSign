@@ -570,8 +570,11 @@ namespace GestureSign.ControlPanel.MainWindowControls
             if (selectedApp == null)
             {
                 ToggleAllActionsToggleSwitch.IsEnabled = false;
+                ContinuousGesturePanel.Visibility = Visibility.Collapsed;
                 return;
             }
+
+            UpdateContinuousGestureModeComboBox(selectedApp);
 
             var commandInfoProvider = ((ObjectDataProvider)Resources["CommandInfoProvider"]).ObjectInstance as CommandInfoProvider;
             if (commandInfoProvider == null) return;
@@ -1123,6 +1126,108 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 ApplicationManager.Instance.SaveApplications();
             }
         }
+
+        #region Continuous Gesture Mode
+
+        private bool _isUpdatingContinuousGestureMode;
+
+        private void UpdateContinuousGestureModeComboBox(IApplication app)
+        {
+            if (app is IgnoredApp)
+            {
+                ContinuousGesturePanel.Visibility = Visibility.Collapsed;
+                lstAvailableActions.Margin = new Thickness(0, 27, 0, 0);
+                return;
+            }
+
+            ContinuousGesturePanel.Visibility = Visibility.Visible;
+            lstAvailableActions.Margin = new Thickness(0, 57, 0, 0);
+
+            _isUpdatingContinuousGestureMode = true;
+            try
+            {
+                ContinuousGestureModeComboBox.Items.Clear();
+
+                bool isGlobal = app is GlobalApp;
+
+                if (!isGlobal)
+                    ContinuousGestureModeComboBox.Items.Add(new ComboBoxItem
+                    {
+                        Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Inherit"),
+                        Tag = ContinuousGestureMode.Inherit
+                    });
+
+                ContinuousGestureModeComboBox.Items.Add(new ComboBoxItem
+                {
+                    Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Scroll"),
+                    Tag = ContinuousGestureMode.Scroll
+                });
+                ContinuousGestureModeComboBox.Items.Add(new ComboBoxItem
+                {
+                    Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Zoom"),
+                    Tag = ContinuousGestureMode.Zoom
+                });
+                ContinuousGestureModeComboBox.Items.Add(new ComboBoxItem
+                {
+                    Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.ScrollAndZoom"),
+                    Tag = ContinuousGestureMode.ScrollAndZoom
+                });
+                ContinuousGestureModeComboBox.Items.Add(new ComboBoxItem
+                {
+                    Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.None"),
+                    Tag = ContinuousGestureMode.None
+                });
+
+                var currentMode = app.ContinuousGestureMode;
+                // GlobalApp 不应为 Inherit，视为 Scroll
+                if (isGlobal && currentMode == ContinuousGestureMode.Inherit)
+                    currentMode = ContinuousGestureMode.Scroll;
+
+                foreach (ComboBoxItem item in ContinuousGestureModeComboBox.Items)
+                {
+                    if ((ContinuousGestureMode)item.Tag == currentMode)
+                    {
+                        ContinuousGestureModeComboBox.SelectedItem = item;
+                        break;
+                    }
+                }
+
+                if (ContinuousGestureModeComboBox.SelectedItem == null)
+                    ContinuousGestureModeComboBox.SelectedIndex = 0;
+            }
+            finally
+            {
+                _isUpdatingContinuousGestureMode = false;
+            }
+        }
+
+        private void ContinuousGestureModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingContinuousGestureMode) return;
+
+            var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+            if (selectedApp == null) return;
+
+            var selectedItem = ContinuousGestureModeComboBox.SelectedItem as ComboBoxItem;
+            if (selectedItem == null) return;
+
+            selectedApp.ContinuousGestureMode = (ContinuousGestureMode)selectedItem.Tag;
+            ApplicationManager.Instance.SaveApplications();
+        }
+
+        private void ContinuousGestureConfigButton_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+            if (selectedApp == null) return;
+
+            var dialog = new Dialogs.ContinuousGestureConfigDialog(selectedApp);
+            if (dialog.ShowDialog() == true)
+            {
+                ApplicationManager.Instance.SaveApplications();
+            }
+        }
+
+        #endregion
 
         #region Application Drag and Drop
 

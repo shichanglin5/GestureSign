@@ -40,6 +40,11 @@ namespace GestureSign.Common.Applications
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore, ItemTypeNameHandling = TypeNameHandling.Auto)]
         public virtual List<IWindowRule> PriorityWindows { get; set; } = new List<IWindowRule>();
 
+        [DefaultValue(ContinuousGestureMode.Inherit)]
+        public virtual ContinuousGestureMode ContinuousGestureMode { get; set; }
+
+        public virtual double ZoomSpeed { get; set; }
+
         [JsonProperty(ItemTypeNameHandling = TypeNameHandling.None)]
         public virtual IEnumerable<IAction> Actions
         {
