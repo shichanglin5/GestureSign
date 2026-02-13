@@ -35,12 +35,12 @@ namespace GestureSign.CorePlugins.TouchKeyboard
         {
             if (AutoInvokeCheckBox.IsChecked.Value)
             {
-                RegistryKey rk = Registry.CurrentUser.OpenSubKey(KeyPath, true);
+                using RegistryKey rk = Registry.CurrentUser.OpenSubKey(KeyPath, true);
                 rk?.SetValue(ValueName, 1, RegistryValueKind.DWord);
             }
             else
             {
-                RegistryKey rk = Registry.CurrentUser.OpenSubKey(KeyPath, true);
+                using RegistryKey rk = Registry.CurrentUser.OpenSubKey(KeyPath, true);
                 rk?.DeleteValue(ValueName);
             }
 
@@ -70,7 +70,7 @@ namespace GestureSign.CorePlugins.TouchKeyboard
 
         private void AutoInvokeCheckBox_Loaded(object sender, RoutedEventArgs e)
         {
-            RegistryKey rk = Registry.CurrentUser.OpenSubKey(KeyPath);
+            using RegistryKey rk = Registry.CurrentUser.OpenSubKey(KeyPath);
             if (rk != null)
             {
                 var result = rk.GetValue(ValueName);

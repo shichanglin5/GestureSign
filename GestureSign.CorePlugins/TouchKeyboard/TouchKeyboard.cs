@@ -179,7 +179,11 @@ namespace GestureSign.CorePlugins.TouchKeyboard
                 }
                 return true;
             }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                GestureSign.Common.Log.Logging.LogException(ex);
+                return false;
+            }
         }
 
         private bool ToggleVisibilityByTipBand()
@@ -243,7 +247,10 @@ namespace GestureSign.CorePlugins.TouchKeyboard
                             ToggleVisibility();
                             return true;
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            GestureSign.Common.Log.Logging.LogException(ex);
+                        }
                     }
                     else
                     {
