@@ -189,6 +189,64 @@ namespace GestureSign.ControlPanel.MainWindowControls
             }
         }
 
+        private void lstAvailableActions_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            // ListBox 内部的 ScrollViewer 会吞掉 MouseWheel 事件（即使 VerticalScrollBarVisibility="Disabled"），
+            // 导致触摸板两指滑动无法滚动外层 ScrollViewer。
+            // 直接操作外层 ScrollViewer 的偏移量，避免默认滚动步长过大。
+            if (sender is FrameworkElement element)
+            {
+                var scrollViewer = VisualTreeHelper.GetParent(element) as ScrollViewer
+                    ?? FindParentScrollViewer(element);
+                if (scrollViewer != null)
+                {
+                    scrollViewer.ScrollToVerticalOffset(scrollViewer.VerticalOffset - e.Delta);
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private void lstAvailableApplication_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            // 左侧应用列表使用 VirtualizingStackPanel 逻辑滚动，默认每次滚动整个条目导致速度过快。
+            // 已通过 ScrollUnit="Pixel" 切换为像素滚动，这里直接操作内部 ScrollViewer 控制滚动量。
+            if (sender is ItemsControl itemsControl)
+            {
+                var scrollViewer = FindChildScrollViewer(itemsControl);
+                if (scrollViewer != null)
+                {
+                    scrollViewer.ScrollToVerticalOffset(scrollViewer.VerticalOffset - e.Delta);
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private static ScrollViewer? FindParentScrollViewer(DependencyObject child)
+        {
+            var parent = VisualTreeHelper.GetParent(child);
+            while (parent != null)
+            {
+                if (parent is ScrollViewer sv)
+                    return sv;
+                parent = VisualTreeHelper.GetParent(parent);
+            }
+            return null;
+        }
+
+        private static ScrollViewer? FindChildScrollViewer(DependencyObject parent)
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is ScrollViewer sv)
+                    return sv;
+                var result = FindChildScrollViewer(child);
+                if (result != null)
+                    return result;
+            }
+            return null;
+        }
+
         // Disabled: This event handler was causing scroll issues by dynamically modifying margins
         // which changed total content height and made scrollbar unstable
         //private void LstAvailableActions_OnScrollChanged(object sender, ScrollChangedEventArgs e)
@@ -786,6 +844,10 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void ActionButton_PreviewMouseMove(object sender, MouseEventArgs e)
         {
+            // 触摸屏输入不启动拖拽，避免阻止 ScrollViewer 的触摸平移
+            if (e.StylusDevice != null)
+                return;
+
             // Prevent new drag if one is already in progress
             if (e.LeftButton == MouseButtonState.Pressed && _draggedAction == null)
             {
@@ -899,6 +961,10 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void CommandItem_PreviewMouseMove(object sender, MouseEventArgs e)
         {
+            // 触摸屏输入不启动拖拽，避免阻止 ScrollViewer 的触摸平移
+            if (e.StylusDevice != null)
+                return;
+
             if (e.LeftButton == MouseButtonState.Pressed)
             {
                 Point mousePos = e.GetPosition(null);
