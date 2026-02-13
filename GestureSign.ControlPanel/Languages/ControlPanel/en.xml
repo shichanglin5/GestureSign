@@ -174,6 +174,11 @@ Email:ccfyzh@gmail.com
     <ReverseDirection>Reverse Vertical</ReverseDirection>
     <ReverseHorizontal>Reverse Horizontal</ReverseHorizontal>
     <WinUIDetection>WinUI Detection</WinUIDetection>
+    <MomentumSettings>Momentum</MomentumSettings>
+    <EnableMomentum>Enable Momentum</EnableMomentum>
+    <MomentumTimeConstant>Decay Time Constant (ms)</MomentumTimeConstant>
+    <MomentumMinVelocity>Min Velocity (px/s)</MomentumMinVelocity>
+    <MomentumMaxDuration>Max Duration (ms)</MomentumMaxDuration>
     <DirectionCommands>Direction Commands</DirectionCommands>
     <DirUp>Up</DirUp>
     <DirDown>Down</DirDown>

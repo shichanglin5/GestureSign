@@ -1,23 +1,52 @@
 using GestureSign.Common.Applications;
+using GestureSign.Common.Input;
 using GestureSign.Common.Log;
 using ManagedWinapi.Windows;
 using System;
+using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
+using System.Timers;
 using System.Windows.Automation;
 using WindowsInput;
 
 namespace GestureSign.Daemon.Triggers
 {
     /// <summary>
-    /// 内置惯性滚动执行器 - 直接在触发器内执行滚动
-    /// 从 InertialScrollPlugin 提取核心逻辑，不再经过 Action/Plugin 链路
-    /// </summary>
+/// Inertial scroll executor running inside trigger pipeline.
+/// Core logic extracted from InertialScrollPlugin.
+/// </summary>
     class InertialScrollExecutor
     {
         #region Native Methods
 
         [DllImport("user32.dll")]
         private static extern bool GetCursorPos(out POINT lpPoint);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr WindowFromPoint(POINT point);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr ChildWindowFromPointEx(IntPtr hwndParent, POINT pt, uint uFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool ScreenToClient(IntPtr hWnd, ref POINT lpPoint);
+
+        [DllImport("user32.dll")]
+        private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        private const uint GA_ROOT = 2;
+        private const uint WM_MOUSEWHEEL = 0x020A;
+        private const uint WM_MOUSEHWHEEL = 0x020E;
+        private const uint CWP_SKIPINVISIBLE = 0x0001;
+        private const uint CWP_SKIPDISABLED = 0x0004;
+        private const uint CWP_SKIPTRANSPARENT = 0x0008;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct POINT
@@ -38,65 +67,144 @@ namespace GestureSign.Daemon.Triggers
         private bool _isWinUIApp;
         private IntPtr _cachedWindowHandle;
 
+        private readonly object _lock = new object();
+        private Timer _inertiaTimer;
+        private volatile bool _isInertiaActive;
+        private double _inertiaStartVelocityX;
+        private double _inertiaStartVelocityY;
+        private readonly Stopwatch _inertiaStopwatch = new Stopwatch();
+        private long _lastInertiaTickMs;
+        private POINT _inertiaStartCursorPos;
+        private IntPtr _inertiaTargetWindow;
+        private InertialScrollSettings _lastSettings;
+
+        // 触控屏滚动目标：触控屏以手指触摸点为滚动目标，触控板以鼠标位置为目标
+        private bool _isTouchScreen;
+        private POINT _touchScreenPoint;
+
         /// <summary>
-        /// 处理一帧滚动
-        /// </summary>
-        public void ProcessFrame(VelocityVector velocity, SystemWindow window, InertialScrollSettings settings)
+/// Inertial scroll executor running inside trigger pipeline.
+/// Core logic extracted from InertialScrollPlugin.
+/// </summary>
+        public void ProcessFrame(VelocityVector velocity, SystemWindow window, InertialScrollSettings settings,
+            Devices sourceDevice = Devices.None, Point touchPoint = default)
         {
             if (settings == null) return;
-
-            // 检测新手势会话
-            var timeSinceLastGesture = (velocity.Timestamp - _lastGestureTime).TotalMilliseconds;
-            if (timeSinceLastGesture > NewGestureThresholdMs)
+            // 在获取 lock 之前先标记取消惯性，让 OnInertiaTick 尽快退出释放 lock
+            _isInertiaActive = false;
+            _inertiaTimer?.Stop();
+            lock (_lock)
             {
-                _accumulatedX = 0;
-                _accumulatedY = 0;
-            }
-            _lastGestureTime = velocity.Timestamp;
+                StopInertiaInternal();
+                _lastSettings = settings;
+                _inertiaTargetWindow = window?.HWnd ?? IntPtr.Zero;
+                _isTouchScreen = sourceDevice.HasFlag(Devices.TouchScreen);
+                if (_isTouchScreen)
+                    _touchScreenPoint = new POINT { X = touchPoint.X, Y = touchPoint.Y };
 
-            // WinUI/UWP 应用检测
-            if (settings.EnableWinUIDetection)
-            {
-                var windowHandle = window?.HWnd ?? IntPtr.Zero;
-                if (windowHandle != _cachedWindowHandle)
+                var timeSinceLastGesture = (velocity.Timestamp - _lastGestureTime).TotalMilliseconds;
+                if (timeSinceLastGesture > NewGestureThresholdMs)
                 {
-                    _cachedWindowHandle = windowHandle;
-                    _isWinUIApp = IsWinUIOrUWPApp(window);
+                    _accumulatedX = 0;
+                    _accumulatedY = 0;
                 }
+                _lastGestureTime = velocity.Timestamp;
+
+                if (settings.EnableWinUIDetection)
+                {
+                    var windowHandle = window?.HWnd ?? IntPtr.Zero;
+                    if (windowHandle != _cachedWindowHandle)
+                    {
+                        _cachedWindowHandle = windowHandle;
+                        _isWinUIApp = IsWinUIOrUWPApp(window);
+                    }
+                }
+
+                if (velocity.DeltaX == 0 && velocity.DeltaY == 0)
+                    return;
+
+                double speedMultiplier = CalculateSpeedMultiplier(velocity.Magnitude, settings.AccelerationFactor);
+
+                double verticalMultiplier = speedMultiplier * (settings.ReverseDirection ? -1 : 1);
+                double horizontalMultiplier = speedMultiplier * (settings.ReverseHorizontalDirection ? 1 : -1);
+
+                double deltaX = velocity.DeltaX * horizontalMultiplier;
+                double deltaY = velocity.DeltaY * verticalMultiplier;
+
+                if (settings.Direction == ScrollDirection.Vertical)
+                    deltaX = 0;
+                else if (settings.Direction == ScrollDirection.Horizontal)
+                    deltaY = 0;
+
+                if (settings.Direction == ScrollDirection.Both && settings.MinorAxisThreshold > 0)
+                    ApplyJitterFilter(ref deltaX, ref deltaY, settings.MinorAxisThreshold);
+
+                ExecuteScroll(deltaX, deltaY, settings);
             }
-
-            if (velocity.DeltaX == 0 && velocity.DeltaY == 0)
-                return;
-
-            double speedMultiplier = CalculateSpeedMultiplier(velocity.Magnitude, settings.AccelerationFactor);
-
-            double verticalMultiplier = speedMultiplier * (settings.ReverseDirection ? -1 : 1);
-            double horizontalMultiplier = speedMultiplier * (settings.ReverseHorizontalDirection ? 1 : -1);
-
-            double deltaX = velocity.DeltaX * horizontalMultiplier;
-            double deltaY = velocity.DeltaY * verticalMultiplier;
-
-            if (settings.Direction == ScrollDirection.Vertical)
-                deltaX = 0;
-            else if (settings.Direction == ScrollDirection.Horizontal)
-                deltaY = 0;
-
-            if (settings.Direction == ScrollDirection.Both && settings.MinorAxisThreshold > 0)
-                ApplyJitterFilter(ref deltaX, ref deltaY, settings.MinorAxisThreshold);
-
-            ExecuteScroll(deltaX, deltaY, settings);
         }
 
         public void Reset()
         {
+            StopInertia();
+            ResetGestureState();
+            _cachedWindowHandle = IntPtr.Zero;
+            _isWinUIApp = false;
+            _isTouchScreen = false;
+            _lastSettings = null;
+            if (_inertiaTimer != null)
+            {
+                _inertiaTimer.Dispose();
+                _inertiaTimer = null;
+            }
+        }
+
+        public void ResetGestureState()
+        {
             _accumulatedX = 0;
             _accumulatedY = 0;
             _lastGestureTime = DateTime.MinValue;
-            _cachedWindowHandle = IntPtr.Zero;
-            _isWinUIApp = false;
         }
 
-        private void ExecuteScroll(double deltaX, double deltaY, InertialScrollSettings settings)
+        public void StopInertia()
+        {
+            lock (_lock)
+            {
+                StopInertiaInternal();
+            }
+        }
+
+        public void StartInertiaIfNeeded(VelocityVector lastVelocity, SystemWindow window, InertialScrollSettings settings,
+            Devices sourceDevice = Devices.None, Point touchPoint = default)
+        {
+            lock (_lock)
+            {
+                if (settings == null || !settings.EnableMomentum)
+                    return;
+
+                double magnitude = lastVelocity.Magnitude;
+                if (magnitude < settings.MomentumMinVelocity)
+                    return;
+
+                _lastSettings = settings;
+                _inertiaTargetWindow = window?.HWnd ?? IntPtr.Zero;
+                _isTouchScreen = sourceDevice.HasFlag(Devices.TouchScreen);
+                if (_isTouchScreen)
+                    _touchScreenPoint = new POINT { X = touchPoint.X, Y = touchPoint.Y };
+                _inertiaStartVelocityX = lastVelocity.VelocityX;
+                _inertiaStartVelocityY = lastVelocity.VelocityY;
+                _inertiaStopwatch.Restart();
+                _lastInertiaTickMs = 0;
+                GetCursorPos(out _inertiaStartCursorPos);
+                _isInertiaActive = true;
+
+                EnsureInertiaTimer();
+                double interval = Math.Max(8.0, _lastSettings.MomentumTickMs);
+                if (interval > 33.0) interval = 33.0;
+                _inertiaTimer.Interval = interval;
+                _inertiaTimer.Start();
+            }
+        }
+        private void ExecuteScroll(double deltaX, double deltaY, InertialScrollSettings settings, double pixelsPerScrollUnitOverride = 0)
         {
             try
             {
@@ -110,14 +218,15 @@ namespace GestureSign.Daemon.Triggers
                 _accumulatedY += deltaY;
 
                 const int WHEEL_DELTA = 120;
+                double pixelsPerUnit = pixelsPerScrollUnitOverride > 0 ? pixelsPerScrollUnitOverride : settings.PixelsPerScrollUnit;
 
-                int scrollDeltaX = (int)(_accumulatedX / settings.PixelsPerScrollUnit * WHEEL_DELTA);
-                int scrollDeltaY = (int)(_accumulatedY / settings.PixelsPerScrollUnit * WHEEL_DELTA);
+                int scrollDeltaX = (int)(_accumulatedX / pixelsPerUnit * WHEEL_DELTA);
+                int scrollDeltaY = (int)(_accumulatedY / pixelsPerUnit * WHEEL_DELTA);
 
                 if (scrollDeltaX != 0)
-                    _accumulatedX -= scrollDeltaX * settings.PixelsPerScrollUnit / WHEEL_DELTA;
+                    _accumulatedX -= scrollDeltaX * pixelsPerUnit / WHEEL_DELTA;
                 if (scrollDeltaY != 0)
-                    _accumulatedY -= scrollDeltaY * settings.PixelsPerScrollUnit / WHEEL_DELTA;
+                    _accumulatedY -= scrollDeltaY * pixelsPerUnit / WHEEL_DELTA;
 
                 if (_isWinUIApp && settings.EnableWinUIDetection)
                 {
@@ -126,8 +235,17 @@ namespace GestureSign.Daemon.Triggers
                     if (scrollDeltaX != 0)
                         SendWheelMessageToWindow(_cachedWindowHandle, scrollDeltaX, isHorizontal: true);
                 }
+                else if (_isTouchScreen)
+                {
+                    // 触控屏：发送滚轮消息到触摸点位置的窗口
+                    if (scrollDeltaY != 0)
+                        PostWheelMessageToPoint(_touchScreenPoint, scrollDeltaY, isHorizontal: false);
+                    if (scrollDeltaX != 0)
+                        PostWheelMessageToPoint(_touchScreenPoint, scrollDeltaX, isHorizontal: true);
+                }
                 else
                 {
+                    // 触控板：SendInput 发送滚轮事件，由系统路由到鼠标光标位置的窗口
                     if (scrollDeltaY != 0)
                         SendScrollDelta(scrollDeltaY, isHorizontal: false);
                     if (scrollDeltaX != 0)
@@ -148,6 +266,41 @@ namespace GestureSign.Daemon.Triggers
                     _inputSimulator.Mouse.HorizontalScrollDelta(delta);
                 else
                     _inputSimulator.Mouse.VerticalScrollDelta(delta);
+            }
+            catch (Exception ex)
+            {
+                Logging.LogException(ex);
+            }
+        }
+
+        /// <summary>
+        /// 触控屏专用：向指定屏幕坐标处的窗口发送滚轮消息。
+        /// 先用 WindowFromPoint 找到顶层窗口，再用 ChildWindowFromPointEx 找到实际子窗口。
+        /// </summary>
+        private static void PostWheelMessageToPoint(POINT screenPoint, int delta, bool isHorizontal)
+        {
+            try
+            {
+                IntPtr hwnd = WindowFromPoint(screenPoint);
+                if (hwnd == IntPtr.Zero) return;
+
+                // 尝试找到更精确的子窗口
+                POINT clientPoint = screenPoint;
+                if (ScreenToClient(hwnd, ref clientPoint))
+                {
+                    IntPtr childHwnd = ChildWindowFromPointEx(hwnd, clientPoint,
+                        CWP_SKIPINVISIBLE | CWP_SKIPDISABLED | CWP_SKIPTRANSPARENT);
+                    if (childHwnd != IntPtr.Zero && childHwnd != hwnd)
+                        hwnd = childHwnd;
+                }
+
+                uint msg = isHorizontal ? WM_MOUSEHWHEEL : WM_MOUSEWHEEL;
+                // wParam: HIWORD = delta, LOWORD = key state (0)
+                IntPtr wParam = (IntPtr)(delta << 16);
+                // lParam: LOWORD = x, HIWORD = y (screen coordinates)
+                IntPtr lParam = (IntPtr)((screenPoint.Y << 16) | (screenPoint.X & 0xFFFF));
+
+                PostMessage(hwnd, msg, wParam, lParam);
             }
             catch (Exception ex)
             {
@@ -263,6 +416,182 @@ namespace GestureSign.Daemon.Triggers
             }
         }
 
+        private void EnsureInertiaTimer()
+        {
+            if (_inertiaTimer != null)
+                return;
+
+            _inertiaTimer = new Timer
+            {
+                AutoReset = true,
+                Enabled = false
+            };
+            _inertiaTimer.Elapsed += OnInertiaTick;
+        }
+
+        private void OnInertiaTick(object sender, ElapsedEventArgs e)
+        {
+            // 在 lock 内仅做计算和累积器更新，出 lock 后执行实际滚动发送
+            // 避免 UIA/PostMessage 等耗时操作长时间持有 lock
+            int scrollDeltaX = 0, scrollDeltaY = 0;
+            bool isWinUI = false;
+            bool isTouchScreen = false;
+            IntPtr cachedHwnd = IntPtr.Zero;
+            POINT touchPoint = default;
+            InertialScrollSettings settings = null;
+
+            lock (_lock)
+            {
+                if (!_isInertiaActive || _lastSettings == null)
+                    return;
+
+                if (_inertiaTargetWindow != IntPtr.Zero &&
+                    GetAncestor(GetForegroundWindow(), GA_ROOT) != GetAncestor(_inertiaTargetWindow, GA_ROOT))
+                {
+                    StopInertiaInternal();
+                    return;
+                }
+
+                if (GetCursorPos(out POINT currentPos))
+                {
+                    int dx = currentPos.X - _inertiaStartCursorPos.X;
+                    int dy = currentPos.Y - _inertiaStartCursorPos.Y;
+                    if ((dx * dx + dy * dy) > 36)
+                    {
+                        StopInertiaInternal();
+                        return;
+                    }
+                }
+
+                long elapsedMs = _inertiaStopwatch.ElapsedMilliseconds;
+                if (_lastSettings.MomentumMaxDurationMs > 0 &&
+                    elapsedMs > _lastSettings.MomentumMaxDurationMs)
+                {
+                    StopInertiaInternal();
+                    return;
+                }
+
+                double tau = _lastSettings.MomentumTimeConstantMs;
+                if (tau <= 0)
+                {
+                    StopInertiaInternal();
+                    return;
+                }
+
+                double decay = Math.Exp(-elapsedMs / tau);
+                double vx = _inertiaStartVelocityX * decay;
+                double vy = _inertiaStartVelocityY * decay;
+                double magnitude = Math.Sqrt(vx * vx + vy * vy);
+
+                if (magnitude < _lastSettings.MomentumMinVelocity)
+                {
+                    StopInertiaInternal();
+                    return;
+                }
+
+                long deltaMs = elapsedMs - _lastInertiaTickMs;
+                if (deltaMs <= 0)
+                    return;
+
+                double maxStepMs = Math.Max(8.0, _lastSettings.MomentumTickMs) * 3.0;
+                if (deltaMs > maxStepMs)
+                    deltaMs = (long)maxStepMs;
+
+                _lastInertiaTickMs = elapsedMs;
+                double dtSeconds = deltaMs / 1000.0;
+
+                double frameDeltaX = vx * dtSeconds;
+                double frameDeltaY = vy * dtSeconds;
+
+                // 惯性阶段 speedMultiplier 限制为 <=1.0，避免低速时的放大导致尾部衰减不下去
+                double speedMultiplier = Math.Min(1.0, CalculateSpeedMultiplier(magnitude, _lastSettings.AccelerationFactor));
+                double verticalMultiplier = speedMultiplier * (_lastSettings.ReverseDirection ? -1 : 1);
+                double horizontalMultiplier = speedMultiplier * (_lastSettings.ReverseHorizontalDirection ? 1 : -1);
+
+                double deltaX = frameDeltaX * horizontalMultiplier;
+                double deltaY = frameDeltaY * verticalMultiplier;
+
+                if (_lastSettings.Direction == ScrollDirection.Vertical)
+                    deltaX = 0;
+                else if (_lastSettings.Direction == ScrollDirection.Horizontal)
+                    deltaY = 0;
+
+                if (_lastSettings.Direction == ScrollDirection.Both && _lastSettings.MinorAxisThreshold > 0)
+                    ApplyJitterFilter(ref deltaX, ref deltaY, _lastSettings.MinorAxisThreshold);
+
+                // 在 lock 内完成累积器计算，得出实际滚轮 delta
+                settings = _lastSettings;
+
+                if (_isWinUIApp && settings.EnableWinUIDetection)
+                {
+                    deltaX *= settings.WinUIScrollMultiplier;
+                    deltaY *= settings.WinUIScrollMultiplier;
+                }
+
+                _accumulatedX += deltaX;
+                _accumulatedY += deltaY;
+
+                const int WHEEL_DELTA = 120;
+                double pixelsPerUnit = settings.PixelsPerScrollUnit;
+
+                scrollDeltaX = (int)(_accumulatedX / pixelsPerUnit * WHEEL_DELTA);
+                scrollDeltaY = (int)(_accumulatedY / pixelsPerUnit * WHEEL_DELTA);
+
+                if (scrollDeltaX != 0)
+                    _accumulatedX -= scrollDeltaX * pixelsPerUnit / WHEEL_DELTA;
+                if (scrollDeltaY != 0)
+                    _accumulatedY -= scrollDeltaY * pixelsPerUnit / WHEEL_DELTA;
+
+                if (scrollDeltaX == 0 && scrollDeltaY == 0)
+                    return;
+
+                // 快照发送路由所需的状态
+                isWinUI = _isWinUIApp && settings.EnableWinUIDetection;
+                isTouchScreen = _isTouchScreen;
+                cachedHwnd = _cachedWindowHandle;
+                touchPoint = _touchScreenPoint;
+            }
+
+            // lock 外执行实际的滚动发送（可能涉及 UIA、PostMessage 等耗时操作）
+            try
+            {
+                if (isWinUI)
+                {
+                    if (scrollDeltaY != 0)
+                        SendWheelMessageToWindow(cachedHwnd, scrollDeltaY, isHorizontal: false);
+                    if (scrollDeltaX != 0)
+                        SendWheelMessageToWindow(cachedHwnd, scrollDeltaX, isHorizontal: true);
+                }
+                else if (isTouchScreen)
+                {
+                    if (scrollDeltaY != 0)
+                        PostWheelMessageToPoint(touchPoint, scrollDeltaY, isHorizontal: false);
+                    if (scrollDeltaX != 0)
+                        PostWheelMessageToPoint(touchPoint, scrollDeltaX, isHorizontal: true);
+                }
+                else
+                {
+                    if (scrollDeltaY != 0)
+                        SendScrollDelta(scrollDeltaY, isHorizontal: false);
+                    if (scrollDeltaX != 0)
+                        SendScrollDelta(scrollDeltaX, isHorizontal: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.LogException(ex);
+            }
+        }
+        private void StopInertiaInternal()
+        {
+            if (!_isInertiaActive)
+                return;
+
+            _isInertiaActive = false;
+            if (_inertiaTimer != null)
+                _inertiaTimer.Stop();
+        }
+
         private bool IsWinUIOrUWPApp(SystemWindow window)
         {
             if (window == null) return false;
@@ -302,3 +631,15 @@ namespace GestureSign.Daemon.Triggers
         }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

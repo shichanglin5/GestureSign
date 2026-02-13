@@ -46,6 +46,31 @@ namespace GestureSign.Common.Applications
         /// WinUI/UWP 应用滚动倍数 (1.0-10.0)
         /// </summary>
         public double WinUIScrollMultiplier { get; set; } = 3.0;
+
+        /// <summary>
+        /// Enable momentum scrolling after finger release.
+        /// </summary>
+        public bool EnableMomentum { get; set; } = true;
+
+        /// <summary>
+        /// Exponential decay time constant for momentum (ms).
+        /// </summary>
+        public double MomentumTimeConstantMs { get; set; } = 600.0;
+
+        /// <summary>
+        /// Minimum velocity to continue momentum (px/s).
+        /// </summary>
+        public double MomentumMinVelocity { get; set; } = 10.0;
+
+        /// <summary>
+        /// Maximum momentum duration (ms).
+        /// </summary>
+        public double MomentumMaxDurationMs { get; set; } = 1500.0;
+
+        /// <summary>
+        /// Momentum timer tick interval (ms). Not intended for end-user tuning.
+        /// </summary>
+        public double MomentumTickMs { get; set; } = 8.0;
     }
 
     public enum ScrollDirection

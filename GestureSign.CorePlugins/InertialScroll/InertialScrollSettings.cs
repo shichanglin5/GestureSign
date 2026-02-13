@@ -13,17 +13,17 @@ namespace GestureSign.CorePlugins.InertialScroll
         public ScrollDirection Direction { get; set; } = ScrollDirection.Vertical;
 
         /// <summary>
-        /// 滚动细腻度 (0.5-100.0)
-        /// 表示多少像素位移等于一个标准滚轮单位(WHEEL_DELTA=120)
+        /// 滚动细腻�?(0.5-100.0)
+        /// 表示多少像素位移等于一个标准滚轮单�?WHEEL_DELTA=120)
         /// 值越大滚动越细腻/越慢，值越小滚动越粗糙/越快
-        /// 默认 30.0: 30像素 = 120 wheel delta, 即 1像素 = 4 wheel delta
+        /// 默认 30.0: 30像素 = 120 wheel delta, �?1像素 = 4 wheel delta
         /// </summary>
         public double PixelsPerScrollUnit { get; set; } = 30.0;
 
         /// <summary>
-        /// 加速因子 (0.1-5.0), 控制快速滑动时的加速程度
-        /// 值越大，快速滑动时滚动速度提升越明显
-        /// 默认 1.0: 中速时达到 1:1 映射，快速时适度加速
+        /// 加速因�?(0.1-5.0), 控制快速滑动时的加速程�?
+        /// 值越大，快速滑动时滚动速度提升越明�?
+        /// 默认 1.0: 中速时达到 1:1 映射，快速时适度加�?
         /// </summary>
         public double AccelerationFactor { get; set; } = 1.0;
 
@@ -38,9 +38,9 @@ namespace GestureSign.CorePlugins.InertialScroll
         public bool ReverseHorizontalDirection { get; set; } = false;
 
         /// <summary>
-        /// 次轴阈值 - 防止滚动抖动 (0.0-0.8)
+        /// 次轴阈�?- 防止滚动抖动 (0.0-0.8)
         /// 当次方向位移占比小于此值时，忽略次方向滚动
-        /// 例如: 0.3 表示次方向位移小于主方向的30%时忽略
+        /// 例如: 0.3 表示次方向位移小于主方向�?0%时忽�?
         /// 默认 0.3 (30%)
         /// </summary>
         public double MinorAxisThreshold { get; set; } = 0.3;
@@ -52,10 +52,35 @@ namespace GestureSign.CorePlugins.InertialScroll
 
         /// <summary>
         /// WinUI/UWP 应用滚动倍数 (1.0-10.0)
-        /// WinUI/UWP 应用对滚轮事件的响应比 Win32 应用慢，需要额外倍数补偿
+        /// WinUI/UWP 应用对滚轮事件的响应�?Win32 应用慢，需要额外倍数补偿
         /// 默认 3.0
         /// </summary>
         public double WinUIScrollMultiplier { get; set; } = 3.0;
+
+        /// <summary>
+        /// Enable momentum scrolling after finger release.
+        /// </summary>
+        public bool EnableMomentum { get; set; } = true;
+
+        /// <summary>
+        /// Exponential decay time constant for momentum (ms).
+        /// </summary>
+        public double MomentumTimeConstantMs { get; set; } = 600.0;
+
+        /// <summary>
+        /// Minimum velocity to continue momentum (px/s).
+        /// </summary>
+        public double MomentumMinVelocity { get; set; } = 10.0;
+
+        /// <summary>
+        /// Maximum momentum duration (ms).
+        /// </summary>
+        public double MomentumMaxDurationMs { get; set; } = 1500.0;
+
+        /// <summary>
+        /// Momentum timer tick interval (ms). Not intended for end-user tuning.
+        /// </summary>
+        public double MomentumTickMs { get; set; } = 8.0;
     }
 
     /// <summary>
@@ -79,3 +104,4 @@ namespace GestureSign.CorePlugins.InertialScroll
         Both
     }
 }
+

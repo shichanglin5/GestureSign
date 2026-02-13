@@ -113,7 +113,89 @@
             <CheckBox x:Name="WinUIDetectionCheckBox"
                       Content="{localization:LocalisedText ContinuousGesture.WinUIDetection}"
                       FontSize="13"
-                      Margin="0,0,0,3" />
+                      Margin="0,0,0,8" />
+
+            <!-- 惯性滚动设置 -->
+            <TextBlock Text="{localization:LocalisedText ContinuousGesture.MomentumSettings}"
+                       FontSize="14"
+                       FontWeight="Bold"
+                       Margin="0,0,0,8" />
+
+            <CheckBox x:Name="EnableMomentumCheckBox"
+                      Content="{localization:LocalisedText ContinuousGesture.EnableMomentum}"
+                      FontSize="13"
+                      Margin="0,0,0,5"
+                      Checked="EnableMomentumCheckBox_Changed"
+                      Unchecked="EnableMomentumCheckBox_Changed" />
+
+            <StackPanel x:Name="MomentumDetailsPanel"
+                        Margin="0,0,0,3">
+                <!-- 衰减时间常数 -->
+                <DockPanel Margin="0,0,0,5">
+                    <TextBlock Text="{localization:LocalisedText ContinuousGesture.MomentumTimeConstant}"
+                               VerticalAlignment="Center"
+                               Width="150"
+                               FontSize="13" />
+                    <TextBlock DockPanel.Dock="Right"
+                               Text="{Binding ElementName=MomentumTimeConstantSlider,Path=Value,StringFormat={}{0:F0}}"
+                               VerticalAlignment="Center"
+                               Width="40"
+                               TextAlignment="Right"
+                               FontSize="13"
+                               Margin="5,0,0,0" />
+                    <Slider x:Name="MomentumTimeConstantSlider"
+                            Minimum="100"
+                            Maximum="2000"
+                            TickFrequency="50"
+                            IsSnapToTickEnabled="True"
+                            Value="600"
+                            VerticalAlignment="Center" />
+                </DockPanel>
+
+                <!-- 最小速度 -->
+                <DockPanel Margin="0,0,0,5">
+                    <TextBlock Text="{localization:LocalisedText ContinuousGesture.MomentumMinVelocity}"
+                               VerticalAlignment="Center"
+                               Width="150"
+                               FontSize="13" />
+                    <TextBlock DockPanel.Dock="Right"
+                               Text="{Binding ElementName=MomentumMinVelocitySlider,Path=Value,StringFormat={}{0:F0}}"
+                               VerticalAlignment="Center"
+                               Width="40"
+                               TextAlignment="Right"
+                               FontSize="13"
+                               Margin="5,0,0,0" />
+                    <Slider x:Name="MomentumMinVelocitySlider"
+                            Minimum="1"
+                            Maximum="100"
+                            TickFrequency="1"
+                            IsSnapToTickEnabled="True"
+                            Value="10"
+                            VerticalAlignment="Center" />
+                </DockPanel>
+
+                <!-- 最大时长 -->
+                <DockPanel Margin="0,0,0,5">
+                    <TextBlock Text="{localization:LocalisedText ContinuousGesture.MomentumMaxDuration}"
+                               VerticalAlignment="Center"
+                               Width="150"
+                               FontSize="13" />
+                    <TextBlock DockPanel.Dock="Right"
+                               Text="{Binding ElementName=MomentumMaxDurationSlider,Path=Value,StringFormat={}{0:F0}}"
+                               VerticalAlignment="Center"
+                               Width="40"
+                               TextAlignment="Right"
+                               FontSize="13"
+                               Margin="5,0,0,0" />
+                    <Slider x:Name="MomentumMaxDurationSlider"
+                            Minimum="200"
+                            Maximum="5000"
+                            TickFrequency="100"
+                            IsSnapToTickEnabled="True"
+                            Value="1500"
+                            VerticalAlignment="Center" />
+                </DockPanel>
+            </StackPanel>
         </StackPanel>
 
         <!-- Custom 模式方向命令 -->

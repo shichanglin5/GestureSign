@@ -78,6 +78,13 @@ namespace GestureSign.ControlPanel.Dialogs
             ReverseHorizontalCheckBox.IsChecked = settings.ReverseHorizontalDirection;
             WinUIDetectionCheckBox.IsChecked = settings.EnableWinUIDetection;
 
+            // 惯性参数
+            EnableMomentumCheckBox.IsChecked = settings.EnableMomentum;
+            MomentumTimeConstantSlider.Value = settings.MomentumTimeConstantMs;
+            MomentumMinVelocitySlider.Value = settings.MomentumMinVelocity;
+            MomentumMaxDurationSlider.Value = settings.MomentumMaxDurationMs;
+            MomentumDetailsPanel.Visibility = settings.EnableMomentum ? Visibility.Visible : Visibility.Collapsed;
+
             // Custom 模式方向命令
             CustomCommandsPanel.Visibility = _config.ScrollMode == ContinuousScrollMode.Custom
                 ? Visibility.Visible : Visibility.Collapsed;
@@ -174,6 +181,13 @@ namespace GestureSign.ControlPanel.Dialogs
             }
         }
 
+        private void EnableMomentumCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (MomentumDetailsPanel != null)
+                MomentumDetailsPanel.Visibility = EnableMomentumCheckBox.IsChecked == true
+                    ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         private void OkButton_Click(object sender, RoutedEventArgs e)
         {
             // 保存缩放速度
@@ -194,6 +208,11 @@ namespace GestureSign.ControlPanel.Dialogs
                 settings.ReverseDirection = ReverseDirectionCheckBox.IsChecked == true;
                 settings.ReverseHorizontalDirection = ReverseHorizontalCheckBox.IsChecked == true;
                 settings.EnableWinUIDetection = WinUIDetectionCheckBox.IsChecked == true;
+
+                settings.EnableMomentum = EnableMomentumCheckBox.IsChecked == true;
+                settings.MomentumTimeConstantMs = MomentumTimeConstantSlider.Value;
+                settings.MomentumMinVelocity = MomentumMinVelocitySlider.Value;
+                settings.MomentumMaxDurationMs = MomentumMaxDurationSlider.Value;
 
                 _config.ScrollSettings = settings;
             }

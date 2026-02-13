@@ -178,6 +178,11 @@ QQ交流群：576981420
     <ReverseDirection>反转垂直方向</ReverseDirection>
     <ReverseHorizontal>反转水平方向</ReverseHorizontal>
     <WinUIDetection>WinUI 检测</WinUIDetection>
+    <MomentumSettings>惯性滚动</MomentumSettings>
+    <EnableMomentum>启用惯性</EnableMomentum>
+    <MomentumTimeConstant>衰减时间常数 (ms)</MomentumTimeConstant>
+    <MomentumMinVelocity>最小速度 (px/s)</MomentumMinVelocity>
+    <MomentumMaxDuration>最大时长 (ms)</MomentumMaxDuration>
     <DirectionCommands>方向命令</DirectionCommands>
     <DirUp>上</DirUp>
     <DirDown>下</DirDown>
