@@ -279,6 +279,13 @@
       <WinUIScrollMultiplier>WinUI/UWP Scroll Multiplier</WinUIScrollMultiplier>
       <WinUIMultiplierDescription>WinUI/UWP apps (Windows Settings, PowerToys) scroll slower with mouse wheel events. This multiplier compensates for the difference. Recommended: 3.0x</WinUIMultiplierDescription>
     </InertialScroll>
+    <ActivateFocusWindow>
+      <Name>Activate Focus Window</Name>
+      <Description>Activate the window at the gesture start position</Description>
+      <Tip>Moves the cursor to the gesture start position and simulates a left mouse click to activate the window at that location.&#xA;&#xA;Touchpad: clicks at the current mouse position&#xA;Touchscreen: clicks at the finger touch start position&#xA;&#xA;Useful when you need to activate a window before executing subsequent actions like hotkeys.</Tip>
+      <TouchPosition>Touch finger position</TouchPosition>
+      <MousePosition>Mouse position</MousePosition>
+    </ActivateFocusWindow>
   </CorePlugins>
   <WindowSelector>
     <IncludeChildWindows>Include Child Windows</IncludeChildWindows>

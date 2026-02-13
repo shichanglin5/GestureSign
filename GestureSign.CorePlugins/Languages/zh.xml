@@ -280,6 +280,13 @@
       <WinUIScrollMultiplier>WinUI/UWP 滚动倍数</WinUIScrollMultiplier>
       <WinUIMultiplierDescription>WinUI/UWP 应用（如 Windows 设置、PowerToys）对滚轮事件的响应较慢，此倍数用于补偿。推荐值：3.0 倍</WinUIMultiplierDescription>
     </InertialScroll>
+    <ActivateFocusWindow>
+      <Name>激活焦点窗口</Name>
+      <Description>激活手势起始位置的窗口</Description>
+      <Tip>将光标移动到手势起始位置并模拟鼠标左键点击，以激活该位置的窗口。&#xA;&#xA;触摸板：点击鼠标当前位置&#xA;触摸屏：点击手指触控起始位置&#xA;&#xA;适用于需要先激活窗口再执行快捷键等后续操作的场景。</Tip>
+      <TouchPosition>触控手指位置</TouchPosition>
+      <MousePosition>鼠标位置</MousePosition>
+    </ActivateFocusWindow>
   </CorePlugins>
   <WindowSelector>
     <IncludeChildWindows>包含子窗口</IncludeChildWindows>
