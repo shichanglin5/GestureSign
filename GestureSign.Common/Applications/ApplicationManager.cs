@@ -528,11 +528,18 @@ namespace GestureSign.Common.Applications
                     return foreground ?? GetWindowFromPoint(System.Windows.Forms.Cursor.Position);
                 }
 
-                // 触摸屏设备：固定使用前台窗口，如果最小化则使用触摸点
+                // 触摸屏设备：使用前台窗口，但先检查触摸点下是否有优先级窗口
                 if (foreground != null && foreground.WindowState == System.Windows.Forms.FormWindowState.Minimized)
                 {
                     return GetWindowFromPoint(point);
                 }
+
+                var touchPriorityWindow = TryGetPriorityMatchedWindow(foreground, point);
+                if (touchPriorityWindow != null)
+                {
+                    return touchPriorityWindow;
+                }
+
                 return foreground ?? GetWindowFromPoint(point);
             }
 
@@ -595,6 +602,11 @@ namespace GestureSign.Common.Applications
         /// </summary>
         private SystemWindow TryGetPriorityMatchedWindow(SystemWindow foregroundWindow)
         {
+            return TryGetPriorityMatchedWindow(foregroundWindow, System.Windows.Forms.Cursor.Position);
+        }
+
+        private SystemWindow TryGetPriorityMatchedWindow(SystemWindow foregroundWindow, Point point)
+        {
             // 1. 获取前台窗口对应的应用（取第一个匹配的）
             var foregroundApps = GetApplicationFromWindow(foregroundWindow, true);
             var foregroundApp = foregroundApps.FirstOrDefault();
@@ -611,15 +623,15 @@ namespace GestureSign.Common.Applications
                 return null;
             }
 
-            // 4. 获取鼠标所在窗口
-            var mouseWindow = GetWindowFromPoint(System.Windows.Forms.Cursor.Position);
-            if (mouseWindow == null)
+            // 4. 获取指定坐标所在窗口
+            var targetWindow = GetWindowFromPoint(point);
+            if (targetWindow == null)
             {
                 return null;
             }
 
             // 5. 创建窗口信息缓存对象（按需获取属性）
-            var windowInfo = new WindowInfoCache(mouseWindow);
+            var windowInfo = new WindowInfoCache(targetWindow);
 
             // 6. 先匹配应用级别的优先级窗口
             if (appHasPriorityWindows)
@@ -628,8 +640,8 @@ namespace GestureSign.Common.Applications
                 {
                     if (rule.IsMatch(windowInfo))
                     {
-                        LogPriorityWindowMatch(mouseWindow, foregroundWindow, rule, foregroundApp.Name);
-                        return mouseWindow;
+                        LogPriorityWindowMatch(targetWindow, foregroundWindow, rule, foregroundApp.Name);
+                        return targetWindow;
                     }
                 }
             }
@@ -641,8 +653,8 @@ namespace GestureSign.Common.Applications
                 {
                     if (rule.IsMatch(windowInfo))
                     {
-                        LogPriorityWindowMatch(mouseWindow, foregroundWindow, rule, "Global");
-                        return mouseWindow;
+                        LogPriorityWindowMatch(targetWindow, foregroundWindow, rule, "Global");
+                        return targetWindow;
                     }
                 }
             }
