@@ -1,8 +1,7 @@
 namespace GestureSign.Common.Applications
 {
     /// <summary>
-    /// 惯性滚动参数（存储在 ContinuousGestureConfig 中）
-    /// 字段与 CorePlugins.InertialScroll.InertialScrollSettings 一致
+    /// 惯性滚动参数（存储在 ContinuousGestureConfig 中，由 InertialScrollExecutor 使用）
     /// </summary>
     public class InertialScrollSettings
     {
@@ -31,21 +30,6 @@ namespace GestureSign.Common.Applications
         /// 是否反向水平滚动
         /// </summary>
         public bool ReverseHorizontalDirection { get; set; }
-
-        /// <summary>
-        /// [已废弃] 次轴阈值，仅保留反序列化兼容，不再写出。
-        /// </summary>
-        public double MinorAxisThreshold { get; set; } = 0.3;
-
-        public bool ShouldSerializeMinorAxisThreshold() => false;
-
-        /// <summary>
-        /// [已废弃] V1 轴激活阈值，仅保留反序列化兼容，不再写出。
-        /// 已被 NoiseRatio 替代。
-        /// </summary>
-        public double AxisActivationThreshold { get; set; } = 30.0;
-
-        public bool ShouldSerializeAxisActivationThreshold() => false;
 
         /// <summary>
         /// 方向噪声比例 (0.10-0.50)。

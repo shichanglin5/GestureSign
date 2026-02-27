@@ -146,7 +146,10 @@ namespace GestureSign.Common.Plugins
 
                         // Exit if there is no plugin available for action
                         if (pluginInfo == null)
+                        {
+                            Logging.LogWarning($"[PluginManager] Plugin not found: {command.PluginClass} ({command.PluginFilename}), action skipped");
                             continue;
+                        }
 
                         if (commandList.IndexOf(command) == 0)
                         {
@@ -197,7 +200,7 @@ namespace GestureSign.Common.Plugins
                         }
 
                         pluginInfo.Plugin.Deserialize(command.CommandSettings);
-                        if (Logging.CurrentLogLevel >= LogLevel.Debug && !command.PluginClass.EndsWith("InertialScrollPlugin"))
+                        if (Logging.CurrentLogLevel >= LogLevel.Debug)
                         {
                             var fgWin = SystemWindow.ForegroundWindow;
                             var windowInfo = GetWindowInfo(fgWin);
@@ -254,7 +257,10 @@ namespace GestureSign.Common.Plugins
 
                     IPluginInfo pluginInfo = FindPluginByClassAndFilename(command.PluginClass, command.PluginFilename);
                     if (pluginInfo == null)
+                    {
+                        Logging.LogWarning($"[PluginManager] Plugin not found: {command.PluginClass} ({command.PluginFilename}), action skipped");
                         continue;
+                    }
 
                     pluginInfo.Plugin.Deserialize(command.CommandSettings);
                     pluginInfo.Plugin.Gestured(pointInfo);

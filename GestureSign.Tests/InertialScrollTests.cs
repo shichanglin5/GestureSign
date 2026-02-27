@@ -1,7 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using GestureSign.Common.Applications;
-using GestureSign.CorePlugins.InertialScroll;
-using System;
 
 namespace GestureSign.Tests
 {
@@ -28,29 +26,13 @@ namespace GestureSign.Tests
         [TestMethod]
         public void InertialScrollSettings_DefaultValues_AreCorrect()
         {
-            var settings = new GestureSign.CorePlugins.InertialScroll.InertialScrollSettings();
-            Assert.AreEqual(GestureSign.CorePlugins.InertialScroll.ScrollDirection.Vertical, settings.Direction);
-            Assert.AreEqual(30.0, settings.PixelsPerScrollUnit, 0.01);
-            Assert.AreEqual(1.0, settings.AccelerationFactor, 0.01);
+            var settings = new InertialScrollSettings();
+            Assert.AreEqual(ScrollDirection.Both, settings.Direction);
+            Assert.AreEqual(150.0, settings.PixelsPerScrollUnit, 0.01);
+            Assert.AreEqual(1.5, settings.AccelerationFactor, 0.01);
             Assert.IsFalse(settings.ReverseDirection);
             Assert.IsFalse(settings.ReverseHorizontalDirection);
-        }
-
-        [TestMethod]
-        public void InertialScrollPlugin_Name_IsNotNull()
-        {
-            var plugin = new InertialScrollPlugin();
-            // Note: Localization may not be initialized in test environment
-            // Just verify the property doesn't throw an exception
-            var name = plugin.Name;
-            Assert.IsNotNull(name);
-        }
-
-        [TestMethod]
-        public void InertialScrollPlugin_IsAction_ReturnsTrue()
-        {
-            var plugin = new InertialScrollPlugin();
-            Assert.IsTrue(plugin.IsAction);
+            Assert.AreEqual(0.25, settings.NoiseRatio, 0.01);
         }
     }
 }

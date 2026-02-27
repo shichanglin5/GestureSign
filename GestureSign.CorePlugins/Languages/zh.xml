@@ -261,25 +261,6 @@
       <PresetReference>预置</PresetReference>
       <PresetNotFound>预置规则未找到，可能已被删除。</PresetNotFound>
     </ActivateApp>
-    <InertialScroll>
-      <Name>模拟惯性滑动</Name>
-      <Category>触摸</Category>
-      <Description>基于滑动速度的惯性滚动效果</Description>
-      <ScrollDirection>滚动方向</ScrollDirection>
-      <PixelsPerScrollUnit>滚动细腻度</PixelsPerScrollUnit>
-      <AccelerationFactor>加速因子</AccelerationFactor>
-      <ReverseScrollDirection>反向垂直滚动</ReverseScrollDirection>
-      <ReverseHorizontalScrollDirection>反向水平滚动</ReverseHorizontalScrollDirection>
-      <MinorAxisThreshold>滚动抖动过滤</MinorAxisThreshold>
-      <MinorAxisThresholdDescription>过滤轻微的次方向抖动。值越大过滤越严格，0%=不过滤。推荐：30%</MinorAxisThresholdDescription>
-      <Tip>提示：配合双指连续手势使用（上/下/左/右）</Tip>
-      <DirectionVertical>垂直</DirectionVertical>
-      <DirectionHorizontal>水平</DirectionHorizontal>
-      <DirectionBoth>双向（自动）</DirectionBoth>
-      <EnableWinUIDetection>自动检测 WinUI/UWP 应用并提升滚动速度</EnableWinUIDetection>
-      <WinUIScrollMultiplier>WinUI/UWP 滚动倍数</WinUIScrollMultiplier>
-      <WinUIMultiplierDescription>WinUI/UWP 应用（如 Windows 设置、PowerToys）对滚轮事件的响应较慢，此倍数用于补偿。推荐值：3.0 倍</WinUIMultiplierDescription>
-    </InertialScroll>
     <ActivateFocusWindow>
       <Name>激活焦点窗口</Name>
       <Description>激活手势起始位置的窗口</Description>
