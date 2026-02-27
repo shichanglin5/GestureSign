@@ -322,62 +322,30 @@ namespace ManagedWinapi.Windows
         private static bool ForceSetForegroundWindow(IntPtr hWnd)
         {
             // 方法 1: 标准 SetForegroundWindow (快速路径)
-            bool method1Success = false;
+            // UIAccess 进程不受前台窗口锁限制，此调用通常直接成功
             if (SetForegroundWindow(hWnd))
             {
                 if (GetForegroundWindow() == hWnd)
-                    method1Success = true;
+                    return true;
             }
 
-            // 方法 2: AttachThreadInput + SetFocus 确保键盘焦点转移
-            // 即使方法 1 成功，也需要通过 AttachThreadInput 调用 SetFocus
-            // 否则窗口虽然在前台但不接收键盘输入
+            // 方法 2: 注入零位移鼠标移动获取前台权限后重试
+            // 不使用 AttachThreadInput — 它会合并线程输入队列，
+            // 导致 Chromium 等多进程应用的消息队列状态损坏，表现为窗口卡死不响应输入
             try
             {
-                IntPtr currentForegroundWindow = GetForegroundWindow();
-                uint currentThreadId = GetCurrentThreadId();
-                uint targetThreadId = GetWindowThreadProcessId(hWnd, IntPtr.Zero);
-                uint foregroundThreadId = GetWindowThreadProcessId(currentForegroundWindow, IntPtr.Zero);
+                mouse_event(MOUSEEVENTF_MOVE, 0, 0, 0, UIntPtr.Zero);
+                SetForegroundWindow(hWnd);
 
-                bool attached1 = false, attached2 = false;
-                try
-                {
-                    if (foregroundThreadId != 0 && currentThreadId != foregroundThreadId)
-                        attached1 = AttachThreadInput(currentThreadId, foregroundThreadId, true);
-                    if (foregroundThreadId != 0 && foregroundThreadId != targetThreadId)
-                        attached2 = AttachThreadInput(foregroundThreadId, targetThreadId, true);
-
-                    if (!method1Success)
-                    {
-                        // 注入零位移鼠标移动事件，让系统认为有用户输入，获取前台窗口设置权限
-                        // 使用 mouse_event 替代 keybd_event(VK_MENU)，避免 Alt 键状态在
-                        // AttachThreadInput/DetachThreadInput 过程中残留，导致后续快捷键失效
-                        mouse_event(MOUSEEVENTF_MOVE, 0, 0, 0, UIntPtr.Zero);
-                        SetForegroundWindow(hWnd);
-                    }
-
-                    // 在线程附加状态下转移键盘输入焦点
-                    SetFocus(hWnd);
-                }
-                finally
-                {
-                    if (attached1)
-                        AttachThreadInput(currentThreadId, foregroundThreadId, false);
-                    if (attached2)
-                        AttachThreadInput(foregroundThreadId, targetThreadId, false);
-                }
-
-                if (method1Success || GetForegroundWindow() == hWnd)
+                if (GetForegroundWindow() == hWnd)
                     return true;
             }
             catch
             {
-                if (method1Success)
-                    return true;
                 // 继续尝试
             }
 
-            // 方法 3: 使用 SetWindowPos 仅改变 Z-order 而不改变大小/位置
+            // 方法 3: 使用 SetWindowPos 提升 Z-order 后重试
             try
             {
                 SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0,
@@ -1400,13 +1368,6 @@ namespace ManagedWinapi.Windows
         [DllImport("user32.dll")]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr ProcessId);
 
-        [DllImport("kernel32.dll")]
-        private static extern uint GetCurrentThreadId();
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
-
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool BringWindowToTop(IntPtr hWnd);
@@ -1620,18 +1581,9 @@ namespace ManagedWinapi.Windows
         private const int SW_RESTORE = 9;
 
         [DllImport("user32.dll")]
-        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
-
-        private const uint KEYEVENTF_KEYUP = 0x0002;
-        private const byte VK_MENU = 0x12;
-
-        [DllImport("user32.dll")]
         private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
 
         private const uint MOUSEEVENTF_MOVE = 0x0001;
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr SetFocus(IntPtr hWnd);
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
