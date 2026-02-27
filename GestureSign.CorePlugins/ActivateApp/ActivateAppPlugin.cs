@@ -395,8 +395,10 @@ namespace GestureSign.CorePlugins.ActivateApp
             string appKey = _settings.GenerateCacheKey();
             IntPtr foreground = GetForegroundWindow();
 
-            // Check if the current foreground window belongs to this application
-            bool foregroundIsThisApp = windows.Contains(foreground);
+            // Check if the current foreground window belongs to this application and is not minimized
+            // A minimized foreground window (e.g. just toggled off) should be treated as "coming from another app"
+            // to allow restoring via _lastActivatedWindows
+            bool foregroundIsThisApp = windows.Contains(foreground) && !IsIconic(foreground);
 
             IntPtr targetWindow;
 
