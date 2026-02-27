@@ -82,6 +82,14 @@ namespace GestureSign.Daemon.Triggers
         private bool _isTouchScreen;
         private POINT _touchScreenPoint;
 
+        // 轴激活机制：每个轴的原始位移累积达到阈值后才开始滚动，防止次轴抖动
+        private double _activationAccumX;
+        private double _activationAccumY;
+        private bool _axisXActivated;
+        private bool _axisYActivated;
+        private double _compensationX; // 激活前带符号累积位移，用于激活时一次性补偿
+        private double _compensationY;
+
         /// <summary>
 /// Inertial scroll executor running inside trigger pipeline.
 /// Core logic extracted from InertialScrollPlugin.
@@ -107,6 +115,19 @@ namespace GestureSign.Daemon.Triggers
                 {
                     _accumulatedX = 0;
                     _accumulatedY = 0;
+                    _activationAccumX = 0;
+                    _activationAccumY = 0;
+                    _axisXActivated = false;
+                    _axisYActivated = false;
+                    _compensationX = 0;
+                    _compensationY = 0;
+
+                    // AxisActivationThreshold == 0: 立即激活两轴，跳过累积和补偿
+                    if (settings.AxisActivationThreshold <= 0)
+                    {
+                        _axisXActivated = true;
+                        _axisYActivated = true;
+                    }
                 }
                 _lastGestureTime = velocity.Timestamp;
 
@@ -136,8 +157,8 @@ namespace GestureSign.Daemon.Triggers
                 else if (settings.Direction == ScrollDirection.Horizontal)
                     deltaY = 0;
 
-                if (settings.Direction == ScrollDirection.Both && settings.MinorAxisThreshold > 0)
-                    ApplyJitterFilter(ref deltaX, ref deltaY, settings.MinorAxisThreshold);
+                if (settings.Direction == ScrollDirection.Both && settings.AxisActivationThreshold > 0)
+                    ApplyAxisActivation(ref deltaX, ref deltaY, velocity.DeltaX, velocity.DeltaY, settings.AxisActivationThreshold);
 
                 ExecuteScroll(deltaX, deltaY, settings);
             }
@@ -147,6 +168,12 @@ namespace GestureSign.Daemon.Triggers
         {
             StopInertia();
             ResetGestureState();
+            _activationAccumX = 0;
+            _activationAccumY = 0;
+            _axisXActivated = false;
+            _axisYActivated = false;
+            _compensationX = 0;
+            _compensationY = 0;
             _cachedWindowHandle = IntPtr.Zero;
             _isWinUIApp = false;
             _isTouchScreen = false;
@@ -163,6 +190,9 @@ namespace GestureSign.Daemon.Triggers
             _accumulatedX = 0;
             _accumulatedY = 0;
             _lastGestureTime = DateTime.MinValue;
+            // 注意：不重置 _axisXActivated/_axisYActivated 和相关累积器，
+            // 这些状态需要保留到惯性阶段结束。
+            // 它们在 ProcessFrame 的新手势检测（timeSinceLastGesture > NewGestureThresholdMs）中重置。
         }
 
         public void StopInertia()
@@ -395,24 +425,51 @@ namespace GestureSign.Daemon.Triggers
             }
         }
 
-        private static void ApplyJitterFilter(ref double deltaX, ref double deltaY, double threshold)
+        /// <summary>
+        /// 按轴独立激活：基于原始位移累积判断各轴是否激活，
+        /// 未激活的轴 delta 清零。轴首次激活时一次性补偿阈值前累积位移。
+        /// </summary>
+        /// <param name="deltaX">已变换的 X 位移（经过 speedMultiplier 和方向映射）</param>
+        /// <param name="deltaY">已变换的 Y 位移（经过 speedMultiplier 和方向映射）</param>
+        /// <param name="rawDeltaX">原始 X 位移（speedMultiplier 之前），用于累积判断激活</param>
+        /// <param name="rawDeltaY">原始 Y 位移（speedMultiplier 之前），用于累积判断激活</param>
+        /// <param name="threshold">激活阈值（像素）</param>
+        private void ApplyAxisActivation(ref double deltaX, ref double deltaY,
+            double rawDeltaX, double rawDeltaY, double threshold)
         {
-            double absDeltaX = Math.Abs(deltaX);
-            double absDeltaY = Math.Abs(deltaY);
+            // 累积原始位移绝对值用于激活判断
+            _activationAccumX += Math.Abs(rawDeltaX);
+            _activationAccumY += Math.Abs(rawDeltaY);
+            // 补偿累积使用已变换的 delta，与 _accumulatedX/Y 坐标系一致
+            _compensationX += deltaX;
+            _compensationY += deltaY;
 
-            if (absDeltaX == 0 || absDeltaY == 0)
-                return;
-
-            bool isMainlyVertical = absDeltaY >= absDeltaX;
-            double mainDelta = isMainlyVertical ? absDeltaY : absDeltaX;
-            double minorDelta = isMainlyVertical ? absDeltaX : absDeltaY;
-
-            if (minorDelta / mainDelta < threshold)
+            if (!_axisXActivated)
             {
-                if (isMainlyVertical)
-                    deltaX = 0;
+                if (_activationAccumX >= threshold)
+                {
+                    _axisXActivated = true;
+                    // 补偿：用累积位移替换当帧 delta，经 ExecuteScroll 走正常路径
+                    // （含 WinUI 乘数等），避免直接写 _accumulatedX 导致坐标系不一致
+                    deltaX = _compensationX;
+                }
                 else
+                {
+                    deltaX = 0;
+                }
+            }
+
+            if (!_axisYActivated)
+            {
+                if (_activationAccumY >= threshold)
+                {
+                    _axisYActivated = true;
+                    deltaY = _compensationY;
+                }
+                else
+                {
                     deltaY = 0;
+                }
             }
         }
 
@@ -516,8 +573,12 @@ namespace GestureSign.Daemon.Triggers
                 else if (_lastSettings.Direction == ScrollDirection.Horizontal)
                     deltaY = 0;
 
-                if (_lastSettings.Direction == ScrollDirection.Both && _lastSettings.MinorAxisThreshold > 0)
-                    ApplyJitterFilter(ref deltaX, ref deltaY, _lastSettings.MinorAxisThreshold);
+                // 惯性阶段复用手势阶段的轴激活掩码
+                if (_lastSettings.Direction == ScrollDirection.Both && _lastSettings.AxisActivationThreshold > 0)
+                {
+                    if (!_axisXActivated) deltaX = 0;
+                    if (!_axisYActivated) deltaY = 0;
+                }
 
                 // 在 lock 内完成累积器计算，得出实际滚轮 delta
                 settings = _lastSettings;

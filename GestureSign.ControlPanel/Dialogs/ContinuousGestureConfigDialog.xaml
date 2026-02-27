@@ -55,6 +55,28 @@
                           FontSize="12" />
             </DockPanel>
 
+            <!-- 方向激活阈值 -->
+            <DockPanel Margin="0,0,0,5">
+                <TextBlock Text="{localization:LocalisedText ContinuousGesture.AxisActivationThreshold}"
+                           VerticalAlignment="Center"
+                           Width="120"
+                           FontSize="13" />
+                <TextBlock DockPanel.Dock="Right"
+                           Text="{Binding ElementName=AxisActivationSlider,Path=Value,StringFormat={}{0:F0}}"
+                           VerticalAlignment="Center"
+                           Width="30"
+                           TextAlignment="Right"
+                           FontSize="13"
+                           Margin="5,0,0,0" />
+                <Slider x:Name="AxisActivationSlider"
+                        Minimum="0"
+                        Maximum="100"
+                        TickFrequency="5"
+                        IsSnapToTickEnabled="True"
+                        Value="30"
+                        VerticalAlignment="Center" />
+            </DockPanel>
+
             <!-- 每滚动单位像素 -->
             <DockPanel Margin="0,0,0,5">
                 <TextBlock Text="{localization:LocalisedText ContinuousGesture.PixelsPerScroll}"

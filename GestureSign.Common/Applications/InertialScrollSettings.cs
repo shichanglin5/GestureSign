@@ -33,9 +33,19 @@ namespace GestureSign.Common.Applications
         public bool ReverseHorizontalDirection { get; set; }
 
         /// <summary>
-        /// 次轴阈值 (0.0-0.8)
+        /// [已废弃] 次轴阈值，仅保留反序列化兼容，不再写出。
+        /// 已被 AxisActivationThreshold 替代。
         /// </summary>
         public double MinorAxisThreshold { get; set; } = 0.3;
+
+        public bool ShouldSerializeMinorAxisThreshold() => false;
+
+        /// <summary>
+        /// 轴激活阈值 (0-100 像素)。
+        /// 每个轴的原始位移累积达到此值后才开始滚动，防止次轴抖动。
+        /// 设为 0 禁用激活机制（两轴立即激活）。
+        /// </summary>
+        public double AxisActivationThreshold { get; set; } = 30.0;
 
         /// <summary>
         /// 是否启用 WinUI/UWP 应用检测
