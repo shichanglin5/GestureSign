@@ -402,27 +402,69 @@ namespace GestureSign.CorePlugins.ActivateApp
 
             if (foregroundIsThisApp)
             {
-                // Already in this app - cycle to the next window
+                // Already in this app - try to cycle to the next non-minimized window
                 int currentIndex = windows.IndexOf(foreground);
-                int nextIndex = (currentIndex + 1) % windows.Count;
-                targetWindow = windows[nextIndex];
-                // Logging.LogDebug($"[ActivateApp] Foreground is this app, cycling: index {currentIndex} -> {nextIndex}");
+                targetWindow = IntPtr.Zero;
+                for (int i = 1; i < windows.Count; i++)
+                {
+                    int candidateIndex = (currentIndex + i) % windows.Count;
+                    if (!IsIconic(windows[candidateIndex]))
+                    {
+                        targetWindow = windows[candidateIndex];
+                        break;
+                    }
+                }
+
+                if (targetWindow == IntPtr.Zero)
+                {
+                    // No non-minimized candidate - minimize current window (like HandleSingleWindow toggle)
+                    if (_settings.MinimizeIfActivated)
+                    {
+                        // Record current window so next trigger (all minimized) restores it deterministically
+                        _lastActivatedWindows[appKey] = foreground;
+                        new SystemWindow(foreground).WindowState = FormWindowState.Minimized;
+                    }
+                    return true;
+                }
             }
             else
             {
-                // Coming from another app - restore the last activated window
+                // Coming from another app - prefer non-minimized windows
+                // Avoid restoring minimized windows when visible ones exist
+                var nonMinimizedWindows = windows.Where(w => !IsIconic(w)).ToList();
+
                 _lastActivatedWindows.TryGetValue(appKey, out IntPtr lastWindow);
 
-                // Validate last window still exists in the list
-                if (lastWindow != IntPtr.Zero && windows.Contains(lastWindow))
+                if (lastWindow != IntPtr.Zero)
                 {
-                    targetWindow = lastWindow;
-                    Logging.LogDebug($"[ActivateApp] From other app, restoring last window: 0x{targetWindow:X}");
+                    // Last window exists and is not minimized - use it
+                    if (nonMinimizedWindows.Contains(lastWindow))
+                    {
+                        targetWindow = lastWindow;
+                        Logging.LogDebug($"[ActivateApp] From other app, restoring last window: 0x{targetWindow:X}");
+                    }
+                    // Last window is unavailable (minimized or closed) but there are non-minimized windows - use topmost non-minimized
+                    else if (nonMinimizedWindows.Count > 0)
+                    {
+                        targetWindow = nonMinimizedWindows[0];
+                        Logging.LogDebug($"[ActivateApp] From other app, last window unavailable, using topmost visible: 0x{targetWindow:X}");
+                    }
+                    // All windows minimized - fall back to last window
+                    else if (windows.Contains(lastWindow))
+                    {
+                        targetWindow = lastWindow;
+                        Logging.LogDebug($"[ActivateApp] From other app, all minimized, restoring last window: 0x{targetWindow:X}");
+                    }
+                    else
+                    {
+                        targetWindow = windows[0];
+                        Logging.LogDebug($"[ActivateApp] From other app, no valid last window, using topmost: 0x{targetWindow:X}");
+                    }
                 }
                 else
                 {
-                    // No valid last window - activate the topmost one
-                    targetWindow = windows[0];
+                    // No last window - use topmost non-minimized, or topmost overall
+                    targetWindow = nonMinimizedWindows.Count > 0 ? nonMinimizedWindows[0] : windows[0];
                     Logging.LogDebug($"[ActivateApp] From other app, no last window, using topmost: 0x{targetWindow:X}");
                 }
             }
