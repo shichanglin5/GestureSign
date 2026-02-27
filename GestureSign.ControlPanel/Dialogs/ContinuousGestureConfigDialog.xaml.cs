@@ -72,7 +72,7 @@ namespace GestureSign.ControlPanel.Dialogs
             if (ScrollDirectionComboBox.SelectedItem == null)
                 ScrollDirectionComboBox.SelectedIndex = 0;
 
-            AxisActivationSlider.Value = settings.AxisActivationThreshold;
+            NoiseRatioSlider.Value = settings.NoiseRatio;
             PixelsPerScrollSlider.Value = settings.PixelsPerScrollUnit;
             AccelerationSlider.Value = settings.AccelerationFactor;
             ReverseDirectionCheckBox.IsChecked = settings.ReverseDirection;
@@ -204,7 +204,7 @@ namespace GestureSign.ControlPanel.Dialogs
                 if (selectedDirection != null)
                     settings.Direction = (ScrollDirection)selectedDirection.Tag;
 
-                settings.AxisActivationThreshold = AxisActivationSlider.Value;
+                settings.NoiseRatio = NoiseRatioSlider.Value;
                 settings.PixelsPerScrollUnit = PixelsPerScrollSlider.Value;
                 settings.AccelerationFactor = AccelerationSlider.Value;
                 settings.ReverseDirection = ReverseDirectionCheckBox.IsChecked == true;

@@ -34,18 +34,25 @@ namespace GestureSign.Common.Applications
 
         /// <summary>
         /// [已废弃] 次轴阈值，仅保留反序列化兼容，不再写出。
-        /// 已被 AxisActivationThreshold 替代。
         /// </summary>
         public double MinorAxisThreshold { get; set; } = 0.3;
 
         public bool ShouldSerializeMinorAxisThreshold() => false;
 
         /// <summary>
-        /// 轴激活阈值 (0-100 像素)。
-        /// 每个轴的原始位移累积达到此值后才开始滚动，防止次轴抖动。
-        /// 设为 0 禁用激活机制（两轴立即激活）。
+        /// [已废弃] V1 轴激活阈值，仅保留反序列化兼容，不再写出。
+        /// 已被 NoiseRatio 替代。
         /// </summary>
         public double AxisActivationThreshold { get; set; } = 30.0;
+
+        public bool ShouldSerializeAxisActivationThreshold() => false;
+
+        /// <summary>
+        /// 方向噪声比例 (0.10-0.50)。
+        /// 窗口内次轴/主轴位移比低于此值时，认为次轴为噪声并抑制。
+        /// 值越小锁轴越激进，值越大越容易双轴放开。
+        /// </summary>
+        public double NoiseRatio { get; set; } = 0.25;
 
         /// <summary>
         /// 是否启用 WinUI/UWP 应用检测

@@ -169,7 +169,7 @@ Email:ccfyzh@gmail.com
     <DirectionBoth>Both</DirectionBoth>
     <DirectionVertical>Vertical</DirectionVertical>
     <DirectionHorizontal>Horizontal</DirectionHorizontal>
-    <AxisActivationThreshold>Axis Activation (px)</AxisActivationThreshold>
+    <NoiseRatio>Direction Noise Ratio</NoiseRatio>
     <PixelsPerScroll>Pixels/Scroll</PixelsPerScroll>
     <AccelerationFactor>Acceleration</AccelerationFactor>
     <ReverseDirection>Reverse Vertical</ReverseDirection>

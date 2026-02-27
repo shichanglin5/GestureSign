@@ -3,6 +3,7 @@ using GestureSign.Common.Input;
 using GestureSign.Common.Log;
 using ManagedWinapi.Windows;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
@@ -82,13 +83,18 @@ namespace GestureSign.Daemon.Triggers
         private bool _isTouchScreen;
         private POINT _touchScreenPoint;
 
-        // 轴激活机制：每个轴的原始位移累积达到阈值后才开始滚动，防止次轴抖动
-        private double _activationAccumX;
-        private double _activationAccumY;
-        private bool _axisXActivated;
-        private bool _axisYActivated;
-        private double _compensationX; // 激活前带符号累积位移，用于激活时一次性补偿
-        private double _compensationY;
+        // V2 方向状态机：窗口比例判定 + 滞回
+        private enum DirectionState { Undecided, LockX, LockY, Free2D }
+        private DirectionState _directionState = DirectionState.Undecided;
+
+        // 窗口缓冲：存储最近 windowMs 内的原始位移绝对值
+        private const int WindowMs = 60;
+        private const int MaxWindowSamples = 16;
+        private const double StartDistancePx = 8.0;
+        private readonly Queue<(DateTime timestamp, double absRawDeltaX, double absRawDeltaY)> _windowBuffer = new();
+
+        // Undecided 阶段缓冲：存储已变换 delta，状态确定后回补
+        private readonly Queue<(double deltaX, double deltaY)> _undecidedBuffer = new();
 
         /// <summary>
 /// Inertial scroll executor running inside trigger pipeline.
@@ -115,19 +121,9 @@ namespace GestureSign.Daemon.Triggers
                 {
                     _accumulatedX = 0;
                     _accumulatedY = 0;
-                    _activationAccumX = 0;
-                    _activationAccumY = 0;
-                    _axisXActivated = false;
-                    _axisYActivated = false;
-                    _compensationX = 0;
-                    _compensationY = 0;
-
-                    // AxisActivationThreshold == 0: 立即激活两轴，跳过累积和补偿
-                    if (settings.AxisActivationThreshold <= 0)
-                    {
-                        _axisXActivated = true;
-                        _axisYActivated = true;
-                    }
+                    _directionState = DirectionState.Undecided;
+                    _windowBuffer.Clear();
+                    _undecidedBuffer.Clear();
                 }
                 _lastGestureTime = velocity.Timestamp;
 
@@ -157,8 +153,13 @@ namespace GestureSign.Daemon.Triggers
                 else if (settings.Direction == ScrollDirection.Horizontal)
                     deltaY = 0;
 
-                if (settings.Direction == ScrollDirection.Both && settings.AxisActivationThreshold > 0)
-                    ApplyAxisActivation(ref deltaX, ref deltaY, velocity.DeltaX, velocity.DeltaY, settings.AxisActivationThreshold);
+                if (settings.Direction == ScrollDirection.Both && settings.NoiseRatio > 0)
+                {
+                    ApplyDirectionStateMachine(ref deltaX, ref deltaY,
+                        velocity.DeltaX, velocity.DeltaY, velocity.Timestamp, settings);
+                    if (_directionState == DirectionState.Undecided)
+                        return; // delta 已缓冲，不输出滚动
+                }
 
                 ExecuteScroll(deltaX, deltaY, settings);
             }
@@ -168,12 +169,9 @@ namespace GestureSign.Daemon.Triggers
         {
             StopInertia();
             ResetGestureState();
-            _activationAccumX = 0;
-            _activationAccumY = 0;
-            _axisXActivated = false;
-            _axisYActivated = false;
-            _compensationX = 0;
-            _compensationY = 0;
+            _directionState = DirectionState.Undecided;
+            _windowBuffer.Clear();
+            _undecidedBuffer.Clear();
             _cachedWindowHandle = IntPtr.Zero;
             _isWinUIApp = false;
             _isTouchScreen = false;
@@ -190,9 +188,8 @@ namespace GestureSign.Daemon.Triggers
             _accumulatedX = 0;
             _accumulatedY = 0;
             _lastGestureTime = DateTime.MinValue;
-            // 注意：不重置 _axisXActivated/_axisYActivated 和相关累积器，
-            // 这些状态需要保留到惯性阶段结束。
-            // 它们在 ProcessFrame 的新手势检测（timeSinceLastGesture > NewGestureThresholdMs）中重置。
+            // 注意：不重置 _directionState，需要保留到惯性阶段结束。
+            // 在 ProcessFrame 的新手势检测（timeSinceLastGesture > NewGestureThresholdMs）中重置。
         }
 
         public void StopInertia()
@@ -210,6 +207,14 @@ namespace GestureSign.Daemon.Triggers
             {
                 if (settings == null || !settings.EnableMomentum)
                     return;
+
+                // Undecided 状态：手势未产生有效滚动方向，不启动惯性
+                if (_directionState == DirectionState.Undecided &&
+                    settings.Direction == ScrollDirection.Both && settings.NoiseRatio > 0)
+                {
+                    _undecidedBuffer.Clear();
+                    return;
+                }
 
                 double magnitude = lastVelocity.Magnitude;
                 if (magnitude < settings.MomentumMinVelocity)
@@ -426,50 +431,115 @@ namespace GestureSign.Daemon.Triggers
         }
 
         /// <summary>
-        /// 按轴独立激活：基于原始位移累积判断各轴是否激活，
-        /// 未激活的轴 delta 清零。轴首次激活时一次性补偿阈值前累积位移。
+        /// V2 方向状态机：基于窗口内原始位移比例 + 滞回判定方向锁定。
+        /// Undecided 阶段缓冲 delta，状态确定后回补。
         /// </summary>
-        /// <param name="deltaX">已变换的 X 位移（经过 speedMultiplier 和方向映射）</param>
-        /// <param name="deltaY">已变换的 Y 位移（经过 speedMultiplier 和方向映射）</param>
-        /// <param name="rawDeltaX">原始 X 位移（speedMultiplier 之前），用于累积判断激活</param>
-        /// <param name="rawDeltaY">原始 Y 位移（speedMultiplier 之前），用于累积判断激活</param>
-        /// <param name="threshold">激活阈值（像素）</param>
-        private void ApplyAxisActivation(ref double deltaX, ref double deltaY,
-            double rawDeltaX, double rawDeltaY, double threshold)
+        private void ApplyDirectionStateMachine(ref double deltaX, ref double deltaY,
+            double rawDeltaX, double rawDeltaY, DateTime timestamp, InertialScrollSettings settings)
         {
-            // 累积原始位移绝对值用于激活判断
-            _activationAccumX += Math.Abs(rawDeltaX);
-            _activationAccumY += Math.Abs(rawDeltaY);
-            // 补偿累积使用已变换的 delta，与 _accumulatedX/Y 坐标系一致
-            _compensationX += deltaX;
-            _compensationY += deltaY;
+            // 1. 更新窗口缓冲
+            _windowBuffer.Enqueue((timestamp, Math.Abs(rawDeltaX), Math.Abs(rawDeltaY)));
+            while (_windowBuffer.Count > MaxWindowSamples)
+                _windowBuffer.Dequeue();
+            var cutoff = timestamp.AddMilliseconds(-WindowMs);
+            while (_windowBuffer.Count > 0 && _windowBuffer.Peek().timestamp < cutoff)
+                _windowBuffer.Dequeue();
 
-            if (!_axisXActivated)
+            // 2. 计算窗口内累积
+            double sumX = 0, sumY = 0;
+            foreach (var sample in _windowBuffer)
             {
-                if (_activationAccumX >= threshold)
-                {
-                    _axisXActivated = true;
-                    // 补偿：用累积位移替换当帧 delta，经 ExecuteScroll 走正常路径
-                    // （含 WinUI 乘数等），避免直接写 _accumulatedX 导致坐标系不一致
-                    deltaX = _compensationX;
-                }
-                else
-                {
-                    deltaX = 0;
-                }
+                sumX += sample.absRawDeltaX;
+                sumY += sample.absRawDeltaY;
+            }
+            double major = Math.Max(sumX, sumY);
+            double minor = Math.Min(sumX, sumY);
+            double ratio = major > 0 ? minor / major : 0;
+
+            double noiseRatio = Math.Max(0.01, Math.Min(0.99, settings.NoiseRatio));
+            double ratEnter = noiseRatio;
+            double ratExit = Math.Min(0.6, noiseRatio + 0.10);
+
+            // 3. 状态机切换
+            var prevState = _directionState;
+            switch (_directionState)
+            {
+                case DirectionState.Undecided:
+                    if (major >= StartDistancePx)
+                    {
+                        if (ratio < ratEnter)
+                            _directionState = sumX > sumY ? DirectionState.LockX : DirectionState.LockY;
+                        else
+                            _directionState = DirectionState.Free2D;
+                    }
+                    break;
+
+                case DirectionState.LockX:
+                case DirectionState.LockY:
+                    if (ratio > ratExit)
+                        _directionState = DirectionState.Free2D;
+                    break;
+
+                case DirectionState.Free2D:
+                    // 第一版不回切，保持 Free2D 直到手势结束
+                    break;
             }
 
-            if (!_axisYActivated)
+            // 4. 如果刚从 Undecided 转出，回补缓冲的 delta
+            if (prevState == DirectionState.Undecided && _directionState != DirectionState.Undecided)
             {
-                if (_activationAccumY >= threshold)
+                // 先缓冲当帧（因为当帧 delta 也尚未输出）
+                _undecidedBuffer.Enqueue((deltaX, deltaY));
+
+                // 回放所有缓冲帧，按目标状态过滤后逐帧 ExecuteScroll
+                while (_undecidedBuffer.Count > 0)
                 {
-                    _axisYActivated = true;
-                    deltaY = _compensationY;
+                    var (bufDeltaX, bufDeltaY) = _undecidedBuffer.Dequeue();
+                    ApplyDirectionSuppression(ref bufDeltaX, ref bufDeltaY);
+                    ExecuteScroll(bufDeltaX, bufDeltaY, settings);
                 }
-                else
-                {
+
+                // 当帧已在回补中处理，通知调用者跳过本帧的 ExecuteScroll
+                deltaX = 0;
+                deltaY = 0;
+                return;
+            }
+
+            // 5. 仍在 Undecided：缓冲当帧，不输出
+            if (_directionState == DirectionState.Undecided)
+            {
+                _undecidedBuffer.Enqueue((deltaX, deltaY));
+                // 防止异常堆积
+                while (_undecidedBuffer.Count > MaxWindowSamples)
+                    _undecidedBuffer.Dequeue();
+                deltaX = 0;
+                deltaY = 0;
+                return;
+            }
+
+            // 6. 已确定方向：应用抑制
+            ApplyDirectionSuppression(ref deltaX, ref deltaY);
+        }
+
+        /// <summary>
+        /// 按当前方向状态抑制次轴 delta。
+        /// </summary>
+        private void ApplyDirectionSuppression(ref double deltaX, ref double deltaY)
+        {
+            switch (_directionState)
+            {
+                case DirectionState.LockX:
                     deltaY = 0;
-                }
+                    break;
+                case DirectionState.LockY:
+                    deltaX = 0;
+                    break;
+                case DirectionState.Undecided:
+                    // Undecided 状态在惯性阶段不应出现（不启动惯性），但保险起见不过滤
+                    break;
+                case DirectionState.Free2D:
+                    // 不处理
+                    break;
             }
         }
 
@@ -573,11 +643,10 @@ namespace GestureSign.Daemon.Triggers
                 else if (_lastSettings.Direction == ScrollDirection.Horizontal)
                     deltaY = 0;
 
-                // 惯性阶段复用手势阶段的轴激活掩码
-                if (_lastSettings.Direction == ScrollDirection.Both && _lastSettings.AxisActivationThreshold > 0)
+                // 惯性阶段复用手势末态的方向状态
+                if (_lastSettings.Direction == ScrollDirection.Both && _lastSettings.NoiseRatio > 0)
                 {
-                    if (!_axisXActivated) deltaX = 0;
-                    if (!_axisYActivated) deltaY = 0;
+                    ApplyDirectionSuppression(ref deltaX, ref deltaY);
                 }
 
                 // 在 lock 内完成累积器计算，得出实际滚轮 delta

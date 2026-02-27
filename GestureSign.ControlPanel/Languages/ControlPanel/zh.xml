@@ -173,7 +173,7 @@ QQ交流群：576981420
     <DirectionBoth>双向</DirectionBoth>
     <DirectionVertical>仅垂直</DirectionVertical>
     <DirectionHorizontal>仅水平</DirectionHorizontal>
-    <AxisActivationThreshold>方向激活阈值 (px)</AxisActivationThreshold>
+    <NoiseRatio>方向噪声比例</NoiseRatio>
     <PixelsPerScroll>像素/滚动单位</PixelsPerScroll>
     <AccelerationFactor>加速因子</AccelerationFactor>
     <ReverseDirection>反转垂直方向</ReverseDirection>
