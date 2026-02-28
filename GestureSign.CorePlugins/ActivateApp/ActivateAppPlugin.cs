@@ -33,6 +33,11 @@ namespace GestureSign.CorePlugins.ActivateApp
         // Settings cache: Key = serializedData (JSON string), Value = deserialized settings
         // 注意：这里缓存的是不可变数据，UI 编辑时会生成新的 JSON 字符串
         private static readonly Dictionary<string, ActivateAppSettings> _settingsCache = new();
+        private static readonly HashSet<string> HiddenWindowClassBlacklist = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "IME",
+            "MSCTFIME UI"
+        };
 
         #endregion
 
@@ -54,6 +59,9 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         [DllImport("user32.dll")]
         private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
@@ -78,6 +86,7 @@ namespace GestureSign.CorePlugins.ActivateApp
         private const int GWL_EXSTYLE = -20;
         private const uint WS_EX_TOOLWINDOW = 0x00000080;
         private const uint WS_EX_APPWINDOW = 0x00040000;
+        private const uint WS_EX_NOACTIVATE = 0x08000000;
         private const int SW_SHOW = 5;
 
         #endregion
@@ -303,7 +312,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                 if (!includeHidden && !IsSwitchableWindow(hWnd))
                     return true;
 
-                if (includeHidden && !IsWindow(hWnd))
+                if (includeHidden && !IsActivatableHiddenWindow(hWnd))
                     return true;
 
                 try
@@ -338,6 +347,41 @@ namespace GestureSign.CorePlugins.ActivateApp
             }, IntPtr.Zero);
 
             return windows;
+        }
+
+        private bool IsActivatableHiddenWindow(IntPtr hWnd)
+        {
+            if (!IsWindow(hWnd))
+                return false;
+
+            // Hidden scan is only for tray-like hidden windows.
+            if (IsWindowVisible(hWnd))
+                return false;
+
+            // Keep only top-level windows.
+            if (GetWindow(hWnd, GW_OWNER) != IntPtr.Zero)
+                return false;
+
+            uint exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+
+            // Skip tool windows unless they have WS_EX_APPWINDOW
+            if ((exStyle & WS_EX_TOOLWINDOW) != 0 && (exStyle & WS_EX_APPWINDOW) == 0)
+                return false;
+
+            // Skip non-activatable windows.
+            if ((exStyle & WS_EX_NOACTIVATE) != 0)
+                return false;
+
+            var className = new StringBuilder(256);
+            string classNameText = string.Empty;
+            if (GetClassName(hWnd, className, className.Capacity) > 0)
+            {
+                classNameText = className.ToString();
+                if (HiddenWindowClassBlacklist.Contains(classNameText))
+                    return false;
+            }
+
+            return true;
         }
 
         private bool HandleSingleWindow(IntPtr hWnd)
