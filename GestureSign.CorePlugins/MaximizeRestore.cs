@@ -1,5 +1,6 @@
-﻿using GestureSign.Common.Plugins;
+using System.Runtime.InteropServices;
 using GestureSign.Common.Localization;
+using GestureSign.Common.Plugins;
 
 namespace GestureSign.CorePlugins
 {
@@ -7,7 +8,12 @@ namespace GestureSign.CorePlugins
     {
         #region Private Variables
 
-        IHostControl _HostControl = null;
+        private IHostControl _hostControl = null;
+        private const int SW_MAXIMIZE = 3;
+        private const int SW_RESTORE = 9;
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindowAsync(System.IntPtr hWnd, int nCmdShow);
 
         #endregion
 
@@ -51,7 +57,6 @@ namespace GestureSign.CorePlugins
 
         public void Initialize()
         {
-
         }
 
         public void ShowGUI(bool IsNew)
@@ -61,13 +66,13 @@ namespace GestureSign.CorePlugins
 
         public bool Gestured(PointInfo ActionPoint)
         {
-            // Toggle window state
-            if (ActionPoint.Window.WindowState == System.Windows.Forms.FormWindowState.Maximized)
-                ActionPoint.Window.WindowState = System.Windows.Forms.FormWindowState.Normal;
-            else
-                ActionPoint.Window.WindowState = System.Windows.Forms.FormWindowState.Maximized;
+            if (ActionPoint?.Window == null)
+                return false;
 
-            return true;
+            // Use async ShowWindow to avoid synchronous cross-process window proc blocking.
+            bool isMaximized = ActionPoint.Window.WindowState == System.Windows.Forms.FormWindowState.Maximized;
+            int showCommand = isMaximized ? SW_RESTORE : SW_MAXIMIZE;
+            return ShowWindowAsync(ActionPoint.Window.HWnd, showCommand);
         }
 
         public bool Deserialize(string SerializedData)
@@ -88,8 +93,8 @@ namespace GestureSign.CorePlugins
 
         public IHostControl HostControl
         {
-            get { return _HostControl; }
-            set { _HostControl = value; }
+            get { return _hostControl; }
+            set { _hostControl = value; }
         }
 
         #endregion

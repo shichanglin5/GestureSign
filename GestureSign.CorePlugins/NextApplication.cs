@@ -42,14 +42,6 @@ namespace GestureSign.CorePlugins
         private static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll")]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
-        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-        private const int SW_RESTORE = 9;
-
-        [DllImport("user32.dll")]
         private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
         [DllImport("user32.dll")]
@@ -155,11 +147,10 @@ namespace GestureSign.CorePlugins
                     currentWindow = windows[0];
 
                 bool foregroundMinimized = currentWindow != IntPtr.Zero && IsIconic(currentWindow);
-                // If foreground is minimized, restore it directly (like Alt+Tab)
+                // If foreground is minimized, restore and activate it (like Alt+Tab)
                 if (foregroundMinimized)
                 {
-                    ShowWindow(currentWindow, SW_RESTORE);
-                    SystemWindow.ForegroundWindow = new SystemWindow(currentWindow);
+                    SystemWindow.TryActivateWindow(currentWindow, showHidden: true, restoreMinimized: true);
                     return true;
                 }
 
@@ -175,18 +166,12 @@ namespace GestureSign.CorePlugins
                 int nextIndex = (currentIndex + 1) % windows.Count;
                 IntPtr nextWindow = windows[nextIndex];
 
-                // Activate next window (restore if minimized)
-                if (IsIconic(nextWindow))
-                {
-                    ShowWindow(nextWindow, SW_RESTORE);
-                }
-
                 var nextTitle = GetWindowTitle(nextWindow);
                 StringBuilder nextClass = new StringBuilder(256);
                 GetClassName(nextWindow, nextClass, nextClass.Capacity);
                 Logging.LogDebug($"[NextApplication] Switching: current=0x{currentWindow.ToString("X")} → next=0x{nextWindow.ToString("X")} '{nextTitle}' (class={nextClass}, index={nextIndex}/{windows.Count})");
 
-                SystemWindow.ForegroundWindow = new SystemWindow(nextWindow);
+                SystemWindow.TryActivateWindow(nextWindow, showHidden: true, restoreMinimized: true);
                 return true;
             }
             catch (Exception ex)

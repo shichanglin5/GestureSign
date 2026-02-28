@@ -76,9 +76,6 @@ namespace GestureSign.CorePlugins.ActivateApp
         private static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll")]
-        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-        [DllImport("user32.dll")]
         private static extern bool IsWindow(IntPtr hWnd);
 
         private const uint GW_OWNER = 4;
@@ -87,7 +84,6 @@ namespace GestureSign.CorePlugins.ActivateApp
         private const uint WS_EX_TOOLWINDOW = 0x00000080;
         private const uint WS_EX_APPWINDOW = 0x00040000;
         private const uint WS_EX_NOACTIVATE = 0x08000000;
-        private const int SW_SHOW = 5;
 
         #endregion
 
@@ -394,21 +390,9 @@ namespace GestureSign.CorePlugins.ActivateApp
 
             Logging.LogDebug($"[ActivateApp] HandleSingleWindow: target=0x{hWnd:X}, foreground=0x{foregroundWindow:X}, isForeground={isForeground}, isVisible={isVisible}, windowState={windowState}");
 
-            // Handle hidden window (tray app)
-            if (!isVisible)
+            if (!isVisible || windowState == FormWindowState.Minimized)
             {
-                Logging.LogDebug($"[ActivateApp] Showing hidden window: 0x{hWnd:X} '{window.Title}'");
-                ShowWindow(hWnd, SW_SHOW);
-                window.RestoreWindow();
-                SystemWindow.ForegroundWindow = window;
-                return true;
-            }
-
-            // Check if window is minimized first
-            if (windowState == FormWindowState.Minimized)
-            {
-                window.RestoreWindow();
-                SystemWindow.ForegroundWindow = window;
+                SystemWindow.TryActivateWindow(hWnd, showHidden: true, restoreMinimized: true);
                 return true;
             }
 
@@ -418,7 +402,6 @@ namespace GestureSign.CorePlugins.ActivateApp
                 // Window is already foreground and not minimized
                 if (_settings.MinimizeIfActivated)
                 {
-                    // Minimize it
                     window.WindowState = FormWindowState.Minimized;
                 }
                 return true;
@@ -426,7 +409,7 @@ namespace GestureSign.CorePlugins.ActivateApp
             else
             {
                 // Window is background - activate it
-                SystemWindow.ForegroundWindow = window;
+                SystemWindow.TryActivateWindow(hWnd);
                 return true;
             }
         }
@@ -515,27 +498,8 @@ namespace GestureSign.CorePlugins.ActivateApp
                 }
             }
 
-            // Activate the target window
-            var window = new SystemWindow(targetWindow);
-            bool isVisible = IsWindowVisible(targetWindow);
-
-            // Handle hidden window (tray app)
-            if (!isVisible)
-            {
-                Logging.LogDebug($"[ActivateApp] Showing hidden window: 0x{targetWindow:X} '{window.Title}'");
-                ShowWindow(targetWindow, SW_SHOW);
-                window.RestoreWindow();
-                SystemWindow.ForegroundWindow = window;
-                _lastActivatedWindows[appKey] = targetWindow;
-                return true;
-            }
-
-            if (window.WindowState == FormWindowState.Minimized)
-            {
-                window.RestoreWindow();
-            }
-
-            SystemWindow.ForegroundWindow = window;
+            // Activate the target window (show hidden + restore minimized)
+            SystemWindow.TryActivateWindow(targetWindow, showHidden: true, restoreMinimized: true);
 
             // Update last activated window
             _lastActivatedWindows[appKey] = targetWindow;

@@ -315,10 +315,50 @@ namespace ManagedWinapi.Windows
         }
 
         /// <summary>
-        /// 强制激活窗口到前台（使用多种技术绕过 Windows 安全限制）
+        /// 激活窗口到前台，可选恢复最小化和显示隐藏窗口。
+        /// 调用方根据场景决定是否允许这些副作用。
         /// </summary>
         /// <param name="hWnd">要激活的窗口句柄</param>
+        /// <param name="showHidden">是否显示隐藏窗口（托盘应用等场景需要 true）</param>
+        /// <param name="restoreMinimized">是否恢复最小化窗口</param>
         /// <returns>激活是否成功</returns>
+        public static bool TryActivateWindow(IntPtr hWnd, bool showHidden = false, bool restoreMinimized = true)
+        {
+            if (hWnd == IntPtr.Zero)
+                return false;
+
+            // 先处理可选副作用，再做前台切换。
+            // 不在此处提前返回"已在前台"，因为窗口可能是前台但仍处于最小化/隐藏态。
+            if (showHidden && !IsWindowVisible(hWnd))
+            {
+                ShowWindowAsync(hWnd, SW_SHOW);
+                for (int i = 0; i < 5 && !IsWindowVisible(hWnd); i++)
+                {
+                    System.Threading.Thread.Sleep(10);
+                }
+            }
+
+            // 最小化窗口先恢复，否则 SetForegroundWindow 效果不稳定。
+            // 使用 ShowWindowAsync 异步投递，避免跨进程同步阻塞。
+            if (restoreMinimized && IsIconic(hWnd))
+            {
+                ShowWindowAsync(hWnd, SW_RESTORE);
+                for (int i = 0; i < 5 && IsIconic(hWnd); i++)
+                {
+                    System.Threading.Thread.Sleep(10);
+                }
+            }
+
+            if (GetForegroundWindow() == hWnd)
+                return true;
+
+            return ForceSetForegroundWindow(hWnd);
+        }
+
+        /// <summary>
+        /// 纯粹的前台切换，不改变窗口可见性或最小化状态。
+        /// 使用多种技术绕过 Windows 前台窗口锁限制。
+        /// </summary>
         private static bool ForceSetForegroundWindow(IntPtr hWnd)
         {
             // 方法 1: 标准 SetForegroundWindow (快速路径)
@@ -342,21 +382,12 @@ namespace ManagedWinapi.Windows
             }
             catch
             {
-                // 继续尝试
+                // mouse_event 失败时仅保留快速路径结果，不再做侵入式兜底。
             }
 
-            // 方法 3: 使用 SetWindowPos 提升 Z-order 后重试
-            try
-            {
-                SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
-                SetForegroundWindow(hWnd);
-                return GetForegroundWindow() == hWnd;
-            }
-            catch
-            {
-                return false;
-            }
+            // 不再使用 SetWindowPos(..., SWP_SHOWWINDOW) 作为第三层兜底。
+            // 它会强行改动窗口显示状态和 Z-order，对 Chromium 系列窗口存在副作用风险。
+            return false;
         }
 
         /// <summary>
