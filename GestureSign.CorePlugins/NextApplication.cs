@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Controls;
@@ -73,6 +72,9 @@ namespace GestureSign.CorePlugins
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetLastActivePopup(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
 
         private const int GWL_EXSTYLE = -20;
         private const uint WS_EX_TOOLWINDOW = 0x00000080;
@@ -162,7 +164,7 @@ namespace GestureSign.CorePlugins
                 }
 
                 // Find current window index
-                int currentIndex = windows.IndexOf(currentWindow);
+                int currentIndex = ResolveCurrentWindowIndex(windows, currentWindow);
                 // If current window is not in the list, start from beginning
                 if (currentIndex < 0)
                 {
@@ -220,14 +222,9 @@ namespace GestureSign.CorePlugins
             if (_settings.SkipMinimizedWindows && IsIconic(hWnd))
                 return false;
 
-            // Must have a title
-            if (GetWindowTextLength(hWnd) == 0)
-                return false;
-
-            // Alt+Tab algorithm: walk to root owner, then check last active popup
-            // See Raymond Chen's blog: "Which windows appear in the Alt+Tab list?"
-            IntPtr rootOwner = GetAncestor(hWnd, GA_ROOTOWNER);
-            if (rootOwner != IntPtr.Zero && GetLastActivePopup(rootOwner) != hWnd)
+            // Alt+Tab representative algorithm (Raymond Chen):
+            // walk root-owner + last-active-popup chain and keep only the representative window.
+            if (!IsAltTabRepresentativeWindow(hWnd))
                 return false;
 
             // Check extended window styles
@@ -251,7 +248,124 @@ namespace GestureSign.CorePlugins
             if (className.ToString() == "Windows.Internal.Shell.TabProxyWindow")
                 return false;
 
+            bool hasTitle = GetWindowTextLength(hWnd) > 0;
+            // Most switchable windows have titles. Some apps (e.g. Foxmail) use an untitled
+            // representative root window while the real content is a titled owned popup.
+            if (!hasTitle && !HasVisibleTitledPopupUnderRootOwner(hWnd))
+                return false;
+
             return true;
+        }
+
+        private int ResolveCurrentWindowIndex(List<IntPtr> windows, IntPtr currentWindow)
+        {
+            int directIndex = windows.IndexOf(currentWindow);
+            if (directIndex >= 0)
+                return directIndex;
+
+            if (currentWindow == IntPtr.Zero)
+                return -1;
+
+            // Foreground window can be a framework/root window filtered out by IsSwitchableWindow.
+            // Try to map it back to a switchable sibling so the "next" step remains stable.
+            IntPtr rootOwner = GetAncestor(currentWindow, GA_ROOTOWNER);
+            if (rootOwner != IntPtr.Zero)
+            {
+                int rootOwnerIndex = windows.IndexOf(rootOwner);
+                if (rootOwnerIndex >= 0)
+                {
+                    return rootOwnerIndex;
+                }
+
+                IntPtr lastActivePopup = GetLastActivePopup(rootOwner);
+                if (lastActivePopup != IntPtr.Zero)
+                {
+                    int popupIndex = windows.IndexOf(lastActivePopup);
+                    if (popupIndex >= 0)
+                    {
+                        return popupIndex;
+                    }
+                }
+
+                int siblingByRootOwner = windows.FindIndex(w => GetAncestor(w, GA_ROOTOWNER) == rootOwner);
+                if (siblingByRootOwner >= 0)
+                {
+                    return siblingByRootOwner;
+                }
+            }
+
+            GetWindowThreadProcessId(currentWindow, out int currentPid);
+            if (currentPid != 0)
+            {
+                // Last-resort fallback: same-process window may not be the exact MRU window
+                // when an app has multiple independent top-level windows.
+                int siblingByProcess = windows.FindIndex(w =>
+                {
+                    GetWindowThreadProcessId(w, out int pid);
+                    return pid == currentPid;
+                });
+
+                if (siblingByProcess >= 0)
+                {
+                    return siblingByProcess;
+                }
+            }
+
+            return -1;
+        }
+
+        private bool IsAltTabRepresentativeWindow(IntPtr hWnd)
+        {
+            IntPtr hWndWalk = GetAncestor(hWnd, GA_ROOTOWNER);
+            if (hWndWalk == IntPtr.Zero)
+                hWndWalk = hWnd;
+
+            while (true)
+            {
+                IntPtr hWndTry = GetLastActivePopup(hWndWalk);
+                if (hWndTry == hWndWalk)
+                    break;
+
+                if (IsWindowVisible(hWndTry))
+                    break;
+
+                hWndWalk = hWndTry;
+            }
+
+            return hWndWalk == hWnd;
+        }
+
+        private bool HasVisibleTitledPopupUnderRootOwner(IntPtr rootOwner)
+        {
+            // This helper is called for an untitled candidate hWnd. rootOwner can be either:
+            // 1) the same untitled hWnd, or
+            // 2) a different owner that may itself have a title.
+            // In case (2), return true directly because the owner chain already has a titled root.
+            if (GetWindowTextLength(rootOwner) != 0)
+                return true;
+
+            GetWindowThreadProcessId(rootOwner, out int rootPid);
+            if (rootPid == 0)
+                return false;
+
+            bool hasVisibleTitledPopup = false;
+            EnumWindows((candidate, _) =>
+            {
+                if (candidate == rootOwner || !IsWindowVisible(candidate) || GetWindowTextLength(candidate) == 0)
+                    return true;
+
+                if (GetAncestor(candidate, GA_ROOTOWNER) != rootOwner)
+                    return true;
+
+                GetWindowThreadProcessId(candidate, out int candidatePid);
+                if (candidatePid != rootPid)
+                    return true;
+
+                hasVisibleTitledPopup = true;
+                return false;
+            }, IntPtr.Zero);
+
+            return hasVisibleTitledPopup;
         }
 
         private string GetWindowTitle(IntPtr hWnd)
