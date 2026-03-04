@@ -91,6 +91,7 @@
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <!-- Preset Name -->
@@ -115,8 +116,20 @@
                                              ShowCheckBox="True"
                                              Margin="0,5,0,0" />
 
+            <!-- Activation Method -->
+            <DockPanel Grid.Row="3" Margin="0,10,0,0">
+                <TextBlock Text="{localization:LocalisedText WindowPresets.ActivationMethod}"
+                           VerticalAlignment="Center"
+                           DockPanel.Dock="Left" />
+                <ComboBox x:Name="PresetActivationMethodComboBox"
+                          Width="220"
+                          Margin="10,0,0,0"
+                          HorizontalAlignment="Left"
+                          DockPanel.Dock="Left" />
+            </DockPanel>
+
             <!-- Crosshair -->
-            <StackPanel Grid.Row="3"
+            <StackPanel Grid.Row="4"
                         Orientation="Horizontal"
                         Margin="0,10,0,0">
                 <ui:Crosshair x:Name="PresetCrosshair"
@@ -131,7 +144,7 @@
 
             <!-- Save Button -->
             <Button x:Name="SavePresetButton"
-                    Grid.Row="4"
+                    Grid.Row="5"
                     Content="{localization:LocalisedText WindowPresets.SavePreset}"
                     Click="SavePreset_Click"
                     Margin="0,15,0,0"

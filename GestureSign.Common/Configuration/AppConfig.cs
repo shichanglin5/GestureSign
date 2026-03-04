@@ -386,6 +386,22 @@ namespace GestureSign.Common.Configuration
             }
         }
 
+        /// <summary>
+        /// 全局默认窗口激活方式。
+        /// 1 = AttachThreadInput（默认，更可靠），2 = SafeMode（不合并输入队列，适用于 Chromium/Qt）
+        /// </summary>
+        public static int DefaultActivationMethod
+        {
+            get
+            {
+                return GetValue(nameof(DefaultActivationMethod), 1);
+            }
+            set
+            {
+                SetValue(nameof(DefaultActivationMethod), value);
+            }
+        }
+
         public static bool ReFetchTargetWindowOnExecution
         {
             get

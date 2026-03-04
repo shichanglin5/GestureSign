@@ -45,6 +45,14 @@ namespace GestureSign.CorePlugins.ActivateApp
         public bool MinimizeIfActivated { get; set; } = true;
 
         /// <summary>
+        /// 窗口激活方式。
+        /// UseGlobal(0)：使用全局设置（默认）。
+        /// AttachThreadInput(1)：合并输入队列后激活，更可靠但可能导致 Chromium/Qt 应用卡死。
+        /// SafeMode(2)：仅使用 SetForegroundWindow + BringWindowToTop，不合并输入队列。
+        /// </summary>
+        public ActivationMethod ActivationMethod { get; set; } = ActivationMethod.UseGlobal;
+
+        /// <summary>
         /// Track the last activated window handle for multi-window cycling
         /// (Note: This is runtime state, not persisted)
         /// </summary>

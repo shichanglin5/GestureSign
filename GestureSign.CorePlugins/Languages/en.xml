@@ -245,6 +245,10 @@
       <UseRegex>Use Regular Expression</UseRegex>
       <DisplayName>Display Name:</DisplayName>
       <MinimizeIfActivated>Minimize if already activated</MinimizeIfActivated>
+      <ActivationMethod>Activation Method:</ActivationMethod>
+      <ActivationMethod.UseGlobal>Use Global Setting</ActivationMethod.UseGlobal>
+      <ActivationMethod.AttachThreadInput>AttachThreadInput (more reliable)</ActivationMethod.AttachThreadInput>
+      <ActivationMethod.SafeMode>Safe Mode (for Chrome/WeChat)</ActivationMethod.SafeMode>
       <ApplicationPath>Application Path</ApplicationPath>
       <ApplicationArguments>Arguments</ApplicationArguments>
       <WindowRule>Window Rule</WindowRule>

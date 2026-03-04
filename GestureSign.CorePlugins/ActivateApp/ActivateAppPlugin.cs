@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 using GestureSign.Common.Applications;
+using GestureSign.Common.Configuration;
 using GestureSign.Common.Log;
 using GestureSign.Common.Plugins;
 using GestureSign.Common.Localization;
@@ -37,11 +38,7 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             "IME",
             "MSCTFIME UI",
-            "GDI+ Hook Window Class"
-        };
-        private static readonly HashSet<string> DeprioritizedShellWindowClasses = new(StringComparer.OrdinalIgnoreCase)
-        {
-            // Some apps expose a titled shell/root window that is foreground-capable but not user-interactive.
+            "GDI+ Hook Window Class",
             "TApplication"
         };
 
@@ -84,18 +81,13 @@ namespace GestureSign.CorePlugins.ActivateApp
         [DllImport("user32.dll")]
         private static extern bool IsWindow(IntPtr hWnd);
 
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetLastActivePopup(IntPtr hWnd);
 
         [DllImport("dwmapi.dll")]
         private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
 
         private const uint GW_OWNER = 4;
         private const uint GW_HWNDPREV = 3;
-        private const uint GA_ROOTOWNER = 3;
+
         private const int GWL_EXSTYLE = -20;
         private const uint WS_EX_TOOLWINDOW = 0x00000080;
         private const uint WS_EX_APPWINDOW = 0x00040000;
@@ -181,6 +173,9 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             try
             {
+                // 如果引用了预置，动态同步预置的最新条件
+                SyncPresetIfNeeded();
+
                 if (_settings == null || !_settings.HasValidConditions)
                 {
                     Logging.LogDebug("[ActivateApp] No valid matching conditions configured");
@@ -198,18 +193,6 @@ namespace GestureSign.CorePlugins.ActivateApp
                 {
                     // Application not running - try to launch
                     return TryLaunchApplication(_settings);
-                }
-
-                // 壳窗口兜底唤醒：当进程在运行但只剩壳窗口（如 Delphi TApplication）时，
-                // ShowWindow/SetForeground 无法恢复业务主窗口。
-                // 通过再次启动 exe 触发单实例应用的唤醒逻辑来恢复窗口。
-                if (AllWindowsAreShellOnly(appWindows))
-                {
-                    Logging.LogDebug($"[ActivateApp] All {appWindows.Count} windows are shell-only, launching app to wake up");
-                    if (TryLaunchApplication(_settings))
-                        return true;
-
-                    Logging.LogWarning("[ActivateApp] Shell-only wake-up launch failed, fallback to direct window activation");
                 }
 
                 if (appWindows.Count == 1)
@@ -407,9 +390,8 @@ namespace GestureSign.CorePlugins.ActivateApp
                     return false;
             }
 
-            // 无标题隐藏窗口几乎不可能是用户期望激活的业务窗口（如 Chrome_WidgetWin_0 辅助窗口）。
-            // 壳类窗口（如 TApplication）放行，由 AllWindowsAreShellOnly 判断是否走启动兜底。
-            if (GetWindowTextLength(hWnd) == 0 && !DeprioritizedShellWindowClasses.Contains(classNameText))
+            // 无标题隐藏窗口不是用户期望激活的业务窗口
+            if (GetWindowTextLength(hWnd) == 0)
                 return false;
 
             return true;
@@ -417,41 +399,56 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         private bool HandleSingleWindow(IntPtr hWnd)
         {
+            var window = new SystemWindow(hWnd);
             var foregroundWindow = GetForegroundWindow();
-            IntPtr targetWindow = ResolvePreferredActivationWindow(hWnd);
-            var window = new SystemWindow(targetWindow);
-            bool isForeground = IsSameWindowGroup(targetWindow, foregroundWindow);
-            bool isVisible = IsWindowVisible(targetWindow);
+            bool isForeground = hWnd == foregroundWindow;
+            bool isVisible = IsWindowVisible(hWnd);
+            bool isIconic = IsIconic(hWnd);
             var windowState = window.WindowState;
 
-            Logging.LogDebug($"[ActivateApp] HandleSingleWindow: target={DescribeWindow(targetWindow)}, foreground={DescribeWindow(foregroundWindow)}, isForeground={isForeground}, isVisible={isVisible}, windowState={windowState}");
+            Logging.LogDebug($"[ActivateApp] HandleSingleWindow: target={DescribeWindow(hWnd)}, foreground={DescribeWindow(foregroundWindow)}, isForeground={isForeground}, isVisible={isVisible}, isIconic={isIconic}, windowState={windowState}");
 
-            if (!isVisible || windowState == FormWindowState.Minimized)
+            if (!isVisible)
             {
-                bool result = SystemWindow.TryActivateWindow(targetWindow, showHidden: true, restoreMinimized: true);
-                Logging.LogDebug($"[ActivateApp] TryActivateWindow(showHidden) → {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
+                // 窗口隐藏（如托盘应用），需要 showHidden 恢复
+                bool useAttach = ResolveUseAttachThreadInput();
+                bool result = SystemWindow.TryActivateWindow(hWnd, showHidden: true, restoreMinimized: true, useAttachThreadInput: useAttach);
+                Logging.LogDebug($"[ActivateApp] TryActivateWindow(showHidden, attach={useAttach}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
                 return true;
             }
 
-            // Window is not minimized, check if it's the foreground window
+            if (isIconic)
+            {
+                // 窗口真正最小化（IsIconic=true），只需恢复最小化+激活
+                bool useAttach = ResolveUseAttachThreadInput();
+                bool result = SystemWindow.TryActivateWindow(hWnd, showHidden: false, restoreMinimized: true, useAttachThreadInput: useAttach);
+                Logging.LogDebug($"[ActivateApp] TryActivateWindow(restoreMinimized, attach={useAttach}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
+                return true;
+            }
+
             if (isForeground)
             {
-                // Window is already foreground and not minimized
+                // 窗口已是前台且可见、非最小化
+                if (windowState == FormWindowState.Minimized)
+                {
+                    // GetWindowPlacement 报告 Minimized 但 IsIconic=false：
+                    // Qt 应用存在窗口状态不一致，不做额外操作避免触发 Qt 卡死
+                    Logging.LogDebug($"[ActivateApp] foreground window has inconsistent state (windowState=Minimized but isIconic=false), skipping");
+                    return true;
+                }
+
                 if (_settings.MinimizeIfActivated)
                 {
-                    var windowToMinimize = foregroundWindow != IntPtr.Zero &&
-                                           IsSameWindowGroup(targetWindow, foregroundWindow)
-                        ? foregroundWindow
-                        : targetWindow;
-                    new SystemWindow(windowToMinimize).WindowState = FormWindowState.Minimized;
+                    window.WindowState = FormWindowState.Minimized;
                 }
                 return true;
             }
             else
             {
-                // Window is background - activate it
-                bool result = SystemWindow.TryActivateWindow(targetWindow);
-                Logging.LogDebug($"[ActivateApp] TryActivateWindow → {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
+                // 窗口在后台，激活到前台
+                bool useAttach = ResolveUseAttachThreadInput();
+                bool result = SystemWindow.TryActivateWindow(hWnd, useAttachThreadInput: useAttach);
+                Logging.LogDebug($"[ActivateApp] TryActivateWindow(attach={useAttach}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
                 return true;
             }
         }
@@ -465,20 +462,14 @@ namespace GestureSign.CorePlugins.ActivateApp
             IntPtr foreground = GetForegroundWindow();
 
             // Check if the current foreground window belongs to this application and is not minimized
-            // A minimized foreground window (e.g. just toggled off) should be treated as "coming from another app"
-            // to allow restoring via _lastActivatedWindows
-            bool foregroundIsThisApp = foreground != IntPtr.Zero &&
-                                       !IsIconic(foreground) &&
-                                       windows.Any(w => IsSameWindowGroup(w, foreground));
+            bool foregroundIsThisApp = windows.Contains(foreground) && !IsIconic(foreground);
 
             IntPtr targetWindow;
 
             if (foregroundIsThisApp)
             {
                 // Already in this app - try to cycle to the next non-minimized window
-                int currentIndex = windows.FindIndex(w => IsSameWindowGroup(w, foreground));
-                if (currentIndex < 0)
-                    currentIndex = windows.IndexOf(foreground);
+                int currentIndex = windows.IndexOf(foreground);
                 targetWindow = IntPtr.Zero;
                 for (int i = 1; i < windows.Count; i++)
                 {
@@ -495,7 +486,6 @@ namespace GestureSign.CorePlugins.ActivateApp
                     // No non-minimized candidate - minimize current window (like HandleSingleWindow toggle)
                     if (_settings.MinimizeIfActivated)
                     {
-                        // Record current window so next trigger (all minimized) restores it deterministically
                         _lastActivatedWindows[appKey] = foreground;
                         new SystemWindow(foreground).WindowState = FormWindowState.Minimized;
                     }
@@ -505,26 +495,22 @@ namespace GestureSign.CorePlugins.ActivateApp
             else
             {
                 // Coming from another app - prefer non-minimized windows
-                // Avoid restoring minimized windows when visible ones exist
                 var nonMinimizedWindows = windows.Where(w => !IsIconic(w)).ToList();
 
                 _lastActivatedWindows.TryGetValue(appKey, out IntPtr lastWindow);
 
                 if (lastWindow != IntPtr.Zero)
                 {
-                    // Last window exists and is not minimized - use it
                     if (nonMinimizedWindows.Contains(lastWindow))
                     {
                         targetWindow = lastWindow;
                         Logging.LogDebug($"[ActivateApp] From other app, restoring last window: {DescribeWindow(targetWindow)}");
                     }
-                    // Last window is unavailable (minimized or closed) but there are non-minimized windows - use topmost non-minimized
                     else if (nonMinimizedWindows.Count > 0)
                     {
                         targetWindow = nonMinimizedWindows[0];
                         Logging.LogDebug($"[ActivateApp] From other app, last window unavailable, using topmost visible: {DescribeWindow(targetWindow)}");
                     }
-                    // All windows minimized - fall back to last window
                     else if (windows.Contains(lastWindow))
                     {
                         targetWindow = lastWindow;
@@ -538,17 +524,15 @@ namespace GestureSign.CorePlugins.ActivateApp
                 }
                 else
                 {
-                    // No last window - use topmost non-minimized, or topmost overall
                     targetWindow = nonMinimizedWindows.Count > 0 ? nonMinimizedWindows[0] : windows[0];
                     Logging.LogDebug($"[ActivateApp] From other app, no last window, using topmost: {DescribeWindow(targetWindow)}");
                 }
             }
 
-            IntPtr resolvedTargetWindow = ResolvePreferredActivationWindow(targetWindow);
-
             // Activate the target window (show hidden + restore minimized)
-            bool result = SystemWindow.TryActivateWindow(resolvedTargetWindow, showHidden: true, restoreMinimized: true);
-            Logging.LogDebug($"[ActivateApp] TryActivateWindow(multi) → {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
+            bool useAttach = ResolveUseAttachThreadInput();
+            bool result = SystemWindow.TryActivateWindow(targetWindow, showHidden: true, restoreMinimized: true, useAttachThreadInput: useAttach);
+            Logging.LogDebug($"[ActivateApp] TryActivateWindow(multi, attach={useAttach}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
 
             // Update last activated window
             _lastActivatedWindows[appKey] = targetWindow;
@@ -667,128 +651,6 @@ namespace GestureSign.CorePlugins.ActivateApp
             return true;
         }
 
-        private IntPtr ResolvePreferredActivationWindow(IntPtr hWnd)
-        {
-            if (!IsWindow(hWnd))
-                return hWnd;
-
-            // Gate 1: If rule has an explicit ClassName condition and the input window matches it,
-            // this is a precisely matched window — skip resolution to avoid dialog/popup override.
-            var conditions = _settings?.WindowRule?.Conditions;
-            if (conditions != null)
-            {
-                var classCondition = conditions.FirstOrDefault(c => c.Type == MatchConditionType.ClassName);
-                if (classCondition != null && !string.IsNullOrEmpty(classCondition.Value))
-                {
-                    string inputClassName = GetWindowClassName(hWnd);
-                    if (string.Equals(inputClassName, classCondition.Value, StringComparison.OrdinalIgnoreCase))
-                        return hWnd;
-                }
-            }
-
-            // Gate 2: If the input window has a title and is not a known shell-only class,
-            // it is likely a real business window — skip resolution.
-            string className = GetWindowClassName(hWnd);
-            bool isShellWindow = !string.IsNullOrEmpty(className)
-                && DeprioritizedShellWindowClasses.Contains(className);
-            if (GetWindowTextLength(hWnd) > 0 && !isShellWindow)
-                return hWnd;
-
-            // The input window is a shell/framework window — run full resolution.
-            IntPtr rootOwner = GetAncestor(hWnd, GA_ROOTOWNER);
-            if (rootOwner == IntPtr.Zero || !IsWindow(rootOwner))
-                rootOwner = hWnd;
-
-            GetWindowThreadProcessId(rootOwner, out int rootPid);
-            IntPtr lastActivePopup = GetLastActivePopup(rootOwner);
-            int currentScore = EvaluateActivationCandidateScore(hWnd, rootOwner, rootPid, lastActivePopup, requireSameRootOwner: true);
-            IntPtr bestWindow = hWnd;
-            int bestScore = currentScore;
-
-            int popupScore = EvaluateActivationCandidateScore(lastActivePopup, rootOwner, rootPid, lastActivePopup, requireSameRootOwner: true);
-            if (popupScore > bestScore)
-            {
-                bestWindow = lastActivePopup;
-                bestScore = popupScore;
-            }
-
-            EnumWindows((candidate, _) =>
-            {
-                int score = EvaluateActivationCandidateScore(candidate, rootOwner, rootPid, lastActivePopup, requireSameRootOwner: true);
-                if (score > bestScore)
-                {
-                    bestWindow = candidate;
-                    bestScore = score;
-                }
-
-                return true;
-            }, IntPtr.Zero);
-
-            // Root-owner group may not expose a suitable popup (some tray apps do this).
-            // In that case, allow same-process fallback but keep strong score penalties for shell-only windows.
-            if (bestWindow == hWnd || bestScore <= currentScore)
-            {
-                EnumWindows((candidate, _) =>
-                {
-                    int score = EvaluateActivationCandidateScore(candidate, rootOwner, rootPid, lastActivePopup, requireSameRootOwner: false);
-                    if (score > bestScore)
-                    {
-                        bestWindow = candidate;
-                        bestScore = score;
-                    }
-
-                    return true;
-                }, IntPtr.Zero);
-            }
-
-            if (bestWindow != hWnd)
-            {
-                Logging.LogDebug($"[ActivateApp] ResolvePreferredActivationWindow: {DescribeWindow(hWnd)} -> best {DescribeWindow(bestWindow)} (score={bestScore}, current={currentScore})");
-                return bestWindow;
-            }
-
-            return hWnd;
-        }
-
-        /// <summary>
-        /// 判断是否所有窗口都是壳窗口（如 TApplication），没有真正的用户业务窗口。
-        /// 这种情况下 ShowWindow/SetForeground 无法恢复应用，需要走启动路径唤醒。
-        /// </summary>
-        private bool AllWindowsAreShellOnly(List<IntPtr> windows)
-        {
-            foreach (var hWnd in windows)
-            {
-                string className = GetWindowClassName(hWnd);
-
-                // 原始窗口只要不是壳类，就认为存在业务窗口。
-                if (string.IsNullOrEmpty(className) || !DeprioritizedShellWindowClasses.Contains(className))
-                    return false;
-
-                // 壳窗口经 Resolve 后只要能定位到非壳类窗口，也不应走启动兜底。
-                IntPtr resolved = ResolvePreferredActivationWindow(hWnd);
-                string resolvedClass = GetWindowClassName(resolved);
-                if (string.IsNullOrEmpty(resolvedClass) || !DeprioritizedShellWindowClasses.Contains(resolvedClass))
-                    return false;
-            }
-            return true;
-        }
-
-        private bool IsSameWindowGroup(IntPtr hWnd1, IntPtr hWnd2)
-        {
-            if (hWnd1 == IntPtr.Zero || hWnd2 == IntPtr.Zero)
-                return false;
-
-            IntPtr rootOwner1 = GetAncestor(hWnd1, GA_ROOTOWNER);
-            if (rootOwner1 == IntPtr.Zero)
-                rootOwner1 = hWnd1;
-
-            IntPtr rootOwner2 = GetAncestor(hWnd2, GA_ROOTOWNER);
-            if (rootOwner2 == IntPtr.Zero)
-                rootOwner2 = hWnd2;
-
-            return rootOwner1 == rootOwner2;
-        }
-
         private string DescribeWindow(IntPtr hWnd)
         {
             if (hWnd == IntPtr.Zero)
@@ -798,73 +660,6 @@ namespace GestureSign.CorePlugins.ActivateApp
             string className = GetWindowClassName(hWnd);
 
             return $"0x{hWnd:X} '{title}' (class={className})";
-        }
-
-        private int EvaluateActivationCandidateScore(
-            IntPtr candidate,
-            IntPtr rootOwner,
-            int rootPid,
-            IntPtr lastActivePopup,
-            bool requireSameRootOwner)
-        {
-            if (candidate == IntPtr.Zero || !IsWindow(candidate))
-                return int.MinValue;
-
-            IntPtr candidateRootOwner = GetAncestor(candidate, GA_ROOTOWNER);
-            if (candidateRootOwner == IntPtr.Zero)
-                candidateRootOwner = candidate;
-
-            if (requireSameRootOwner && candidateRootOwner != rootOwner)
-                return int.MinValue;
-
-            GetWindowThreadProcessId(candidate, out int candidatePid);
-            if (rootPid != 0 && candidatePid != rootPid)
-                return int.MinValue;
-
-            uint exStyle = GetWindowLong(candidate, GWL_EXSTYLE);
-            if ((exStyle & WS_EX_TOOLWINDOW) != 0 && (exStyle & WS_EX_APPWINDOW) == 0)
-                return int.MinValue;
-
-            if ((exStyle & WS_EX_NOACTIVATE) != 0)
-                return int.MinValue;
-
-            if (DwmGetWindowAttribute(candidate, DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0 && cloaked != 0)
-                return int.MinValue;
-
-            string className = GetWindowClassName(candidate);
-            if (!string.IsNullOrEmpty(className) && WindowClassBlacklist.Contains(className))
-                return int.MinValue;
-
-            int score = 0;
-            if (candidateRootOwner == rootOwner)
-                score += 40;
-
-            if (candidate == lastActivePopup)
-                score += 35;
-
-            if (IsWindowVisible(candidate))
-                score += 25;
-            else
-                score += 8;
-
-            if (!IsIconic(candidate))
-                score += 25;
-
-            if (GetWindowTextLength(candidate) > 0)
-                score += 30;
-            else
-                score -= 12;
-
-            if (GetWindow(candidate, GW_OWNER) != IntPtr.Zero)
-                score += 10;
-
-            if (candidate == rootOwner)
-                score -= 25;
-
-            if (!string.IsNullOrEmpty(className) && DeprioritizedShellWindowClasses.Contains(className))
-                score -= 60;
-
-            return score;
         }
 
         private string GetWindowClassName(IntPtr hWnd)
@@ -906,6 +701,54 @@ namespace GestureSign.CorePlugins.ActivateApp
             }
 
             return zOrder;
+        }
+
+        /// <summary>
+        /// 解析最终的激活方式：预置配置 > 动作实例配置 > 全局配置。
+        /// 返回 true 表示使用 AttachThreadInput，false 表示使用安全模式。
+        /// </summary>
+        private bool ResolveUseAttachThreadInput()
+        {
+            // 1. 如果引用了预置，且预置指定了激活方式（非 UseGlobal），使用预置的
+            if (!string.IsNullOrEmpty(_settings?.PresetId))
+            {
+                var preset = WindowPresetManager.Instance.GetPresetById(_settings.PresetId);
+                if (preset != null && preset.ActivationMethod != ActivationMethod.UseGlobal)
+                {
+                    return preset.ActivationMethod == ActivationMethod.AttachThreadInput;
+                }
+            }
+
+            // 2. 动作实例的配置
+            var method = _settings?.ActivationMethod ?? ActivationMethod.UseGlobal;
+            if (method != ActivationMethod.UseGlobal)
+            {
+                return method == ActivationMethod.AttachThreadInput;
+            }
+
+            // 3. 全局配置：1=AttachThreadInput, 2=SafeMode
+            return AppConfig.DefaultActivationMethod == (int)ActivationMethod.AttachThreadInput;
+        }
+
+        /// <summary>
+        /// 如果引用了预置规则，从预置管理器同步最新的条件和路径到 _settings.WindowRule。
+        /// 这样预置条件修改后，已有的 ActivateApp 动作会自动使用最新配置。
+        /// </summary>
+        private void SyncPresetIfNeeded()
+        {
+            if (_settings == null || string.IsNullOrEmpty(_settings.PresetId))
+                return;
+
+            var preset = WindowPresetManager.Instance.GetPresetById(_settings.PresetId);
+            if (preset == null)
+                return;
+
+            if (_settings.WindowRule == null)
+                _settings.WindowRule = new WindowRule();
+
+            _settings.WindowRule.Name = preset.Name;
+            _settings.WindowRule.ApplicationPath = preset.ApplicationPath;
+            _settings.WindowRule.Conditions = preset.Conditions?.ToList();
         }
 
         #endregion

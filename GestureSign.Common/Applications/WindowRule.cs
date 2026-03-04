@@ -36,6 +36,12 @@ namespace GestureSign.Common.Applications
         public string Name { get; set; }
 
         /// <summary>
+        /// 窗口激活方式（仅预置规则使用）。
+        /// UseGlobal(0)：使用全局设置（默认）。
+        /// </summary>
+        public ActivationMethod ActivationMethod { get; set; } = ActivationMethod.UseGlobal;
+
+        /// <summary>
         /// 应用程序路径（降级匹配：当 Conditions 为空时使用）
         /// </summary>
         private string _applicationPath;

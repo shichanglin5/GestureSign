@@ -63,6 +63,13 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 BlockWindowsGesturesSwitch.IsOn = AppConfig.BlockWindowsGestures;
                 TouchPadWindowTargetComboBox.SelectedIndex = (int)AppConfig.TouchPadWindowTargetMode;
                 TouchScreenWindowTargetComboBox.SelectedIndex = (int)AppConfig.TouchScreenWindowTargetMode;
+                int defaultActivationMethod = AppConfig.DefaultActivationMethod;
+                if (defaultActivationMethod != 1 && defaultActivationMethod != 2)
+                {
+                    defaultActivationMethod = 1;
+                    AppConfig.DefaultActivationMethod = 1;
+                }
+                GlobalActivationMethodComboBox.SelectedIndex = defaultActivationMethod == 2 ? 1 : 0;
                 ReFetchTargetWindowCheckBox.IsChecked = AppConfig.ReFetchTargetWindowOnExecution;
 
                 LanguageComboBox.ItemsSource = LocalizationProvider.Instance.GetLanguageList("ControlPanel");
@@ -398,6 +405,19 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 if (mode != AppConfig.TouchScreenWindowTargetMode)
                 {
                     AppConfig.TouchScreenWindowTargetMode = mode;
+                }
+            }
+        }
+
+        private void GlobalActivationMethodComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (GlobalActivationMethodComboBox?.SelectedItem is ComboBoxItem selectedItem
+                && int.TryParse(selectedItem.Tag?.ToString(), out int method)
+                && (method == 1 || method == 2))
+            {
+                if (AppConfig.DefaultActivationMethod != method)
+                {
+                    AppConfig.DefaultActivationMethod = method;
                 }
             }
         }

@@ -246,6 +246,10 @@
       <UseRegex>使用正则表达式</UseRegex>
       <DisplayName>显示名称:</DisplayName>
       <MinimizeIfActivated>已激活则最小化</MinimizeIfActivated>
+      <ActivationMethod>激活方式:</ActivationMethod>
+      <ActivationMethod.UseGlobal>使用全局设置</ActivationMethod.UseGlobal>
+      <ActivationMethod.AttachThreadInput>AttachThreadInput（更可靠）</ActivationMethod.AttachThreadInput>
+      <ActivationMethod.SafeMode>安全模式（适用于 Chrome/微信）</ActivationMethod.SafeMode>
       <ApplicationPath>应用程序路径</ApplicationPath>
       <ApplicationArguments>启动参数</ApplicationArguments>
       <WindowRule>窗口规则</WindowRule>

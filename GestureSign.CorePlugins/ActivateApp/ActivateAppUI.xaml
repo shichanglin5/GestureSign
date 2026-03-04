@@ -15,7 +15,19 @@
         <CheckBox x:Name="MinimizeIfActivatedCheckBox"
                   Content="{localization:LocalisedText CorePlugins.ActivateApp.MinimizeIfActivated}"
                   IsChecked="True"
-                  Margin="0,0,0,15" />
+                  Margin="0,0,0,8" />
+
+        <!-- Activation Method -->
+        <DockPanel Margin="0,0,0,15">
+            <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.ActivationMethod}"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left" />
+            <ComboBox x:Name="ActivationMethodComboBox"
+                      Width="200"
+                      Margin="10,0,0,0"
+                      HorizontalAlignment="Left"
+                      DockPanel.Dock="Left" />
+        </DockPanel>
 
         <!-- Window Rule Section Header -->
         <DockPanel Margin="0,0,0,8">

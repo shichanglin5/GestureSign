@@ -54,7 +54,7 @@ namespace GestureSign.Common.Applications
                 }
 
                 // 没有 $type，根据属性判断
-                if (obj.ContainsKey("PresetName"))
+                if (obj.ContainsKey("PresetId") || obj.ContainsKey("PresetName"))
                 {
                     return obj.ToObject<WindowRuleRef>(_innerSerializer);
                 }

@@ -409,6 +409,9 @@ QQ交流群：576981420
     <WindowTargetRuleTitle>焦点窗口规则</WindowTargetRuleTitle>
     <TouchPadWindowTarget>触摸板窗口目标</TouchPadWindowTarget>
     <TouchScreenWindowTarget>触摸屏窗口目标</TouchScreenWindowTarget>
+    <GlobalActivationMethod>应用窗口激活方式（全局）</GlobalActivationMethod>
+    <GlobalActivationMethodAttachThreadInput>AttachThreadInput（兼容性优先）</GlobalActivationMethodAttachThreadInput>
+    <GlobalActivationMethodSafeMode>安全模式（稳定性优先）</GlobalActivationMethodSafeMode>
     <WindowTargetMousePosition>鼠标位置所在窗口</WindowTargetMousePosition>
     <WindowTargetActiveWindow>当前激活的窗口</WindowTargetActiveWindow>
     <WindowTargetGestureStart>手势起始位置所在窗口</WindowTargetGestureStart>
@@ -430,6 +433,10 @@ QQ交流群：576981420
     <AddPreset>添加预置</AddPreset>
     <DeletePreset>删除预置</DeletePreset>
     <SavePreset>保存</SavePreset>
+    <ActivationMethod>激活方式</ActivationMethod>
+    <ActivationMethodUseGlobal>使用全局设置</ActivationMethodUseGlobal>
+    <ActivationMethodAttachThreadInput>AttachThreadInput（兼容性优先）</ActivationMethodAttachThreadInput>
+    <ActivationMethodSafeMode>安全模式（稳定性优先）</ActivationMethodSafeMode>
     <EditPreset>编辑预置</EditPreset>
     <ReferencePreset>使用预置</ReferencePreset>
     <AddToPreset>保存为预置</AddToPreset>

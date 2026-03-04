@@ -28,6 +28,7 @@ namespace GestureSign.CorePlugins.ActivateApp
         public ActivateAppUI()
         {
             InitializeComponent();
+            InitializeActivationMethodComboBox();
         }
 
         #endregion
@@ -63,6 +64,12 @@ namespace GestureSign.CorePlugins.ActivateApp
                 // Get minimize if activated setting
                 _settings.MinimizeIfActivated = MinimizeIfActivatedCheckBox.IsChecked ?? true;
 
+                // Get activation method
+                int selectedIndex = ActivationMethodComboBox.SelectedIndex;
+                _settings.ActivationMethod = selectedIndex >= 0 && selectedIndex <= 2
+                    ? (ActivationMethod)selectedIndex
+                    : ActivationMethod.UseGlobal;
+
                 return _settings;
             }
             set
@@ -83,6 +90,12 @@ namespace GestureSign.CorePlugins.ActivateApp
 
                 // Set minimize if activated checkbox
                 MinimizeIfActivatedCheckBox.IsChecked = _settings.MinimizeIfActivated;
+
+                // Set activation method (guard invalid enum values)
+                int methodIndex = (int)_settings.ActivationMethod;
+                ActivationMethodComboBox.SelectedIndex = methodIndex >= 0 && methodIndex <= 2
+                    ? methodIndex
+                    : 0; // UseGlobal
 
                 // Update summary display
                 UpdateWindowRuleSummary();
@@ -394,6 +407,15 @@ namespace GestureSign.CorePlugins.ActivateApp
                 WindowRuleSummaryText.Text = LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.NoWindowRuleConfigured");
                 WindowRuleSummaryText.Foreground = System.Windows.Media.Brushes.Gray;
             }
+        }
+
+        private void InitializeActivationMethodComboBox()
+        {
+            ActivationMethodComboBox.Items.Clear();
+            ActivationMethodComboBox.Items.Add(LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.ActivationMethod.UseGlobal"));
+            ActivationMethodComboBox.Items.Add(LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.ActivationMethod.AttachThreadInput"));
+            ActivationMethodComboBox.Items.Add(LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.ActivationMethod.SafeMode"));
+            ActivationMethodComboBox.SelectedIndex = 0;
         }
 
         #endregion

@@ -350,11 +350,25 @@
             <ComboBox x:Name="TouchScreenWindowTargetComboBox"
                       HorizontalAlignment="Stretch"
                       FontSize="14"
-                      Margin="0,5,0,10"
+                      Margin="0,5,0,0"
                       SelectionChanged="TouchScreenWindowTargetComboBox_SelectionChanged">
                 <ComboBoxItem Content="{localization:LocalisedText Options.WindowTargetMousePosition}" Tag="0" />
                 <ComboBoxItem Content="{localization:LocalisedText Options.WindowTargetActiveWindow}" Tag="1" />
                 <ComboBoxItem Content="{localization:LocalisedText Options.WindowTargetGestureStart}" Tag="2" />
+            </ComboBox>
+
+            <TextBlock Text="{localization:LocalisedText Options.GlobalActivationMethod}"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"
+                       FontSize="14"
+                       Margin="0,15,0,5" />
+            <ComboBox x:Name="GlobalActivationMethodComboBox"
+                      HorizontalAlignment="Stretch"
+                      FontSize="14"
+                      Margin="0,5,0,10"
+                      SelectionChanged="GlobalActivationMethodComboBox_SelectionChanged">
+                <ComboBoxItem Content="{localization:LocalisedText Options.GlobalActivationMethodAttachThreadInput}" Tag="1" />
+                <ComboBoxItem Content="{localization:LocalisedText Options.GlobalActivationMethodSafeMode}" Tag="2" />
             </ComboBox>
 
             <CheckBox x:Name="ReFetchTargetWindowCheckBox"

@@ -405,6 +405,9 @@ Email:ccfyzh@gmail.com
     <WindowTargetRuleTitle>Window Target Rules</WindowTargetRuleTitle>
     <TouchPadWindowTarget>TouchPad Window Target</TouchPadWindowTarget>
     <TouchScreenWindowTarget>TouchScreen Window Target</TouchScreenWindowTarget>
+    <GlobalActivationMethod>App Activation Method (Global)</GlobalActivationMethod>
+    <GlobalActivationMethodAttachThreadInput>AttachThreadInput (Compatibility First)</GlobalActivationMethodAttachThreadInput>
+    <GlobalActivationMethodSafeMode>Safe Mode (Stability First)</GlobalActivationMethodSafeMode>
     <WindowTargetMousePosition>Window at Mouse Position</WindowTargetMousePosition>
     <WindowTargetActiveWindow>Currently Active Window</WindowTargetActiveWindow>
     <WindowTargetGestureStart>Window at Gesture Start Position</WindowTargetGestureStart>
@@ -426,6 +429,10 @@ Email:ccfyzh@gmail.com
     <AddPreset>Add Preset</AddPreset>
     <DeletePreset>Delete Preset</DeletePreset>
     <SavePreset>Save</SavePreset>
+    <ActivationMethod>Activation Method</ActivationMethod>
+    <ActivationMethodUseGlobal>Use Global Setting</ActivationMethodUseGlobal>
+    <ActivationMethodAttachThreadInput>AttachThreadInput (Compatibility First)</ActivationMethodAttachThreadInput>
+    <ActivationMethodSafeMode>Safe Mode (Stability First)</ActivationMethodSafeMode>
     <EditPreset>Edit Preset</EditPreset>
     <ReferencePreset>Use Preset</ReferencePreset>
     <AddToPreset>Save as Preset</AddToPreset>

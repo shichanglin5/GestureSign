@@ -1,4 +1,4 @@
-/*
+﻿/*
  * ManagedWinapi - A collection of .NET components that wrap PInvoke calls to 
  * access native API by managed code. http://mwinapi.sourceforge.net/
  * Copyright (C) 2006 Michael Schierl
@@ -315,14 +315,15 @@ namespace ManagedWinapi.Windows
         }
 
         /// <summary>
-        /// 激活窗口到前台，可选恢复最小化和显示隐藏窗口。
-        /// 调用方根据场景决定是否允许这些副作用。
+        /// 婵€娲荤獥鍙ｅ埌鍓嶅彴锛屽彲閫夋仮澶嶆渶灏忓寲鍜屾樉绀洪殣钘忕獥鍙ｃ€?
+        /// 璋冪敤鏂规牴鎹満鏅喅瀹氭槸鍚﹀厑璁歌繖浜涘壇浣滅敤銆?
         /// </summary>
-        /// <param name="hWnd">要激活的窗口句柄</param>
-        /// <param name="showHidden">是否显示隐藏窗口（托盘应用等场景需要 true）</param>
-        /// <param name="restoreMinimized">是否恢复最小化窗口</param>
-        /// <returns>激活是否成功</returns>
-        public static bool TryActivateWindow(IntPtr hWnd, bool showHidden = false, bool restoreMinimized = true)
+        /// <param name="hWnd">瑕佹縺娲荤殑绐楀彛鍙ユ焺</param>
+        /// <param name="showHidden">鏄惁鏄剧ず闅愯棌绐楀彛锛堟墭鐩樺簲鐢ㄧ瓑鍦烘櫙闇€瑕?true锛?/param>
+        /// <param name="restoreMinimized">鏄惁鎭㈠鏈€灏忓寲绐楀彛</param>
+        /// <returns>婵€娲绘槸鍚︽垚鍔?/returns>
+        public static bool TryActivateWindow(IntPtr hWnd, bool showHidden = false, bool restoreMinimized = true,
+            bool useAttachThreadInput = false)
         {
             if (hWnd == IntPtr.Zero)
                 return false;
@@ -331,10 +332,8 @@ namespace ManagedWinapi.Windows
             // 不在此处提前返回"已在前台"，因为窗口可能是前台但仍处于最小化/隐藏态。
             if (showHidden && !IsWindowVisible(hWnd))
             {
-                // 使用同步 ShowWindow 而非 ShowWindowAsync：
-                // 同步调用保证目标窗口处理完恢复消息链后才继续，避免抢先 SetForegroundWindow。
-                // 已知限制：微信 Ctrl+W 隐藏到托盘后，外部 ShowWindow 恢复仍会导致输入卡死，
-                // 因为微信内部恢复管线需要由托盘图标点击触发，ShowWindow 无法等效替代。
+                // 已知限制：微信等 Qt 应用通过 Ctrl+W 隐藏到托盘后，外部 ShowWindow/PostMessage
+                // 恢复会导致窗口不响应输入，因为 Qt 内部恢复管线需要由托盘图标点击触发。
                 ShowWindow(hWnd, SW_RESTORE);
 
                 if (!IsWindowVisible(hWnd))
@@ -360,6 +359,9 @@ namespace ManagedWinapi.Windows
             if (GetForegroundWindow() == hWnd)
                 return true;
 
+            if (useAttachThreadInput)
+                return ForceSetForegroundWindowWithAttach(hWnd);
+
             return ForceSetForegroundWindow(hWnd);
         }
 
@@ -369,33 +371,79 @@ namespace ManagedWinapi.Windows
         /// </summary>
         private static bool ForceSetForegroundWindow(IntPtr hWnd)
         {
-            // 方法 1: 标准 SetForegroundWindow (快速路径)
-            // UIAccess 进程不受前台窗口锁限制，此调用通常直接成功
+            // Method 1: standard foreground activation path.
             if (SetForegroundWindow(hWnd))
             {
                 if (GetForegroundWindow() == hWnd)
                     return true;
             }
 
-            // 方法 2: 注入零位移鼠标移动获取前台权限后重试
-            // 不使用 AttachThreadInput — 它会合并线程输入队列，
-            // 导致 Chromium 等多进程应用的消息队列状态损坏，表现为窗口卡死不响应输入
+            // Method 2: Z-order nudge fallback without synthetic mouse input.
+            BringWindowToTop(hWnd);
+            SetForegroundWindow(hWnd);
+            if (GetForegroundWindow() == hWnd)
+                return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// 兼容模式前台切换：使用 AttachThreadInput + SetFocus。
+        /// 激活更可靠，但会临时合并输入队列，可能导致 Chromium/Qt 等多进程应用卡死。
+        /// 仅在用户显式选择兼容模式时使用。
+        /// </summary>
+        private static bool ForceSetForegroundWindowWithAttach(IntPtr hWnd)
+        {
+            // 方法 1: 标准 SetForegroundWindow (快速路径)
+            // 成功就直接返回，不进入 AttachThreadInput 避免无谓的队列合并风险。
+            if (SetForegroundWindow(hWnd))
+            {
+                if (GetForegroundWindow() == hWnd)
+                    return true;
+            }
+
+            // 方法 2: AttachThreadInput 合并输入队列后重试
             try
             {
-                mouse_event(MOUSEEVENTF_MOVE, 0, 0, 0, UIntPtr.Zero);
-                SetForegroundWindow(hWnd);
+                IntPtr currentForegroundWindow = GetForegroundWindow();
+                uint currentThreadId = GetCurrentThreadId();
+                uint targetThreadId = GetWindowThreadProcessId(hWnd, IntPtr.Zero);
+                uint foregroundThreadId = GetWindowThreadProcessId(currentForegroundWindow, IntPtr.Zero);
+
+                bool attached1 = false, attached2 = false;
+                try
+                {
+                    if (foregroundThreadId != 0 && currentThreadId != foregroundThreadId)
+                        attached1 = AttachThreadInput(currentThreadId, foregroundThreadId, true);
+                    if (foregroundThreadId != 0 && foregroundThreadId != targetThreadId)
+                        attached2 = AttachThreadInput(foregroundThreadId, targetThreadId, true);
+                    SetForegroundWindow(hWnd);
+
+                    // SetFocus 只在前台切换成功后尝试，作为弱依赖——
+                    // 对顶层窗口 SetFocus 不一定有效（焦点可能应落在子控件），失败不影响结果。
+                    if (GetForegroundWindow() == hWnd)
+                        SetFocus(hWnd);
+                }
+                finally
+                {
+                    if (attached2)
+                        AttachThreadInput(foregroundThreadId, targetThreadId, false);
+                    if (attached1)
+                        AttachThreadInput(currentThreadId, foregroundThreadId, false);
+                }
 
                 if (GetForegroundWindow() == hWnd)
                     return true;
             }
             catch
             {
-                // mouse_event 失败时仅保留快速路径结果，不再做侵入式兜底。
+                // AttachThreadInput 失败，继续尝试兜底
             }
 
-            // 不再使用 SetWindowPos(..., SWP_SHOWWINDOW) 作为第三层兜底。
-            // 它会强行改动窗口显示状态和 Z-order，对 Chromium 系列窗口存在副作用风险。
-            return false;
+            // 方法 3: BringWindowToTop 兜底
+            BringWindowToTop(hWnd);
+            SetForegroundWindow(hWnd);
+            return GetForegroundWindow() == hWnd;
         }
 
         /// <summary>
@@ -1619,10 +1667,14 @@ namespace ManagedWinapi.Windows
         private const int SW_SHOW = 5;
         private const int SW_RESTORE = 9;
 
-        [DllImport("user32.dll")]
-        private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentThreadId();
 
-        private const uint MOUSEEVENTF_MOVE = 0x0001;
+        [DllImport("user32.dll")]
+        private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetFocus(IntPtr hWnd);
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);

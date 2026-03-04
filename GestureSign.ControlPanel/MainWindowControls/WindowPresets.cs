@@ -1,4 +1,5 @@
 using GestureSign.Common.Applications;
+using GestureSign.Common.Localization;
 using GestureSign.Common.UI;
 using GestureSign.ControlPanel.Common;
 using MahApps.Metro.Controls.Dialogs;
@@ -29,6 +30,8 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void UserControl_Initialized(object sender, EventArgs e)
         {
+            InitializeActivationMethodComboBox();
+
             _presets = new ObservableCollection<WindowRule>(WindowPresetManager.Instance.Presets);
             PresetsListBox.ItemsSource = _presets;
 
@@ -68,6 +71,11 @@ namespace GestureSign.ControlPanel.MainWindowControls
             PresetNameTextBox.Text = preset.Name ?? string.Empty;
             PresetConditionList.ApplicationPath = preset.ApplicationPath ?? string.Empty;
             PresetConditionList.SetConditions(preset.Conditions?.ToList());
+
+            int methodIndex = (int)preset.ActivationMethod;
+            PresetActivationMethodComboBox.SelectedIndex = methodIndex >= 0 && methodIndex <= 2
+                ? methodIndex
+                : 0;
         }
 
         private void ClearEditor()
@@ -75,6 +83,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
             PresetNameTextBox.Text = string.Empty;
             PresetConditionList.ApplicationPath = string.Empty;
             PresetConditionList.Clear();
+            PresetActivationMethodComboBox.SelectedIndex = 0;
         }
 
         private void AddPreset_Click(object sender, RoutedEventArgs e)
@@ -194,6 +203,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 _selectedPreset.Name = presetName;
                 _selectedPreset.ApplicationPath = applicationPath;
                 _selectedPreset.Conditions = conditions;
+                _selectedPreset.ActivationMethod = GetSelectedActivationMethod();
 
                 WindowPresetManager.Instance.SavePresets();
 
@@ -222,7 +232,8 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 {
                     Name = presetName,
                     ApplicationPath = applicationPath,
-                    Conditions = conditions
+                    Conditions = conditions,
+                    ActivationMethod = GetSelectedActivationMethod()
                 };
 
                 WindowPresetManager.Instance.AddPreset(newPreset);
@@ -254,6 +265,23 @@ namespace GestureSign.ControlPanel.MainWindowControls
                     }
                 }
             }
+        }
+
+        private void InitializeActivationMethodComboBox()
+        {
+            PresetActivationMethodComboBox.Items.Clear();
+            PresetActivationMethodComboBox.Items.Add(LocalizationProvider.Instance.GetTextValue("WindowPresets.ActivationMethodUseGlobal"));
+            PresetActivationMethodComboBox.Items.Add(LocalizationProvider.Instance.GetTextValue("WindowPresets.ActivationMethodAttachThreadInput"));
+            PresetActivationMethodComboBox.Items.Add(LocalizationProvider.Instance.GetTextValue("WindowPresets.ActivationMethodSafeMode"));
+            PresetActivationMethodComboBox.SelectedIndex = 0;
+        }
+
+        private ActivationMethod GetSelectedActivationMethod()
+        {
+            int selectedIndex = PresetActivationMethodComboBox.SelectedIndex;
+            return selectedIndex >= 0 && selectedIndex <= 2
+                ? (ActivationMethod)selectedIndex
+                : ActivationMethod.UseGlobal;
         }
 
         #region Drag and Drop Sorting
