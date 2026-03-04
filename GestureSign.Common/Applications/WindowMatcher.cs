@@ -394,7 +394,7 @@ namespace GestureSign.Common.Applications
             }
             else
             {
-                return windowTitle.Contains(pattern, StringComparison.OrdinalIgnoreCase);
+                return string.Equals(windowTitle, pattern, StringComparison.OrdinalIgnoreCase);
             }
         }
 
@@ -634,7 +634,7 @@ namespace GestureSign.Common.Applications
             }
             else
             {
-                return windowTitle.Contains(pattern, StringComparison.OrdinalIgnoreCase);
+                return string.Equals(windowTitle, pattern, StringComparison.OrdinalIgnoreCase);
             }
         }
 

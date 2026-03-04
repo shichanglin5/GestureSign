@@ -32,7 +32,7 @@ namespace GestureSign.CorePlugins.ActivateApp
         private readonly Dictionary<string, (List<IntPtr> Handles, DateTime LastUpdate)> _windowListCache = new();
 
         // Settings cache: Key = serializedData (JSON string), Value = deserialized settings
-        // 注意：这里缓存的是不可变数据，UI 编辑时会生成新的 JSON 字符串
+        // Cached data is immutable for a given JSON payload.
         private static readonly Dictionary<string, ActivateAppSettings> _settingsCache = new();
         private static readonly HashSet<string> WindowClassBlacklist = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -80,7 +80,6 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         [DllImport("user32.dll")]
         private static extern bool IsWindow(IntPtr hWnd);
-
 
         [DllImport("dwmapi.dll")]
         private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
@@ -173,7 +172,7 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             try
             {
-                // 如果引用了预置，动态同步预置的最新条件
+                // Sync latest preset content when this action references a preset.
                 SyncPresetIfNeeded();
 
                 if (_settings == null || !_settings.HasValidConditions)
@@ -215,14 +214,13 @@ namespace GestureSign.CorePlugins.ActivateApp
 
         public bool Deserialize(string serializedData)
         {
-            // 从缓存获取，避免重复反序列化
+            // Retrieve from cache to avoid repeated deserialization.
             if (_settingsCache.TryGetValue(serializedData, out var cached))
             {
                 _settings = cached;
                 return true;
             }
 
-            // 反序列化并缓存
             bool success = PluginHelper.DeserializeSettings(serializedData, out _settings);
             if (success && _settings != null)
             {
@@ -266,7 +264,7 @@ namespace GestureSign.CorePlugins.ActivateApp
 
                     if (validWindows.Count > 0)
                     {
-                        // 只有窗口数量变化时才更新缓存，保持原始时间戳
+                        // Only update cache content when count changes; keep original timestamp.
                         if (validWindows.Count != cachedData.Handles.Count)
                         {
                             _windowListCache[cacheKey] = (validWindows, cachedData.LastUpdate);
@@ -363,7 +361,7 @@ namespace GestureSign.CorePlugins.ActivateApp
             if (!IsWindow(hWnd))
                 return false;
 
-            // Hidden scan is only for tray-like hidden windows.
+            // Hidden scan only handles Win32-invisible windows.
             if (IsWindowVisible(hWnd))
                 return false;
 
@@ -390,7 +388,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                     return false;
             }
 
-            // 无标题隐藏窗口不是用户期望激活的业务窗口
+            // Hidden windows without title are usually not user-facing business windows.
             if (GetWindowTextLength(hWnd) == 0)
                 return false;
 
@@ -403,14 +401,20 @@ namespace GestureSign.CorePlugins.ActivateApp
             var foregroundWindow = GetForegroundWindow();
             bool isForeground = hWnd == foregroundWindow;
             bool isVisible = IsWindowVisible(hWnd);
+            // isCloaked 仅用于诊断日志。DWM cloaked 窗口（DWMWA_CLOAKED != 0）的 IsWindowVisible
+            // 仍返回 true，但窗口实际不可见不可交互。第三方进程无法通过
+            // DwmSetWindowAttribute(DWMWA_CLOAK=FALSE) 解除 cloaked 状态，
+            // 这类窗口会走到普通激活路径，Win32 层面激活"成功"但窗口可能仍不可见，
+            // 需要应用自身（如 Telegram/Qt）通过内部状态机恢复。
+            bool isCloaked = DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out int cloakedVal, sizeof(int)) == 0 && cloakedVal != 0;
             bool isIconic = IsIconic(hWnd);
             var windowState = window.WindowState;
 
-            Logging.LogDebug($"[ActivateApp] HandleSingleWindow: target={DescribeWindow(hWnd)}, foreground={DescribeWindow(foregroundWindow)}, isForeground={isForeground}, isVisible={isVisible}, isIconic={isIconic}, windowState={windowState}");
+            Logging.LogDebug($"[ActivateApp] HandleSingleWindow: target={DescribeWindow(hWnd)}, foreground={DescribeWindow(foregroundWindow)}, isForeground={isForeground}, isVisible={isVisible}, isCloaked={isCloaked}, isIconic={isIconic}, windowState={windowState}");
 
             if (!isVisible)
             {
-                // 窗口隐藏（如托盘应用），需要 showHidden 恢复
+                // Hidden/tray window: restore via showHidden path.
                 bool useAttach = ResolveUseAttachThreadInput();
                 bool result = SystemWindow.TryActivateWindow(hWnd, showHidden: true, restoreMinimized: true, useAttachThreadInput: useAttach);
                 Logging.LogDebug($"[ActivateApp] TryActivateWindow(showHidden, attach={useAttach}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
@@ -419,7 +423,6 @@ namespace GestureSign.CorePlugins.ActivateApp
 
             if (isIconic)
             {
-                // 窗口真正最小化（IsIconic=true），只需恢复最小化+激活
                 bool useAttach = ResolveUseAttachThreadInput();
                 bool result = SystemWindow.TryActivateWindow(hWnd, showHidden: false, restoreMinimized: true, useAttachThreadInput: useAttach);
                 Logging.LogDebug($"[ActivateApp] TryActivateWindow(restoreMinimized, attach={useAttach}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
@@ -428,11 +431,11 @@ namespace GestureSign.CorePlugins.ActivateApp
 
             if (isForeground)
             {
-                // 窗口已是前台且可见、非最小化
+                // Window is already foreground, visible and not iconic.
                 if (windowState == FormWindowState.Minimized)
                 {
-                    // GetWindowPlacement 报告 Minimized 但 IsIconic=false：
-                    // Qt 应用存在窗口状态不一致，不做额外操作避免触发 Qt 卡死
+                    // Some Qt apps report WindowPlacement=Minimized while IsIconic=false.
+                    // Skip extra operations to avoid triggering UI hangs.
                     Logging.LogDebug($"[ActivateApp] foreground window has inconsistent state (windowState=Minimized but isIconic=false), skipping");
                     return true;
                 }
@@ -445,7 +448,7 @@ namespace GestureSign.CorePlugins.ActivateApp
             }
             else
             {
-                // 窗口在后台，激活到前台
+                // Window is in background, activate it to foreground.
                 bool useAttach = ResolveUseAttachThreadInput();
                 bool result = SystemWindow.TryActivateWindow(hWnd, useAttachThreadInput: useAttach);
                 Logging.LogDebug($"[ActivateApp] TryActivateWindow(attach={useAttach}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
@@ -545,13 +548,13 @@ namespace GestureSign.CorePlugins.ActivateApp
         /// </summary>
         private bool TryLaunchApplication(ActivateAppSettings settings)
         {
-            // 优先尝试通过 AUMID 启动（PWA/UWP 应用）
+            // Prefer AUMID launch for PWA/UWP apps.
             if (!string.IsNullOrEmpty(settings.AUMID))
             {
                 return TryLaunchByAUMID(settings.AUMID);
             }
 
-            // 回退到传统的 exe 路径启动
+            // Fallback to traditional executable path.
             var applicationPath = settings.WindowRule?.ApplicationPath;
             if (string.IsNullOrEmpty(applicationPath))
             {
@@ -704,12 +707,11 @@ namespace GestureSign.CorePlugins.ActivateApp
         }
 
         /// <summary>
-        /// 解析最终的激活方式：预置配置 > 动作实例配置 > 全局配置。
-        /// 返回 true 表示使用 AttachThreadInput，false 表示使用安全模式。
+        /// Resolve final activation mode with priority:
+        /// preset override > action setting > global default.
         /// </summary>
         private bool ResolveUseAttachThreadInput()
         {
-            // 1. 如果引用了预置，且预置指定了激活方式（非 UseGlobal），使用预置的
             if (!string.IsNullOrEmpty(_settings?.PresetId))
             {
                 var preset = WindowPresetManager.Instance.GetPresetById(_settings.PresetId);
@@ -719,20 +721,17 @@ namespace GestureSign.CorePlugins.ActivateApp
                 }
             }
 
-            // 2. 动作实例的配置
             var method = _settings?.ActivationMethod ?? ActivationMethod.UseGlobal;
             if (method != ActivationMethod.UseGlobal)
             {
                 return method == ActivationMethod.AttachThreadInput;
             }
 
-            // 3. 全局配置：1=AttachThreadInput, 2=SafeMode
             return AppConfig.DefaultActivationMethod == (int)ActivationMethod.AttachThreadInput;
         }
 
         /// <summary>
-        /// 如果引用了预置规则，从预置管理器同步最新的条件和路径到 _settings.WindowRule。
-        /// 这样预置条件修改后，已有的 ActivateApp 动作会自动使用最新配置。
+        /// Sync latest preset rule into current action settings when preset is referenced.
         /// </summary>
         private void SyncPresetIfNeeded()
         {

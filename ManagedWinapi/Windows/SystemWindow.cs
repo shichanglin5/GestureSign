@@ -330,6 +330,10 @@ namespace ManagedWinapi.Windows
 
             // 先处理可选副作用，再做前台切换。
             // 不在此处提前返回"已在前台"，因为窗口可能是前台但仍处于最小化/隐藏态。
+            // 注意：此分支仅处理 Win32 层面不可见的窗口（IsWindowVisible=false）。
+            // DWM cloaked 窗口（DWMWA_CLOAKED != 0）虽然也不可交互，但 IsWindowVisible 仍返回 true，
+            // 且第三方进程无法通过 DwmSetWindowAttribute(DWMWA_CLOAK=FALSE) 解除 cloaked 状态。
+            // cloaked 窗口的恢复需要由调用方通过启动应用程序等方式触发应用自身的恢复逻辑。
             if (showHidden && !IsWindowVisible(hWnd))
             {
                 // 已知限制：微信等 Qt 应用通过 Ctrl+W 隐藏到托盘后，外部 ShowWindow/PostMessage
@@ -371,20 +375,8 @@ namespace ManagedWinapi.Windows
         /// </summary>
         private static bool ForceSetForegroundWindow(IntPtr hWnd)
         {
-            // Method 1: standard foreground activation path.
-            if (SetForegroundWindow(hWnd))
-            {
-                if (GetForegroundWindow() == hWnd)
-                    return true;
-            }
-
-            // Method 2: Z-order nudge fallback without synthetic mouse input.
-            BringWindowToTop(hWnd);
             SetForegroundWindow(hWnd);
-            if (GetForegroundWindow() == hWnd)
-                return true;
-
-            return false;
+            return GetForegroundWindow() == hWnd;
         }
 
         /// <summary>
@@ -440,9 +432,6 @@ namespace ManagedWinapi.Windows
                 // AttachThreadInput 失败，继续尝试兜底
             }
 
-            // 方法 3: BringWindowToTop 兜底
-            BringWindowToTop(hWnd);
-            SetForegroundWindow(hWnd);
             return GetForegroundWindow() == hWnd;
         }
 
@@ -1455,9 +1444,6 @@ namespace ManagedWinapi.Windows
         [DllImport("user32.dll")]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr ProcessId);
 
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool BringWindowToTop(IntPtr hWnd);
 
         [DllImport("user32.dll")]
         private static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
