@@ -327,14 +327,37 @@ namespace ManagedWinapi.Windows
             if (hWnd == IntPtr.Zero)
                 return false;
 
+            const int pollDelayMs = 10;
+            const int hiddenVisibilityMaxPoll = 20; // 200ms max for tray/hidden window becoming visible
+            const int minimizedRestoreMaxPoll = 5;  // 50ms max for minimized restore
+            const int hiddenSettleDelayMs = 150;    // allow app-internal restore pipeline to settle
+
+            void WaitWhile(Func<bool> predicate, int maxPollCount)
+            {
+                for (int i = 0; i < maxPollCount && predicate(); i++)
+                {
+                    System.Threading.Thread.Sleep(pollDelayMs);
+                }
+            }
+
             // 先处理可选副作用，再做前台切换。
             // 不在此处提前返回"已在前台"，因为窗口可能是前台但仍处于最小化/隐藏态。
             if (showHidden && !IsWindowVisible(hWnd))
             {
-                ShowWindowAsync(hWnd, SW_SHOW);
-                for (int i = 0; i < 5 && !IsWindowVisible(hWnd); i++)
+                // Prefer restore semantics for tray-hidden apps before falling back to SW_SHOW.
+                ShowWindowAsync(hWnd, SW_RESTORE);
+                WaitWhile(() => !IsWindowVisible(hWnd), hiddenVisibilityMaxPoll);
+
+                if (!IsWindowVisible(hWnd))
                 {
-                    System.Threading.Thread.Sleep(10);
+                    ShowWindowAsync(hWnd, SW_SHOW);
+                    WaitWhile(() => !IsWindowVisible(hWnd), hiddenVisibilityMaxPoll);
+                }
+
+                // Some tray apps need extra time to rebuild internal UI/input state after show.
+                if (IsWindowVisible(hWnd))
+                {
+                    System.Threading.Thread.Sleep(hiddenSettleDelayMs);
                 }
             }
 
@@ -343,10 +366,7 @@ namespace ManagedWinapi.Windows
             if (restoreMinimized && IsIconic(hWnd))
             {
                 ShowWindowAsync(hWnd, SW_RESTORE);
-                for (int i = 0; i < 5 && IsIconic(hWnd); i++)
-                {
-                    System.Threading.Thread.Sleep(10);
-                }
+                WaitWhile(() => IsIconic(hWnd), minimizedRestoreMaxPoll);
             }
 
             if (GetForegroundWindow() == hWnd)

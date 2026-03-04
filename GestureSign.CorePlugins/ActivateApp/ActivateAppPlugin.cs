@@ -428,7 +428,8 @@ namespace GestureSign.CorePlugins.ActivateApp
 
             if (!isVisible || windowState == FormWindowState.Minimized)
             {
-                SystemWindow.TryActivateWindow(targetWindow, showHidden: true, restoreMinimized: true);
+                bool result = SystemWindow.TryActivateWindow(targetWindow, showHidden: true, restoreMinimized: true);
+                Logging.LogDebug($"[ActivateApp] TryActivateWindow(showHidden) → {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
                 return true;
             }
 
@@ -449,7 +450,8 @@ namespace GestureSign.CorePlugins.ActivateApp
             else
             {
                 // Window is background - activate it
-                SystemWindow.TryActivateWindow(targetWindow);
+                bool result = SystemWindow.TryActivateWindow(targetWindow);
+                Logging.LogDebug($"[ActivateApp] TryActivateWindow → {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
                 return true;
             }
         }
@@ -545,7 +547,8 @@ namespace GestureSign.CorePlugins.ActivateApp
             IntPtr resolvedTargetWindow = ResolvePreferredActivationWindow(targetWindow);
 
             // Activate the target window (show hidden + restore minimized)
-            SystemWindow.TryActivateWindow(resolvedTargetWindow, showHidden: true, restoreMinimized: true);
+            bool result = SystemWindow.TryActivateWindow(resolvedTargetWindow, showHidden: true, restoreMinimized: true);
+            Logging.LogDebug($"[ActivateApp] TryActivateWindow(multi) → {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
 
             // Update last activated window
             _lastActivatedWindows[appKey] = targetWindow;
