@@ -327,46 +327,34 @@ namespace ManagedWinapi.Windows
             if (hWnd == IntPtr.Zero)
                 return false;
 
-            const int pollDelayMs = 10;
-            const int hiddenVisibilityMaxPoll = 20; // 200ms max for tray/hidden window becoming visible
-            const int minimizedRestoreMaxPoll = 5;  // 50ms max for minimized restore
-            const int hiddenSettleDelayMs = 150;    // allow app-internal restore pipeline to settle
-
-            void WaitWhile(Func<bool> predicate, int maxPollCount)
-            {
-                for (int i = 0; i < maxPollCount && predicate(); i++)
-                {
-                    System.Threading.Thread.Sleep(pollDelayMs);
-                }
-            }
-
             // 先处理可选副作用，再做前台切换。
             // 不在此处提前返回"已在前台"，因为窗口可能是前台但仍处于最小化/隐藏态。
             if (showHidden && !IsWindowVisible(hWnd))
             {
-                // Prefer restore semantics for tray-hidden apps before falling back to SW_SHOW.
-                ShowWindowAsync(hWnd, SW_RESTORE);
-                WaitWhile(() => !IsWindowVisible(hWnd), hiddenVisibilityMaxPoll);
+                // 使用同步 ShowWindow 而非 ShowWindowAsync：
+                // 同步调用保证目标窗口处理完恢复消息链后才继续，避免抢先 SetForegroundWindow。
+                // 已知限制：微信 Ctrl+W 隐藏到托盘后，外部 ShowWindow 恢复仍会导致输入卡死，
+                // 因为微信内部恢复管线需要由托盘图标点击触发，ShowWindow 无法等效替代。
+                ShowWindow(hWnd, SW_RESTORE);
 
                 if (!IsWindowVisible(hWnd))
                 {
-                    ShowWindowAsync(hWnd, SW_SHOW);
-                    WaitWhile(() => !IsWindowVisible(hWnd), hiddenVisibilityMaxPoll);
-                }
-
-                // Some tray apps need extra time to rebuild internal UI/input state after show.
-                if (IsWindowVisible(hWnd))
-                {
-                    System.Threading.Thread.Sleep(hiddenSettleDelayMs);
+                    ShowWindow(hWnd, SW_SHOW);
                 }
             }
 
             // 最小化窗口先恢复，否则 SetForegroundWindow 效果不稳定。
             // 使用 ShowWindowAsync 异步投递，避免跨进程同步阻塞。
+            // （最小化恢复场景窗口本身可见，不存在内部状态断裂问题）
             if (restoreMinimized && IsIconic(hWnd))
             {
+                const int pollDelayMs = 10;
+                const int minimizedRestoreMaxPoll = 5;  // 50ms max for minimized restore
                 ShowWindowAsync(hWnd, SW_RESTORE);
-                WaitWhile(() => IsIconic(hWnd), minimizedRestoreMaxPoll);
+                for (int i = 0; i < minimizedRestoreMaxPoll && IsIconic(hWnd); i++)
+                {
+                    System.Threading.Thread.Sleep(pollDelayMs);
+                }
             }
 
             if (GetForegroundWindow() == hWnd)
