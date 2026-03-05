@@ -44,7 +44,9 @@ namespace GestureSign.CorePlugins.ActivateApp
         private static readonly HashSet<string> WindowTitleBlacklist = new(StringComparer.OrdinalIgnoreCase)
         {
             // TongDaXin helper root window title; activating it steals focus without showing business UI.
-            "HIDENET"
+            "HIDENET",
+            // Qt tray icon message window; not user-facing.
+            "QTrayIconMessageWindow"
         };
 
         #endregion
@@ -401,9 +403,16 @@ namespace GestureSign.CorePlugins.ActivateApp
                 IntPtr owner = GetWindow(hWnd, GW_OWNER);
                 if (owner != IntPtr.Zero && IsWindowVisible(owner))
                 {
-                    string ownerClass = GetWindowClassName(owner);
-                    if (string.IsNullOrEmpty(ownerClass) || !WindowClassBlacklist.Contains(ownerClass))
-                        return false;
+                    if (DwmGetWindowAttribute(owner, DWMWA_CLOAKED, out int ownerCloaked, sizeof(int)) == 0 && ownerCloaked != 0)
+                    {
+                        // owner is cloaked, treat as invisible - allow this window
+                    }
+                    else
+                    {
+                        string ownerClass = GetWindowClassName(owner);
+                        if (string.IsNullOrEmpty(ownerClass) || !WindowClassBlacklist.Contains(ownerClass))
+                            return false;
+                    }
                 }
             }
 
@@ -936,15 +945,25 @@ namespace GestureSign.CorePlugins.ActivateApp
                     return false;
 
                 IntPtr ownerWindow = GetWindow(hWnd, GW_OWNER);
-                // 跳过有可见 owner 的窗口（对话框、子窗口等）。
-                // 但如果 owner 是框架隐藏窗口（如 Delphi TApplication、VB6 ThunderRT6Main），则放行——
-                // 这类 owner 虽然 IsWindowVisible=True（有 WS_VISIBLE），但实际是 0 像素的消息窗口，
-                // owned 窗口才是真正的应用主窗口。用类黑名单识别这类伪可见 owner。
+                // 跳过有"真正可见"的 owner 的窗口（对话框、子窗口等）。
+                // "真正可见" = IsWindowVisible && 非 DWM cloaked && class 不在黑名单。
+                // 放行情况：
+                // - owner 不可见（普通隐藏）
+                // - owner cloaked（如 Telegram 旧窗口，IsWindowVisible=True 但 DWM 隐藏）
+                // - owner class 在黑名单（如 Delphi TApplication，0 像素的框架消息窗口）
                 if (ownerWindow != IntPtr.Zero && IsWindowVisible(ownerWindow))
                 {
-                    string ownerClass = GetWindowClassName(ownerWindow);
-                    if (string.IsNullOrEmpty(ownerClass) || !WindowClassBlacklist.Contains(ownerClass))
-                        return false;
+                    // owner 是 cloaked 窗口时视为不可见，放行 owned 窗口
+                    if (DwmGetWindowAttribute(ownerWindow, DWMWA_CLOAKED, out int ownerCloaked, sizeof(int)) == 0 && ownerCloaked != 0)
+                    {
+                        // owner is cloaked, treat as invisible - allow this window
+                    }
+                    else
+                    {
+                        string ownerClass = GetWindowClassName(ownerWindow);
+                        if (string.IsNullOrEmpty(ownerClass) || !WindowClassBlacklist.Contains(ownerClass))
+                            return false;
+                    }
                 }
             }
 
