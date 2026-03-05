@@ -626,17 +626,22 @@ namespace GestureSign.CorePlugins.ActivateApp
             if (length == 0)
                 return false;
 
-            // Skip windows with an owner (child windows like SubWebView)
-            IntPtr ownerWindow = GetWindow(hWnd, GW_OWNER);
-            if (ownerWindow != IntPtr.Zero)
-                return false;
-
-            // Check extended window styles
             uint exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
 
-            // Skip tool windows unless they have WS_EX_APPWINDOW
-            if ((exStyle & WS_EX_TOOLWINDOW) != 0 && (exStyle & WS_EX_APPWINDOW) == 0)
-                return false;
+            // 任务栏同款规则判断窗口是否为用户可见的主窗口：
+            // 1. WS_EX_APPWINDOW → 一定显示（无论 owner/tool window）
+            // 2. WS_EX_TOOLWINDOW → 跳过
+            // 3. 无 owner → 显示
+            // 4. 有 owner → 跳过（对话框、子窗口等）
+            if ((exStyle & WS_EX_APPWINDOW) == 0)
+            {
+                if ((exStyle & WS_EX_TOOLWINDOW) != 0)
+                    return false;
+
+                IntPtr ownerWindow = GetWindow(hWnd, GW_OWNER);
+                if (ownerWindow != IntPtr.Zero)
+                    return false;
+            }
 
             // Skip non-activatable windows.
             if ((exStyle & WS_EX_NOACTIVATE) != 0)
