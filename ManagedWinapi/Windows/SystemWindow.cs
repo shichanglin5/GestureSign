@@ -338,11 +338,14 @@ namespace ManagedWinapi.Windows
             {
                 // 已知限制：微信等 Qt 应用通过 Ctrl+W 隐藏到托盘后，外部 ShowWindow/PostMessage
                 // 恢复会导致窗口不响应输入，因为 Qt 内部恢复管线需要由托盘图标点击触发。
-                ShowWindow(hWnd, SW_RESTORE);
+
+                // 优先用 SW_SHOW 保持窗口原始大小/位置（如最大化状态），
+                // 仅在 SW_SHOW 无效时（部分应用需要 SW_RESTORE 触发内部恢复逻辑）才回退。
+                ShowWindow(hWnd, SW_SHOW);
 
                 if (!IsWindowVisible(hWnd))
                 {
-                    ShowWindow(hWnd, SW_SHOW);
+                    ShowWindow(hWnd, SW_RESTORE);
                 }
             }
 

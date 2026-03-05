@@ -97,7 +97,7 @@ namespace GestureSign.Daemon.Triggers
             else if (_scrollFrameCount > 0)
             {
                 // 仅在有实际滚动帧时输出，避免短触碰产生大量无用日志
-                Logging.LogDebug($"[CGT] CaptureEnded: no inertia - fingers={_lastFingerCount} hasVelocity={_lastVelocity != null} frames={_scrollFrameCount} sinceLastFrame={msSinceLastFrame}ms hasExecutor={_lastFingerCount > 0 && _scrollExecutors.ContainsKey(_lastFingerCount)}");
+                Logging.LogTrace($"[CGT] CaptureEnded: no inertia - fingers={_lastFingerCount} hasVelocity={_lastVelocity != null} frames={_scrollFrameCount} sinceLastFrame={msSinceLastFrame}ms hasExecutor={_lastFingerCount > 0 && _scrollExecutors.ContainsKey(_lastFingerCount)}");
             }
             _velocityHistory.Clear();
             _scrollFrameCount = 0;

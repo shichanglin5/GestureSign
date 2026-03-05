@@ -41,6 +41,11 @@ namespace GestureSign.CorePlugins.ActivateApp
             "GDI+ Hook Window Class",
             "TApplication"
         };
+        private static readonly HashSet<string> WindowTitleBlacklist = new(StringComparer.OrdinalIgnoreCase)
+        {
+            // TongDaXin helper root window title; activating it steals focus without showing business UI.
+            "HIDENET"
+        };
 
         #endregion
 
@@ -187,10 +192,21 @@ namespace GestureSign.CorePlugins.ActivateApp
                 // Log matching result using GetMatchInfoString
                 var matchInfo = GetMatchInfoString();
                 Logging.LogDebug($"[ActivateApp] Activating: {_settings.WindowRule?.Name}, matched by [{matchInfo}]: {appWindows.Count} windows found");
+                foreach (var w in appWindows)
+                {
+                    IntPtr owner = GetWindow(w, GW_OWNER);
+                    Logging.LogDebug($"[ActivateApp]   {DescribeWindow(w)}, owner={DescribeWindow(owner)}");
+                }
 
                 if (appWindows.Count == 0)
                 {
-                    // Application not running - try to launch
+                    // 先检查目标进程是否仍在运行——如果进程存在但无可激活窗口
+                    // （如只有辅助/helper 窗口），不应重复启动。
+                    if (IsTargetProcessRunning(_settings))
+                    {
+                        Logging.LogDebug("[ActivateApp] Target process is running but no activatable window found, skipping launch");
+                        return true;
+                    }
                     return TryLaunchApplication(_settings);
                 }
 
@@ -251,6 +267,8 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             string cacheKey = settings.GenerateCacheKey();
 
+            bool requireTitle = settings.WindowRule?.Conditions?.Any(c => c.Type == MatchConditionType.ClassName) != true;
+
             // Try cache first (if enabled)
             if (settings.CacheExpirationSeconds > 0 && _windowListCache.TryGetValue(cacheKey, out var cachedData))
             {
@@ -259,7 +277,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                 {
                     // Validate cached windows still exist
                     var validWindows = cachedData.Handles
-                        .Where(hWnd => IsWindow(hWnd) && IsSwitchableWindow(hWnd))
+                        .Where(hWnd => IsWindow(hWnd) && IsSwitchableWindow(hWnd, requireTitle))
                         .ToList();
 
                     if (validWindows.Count > 0)
@@ -278,15 +296,17 @@ namespace GestureSign.CorePlugins.ActivateApp
             }
 
             // Perform full scan
-            var windows = ScanMatchingWindows(settings, includeHidden: false);
+            var windows = ScanMatchingWindows(settings, includeHidden: false, requireTitle);
 
             // If no visible windows found, try hidden windows (tray apps)
             if (windows.Count == 0)
             {
-                windows = ScanMatchingWindows(settings, includeHidden: true);
+                windows = ScanMatchingWindows(settings, includeHidden: true, requireTitle);
                 if (windows.Count > 0)
                 {
-                    Logging.LogDebug($"[ActivateApp] Found {windows.Count} hidden windows (tray app)");
+                    LogHiddenCandidates("before filter", windows);
+                    windows = FilterHiddenCandidates(windows);
+                    LogHiddenCandidates("after filter", windows);
                 }
             }
 
@@ -303,7 +323,7 @@ namespace GestureSign.CorePlugins.ActivateApp
         /// Scan all windows and find matching ones
         /// Uses WindowRule.Conditions if available, otherwise falls back to WindowRule.ApplicationPath matching
         /// </summary>
-        private List<IntPtr> ScanMatchingWindows(ActivateAppSettings settings, bool includeHidden)
+        private List<IntPtr> ScanMatchingWindows(ActivateAppSettings settings, bool includeHidden, bool requireTitle)
         {
             var windows = new List<IntPtr>();
             var rule = settings.WindowRule;
@@ -316,10 +336,10 @@ namespace GestureSign.CorePlugins.ActivateApp
             EnumWindows((hWnd, _) =>
             {
                 // Check if window is suitable for activation
-                if (!includeHidden && !IsSwitchableWindow(hWnd))
+                if (!includeHidden && !IsSwitchableWindow(hWnd, requireTitle))
                     return true;
 
-                if (includeHidden && !IsActivatableHiddenWindow(hWnd))
+                if (includeHidden && !IsActivatableHiddenWindow(hWnd, requireTitle))
                     return true;
 
                 try
@@ -356,7 +376,7 @@ namespace GestureSign.CorePlugins.ActivateApp
             return windows;
         }
 
-        private bool IsActivatableHiddenWindow(IntPtr hWnd)
+        private bool IsActivatableHiddenWindow(IntPtr hWnd, bool requireTitle = true)
         {
             if (!IsWindow(hWnd))
                 return false;
@@ -365,31 +385,47 @@ namespace GestureSign.CorePlugins.ActivateApp
             if (IsWindowVisible(hWnd))
                 return false;
 
-            // Keep only top-level windows.
-            if (GetWindow(hWnd, GW_OWNER) != IntPtr.Zero)
-                return false;
-
             uint exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
 
-            // Skip tool windows unless they have WS_EX_APPWINDOW
-            if ((exStyle & WS_EX_TOOLWINDOW) != 0 && (exStyle & WS_EX_APPWINDOW) == 0)
-                return false;
+            // 与 IsSwitchableWindow（可见扫描）一致的 owner 规则：
+            // - WS_EX_APPWINDOW → 放行（无论 owner/tool window）
+            // - WS_EX_TOOLWINDOW && !WS_EX_APPWINDOW → 过滤
+            // - owner 可见且 class 不在黑名单 → 过滤（对话框/子窗口）
+            // - owner 不可见 或 owner class 在黑名单（如 TApplication）→ 放行
+            // - 无 owner → 放行
+            if ((exStyle & WS_EX_APPWINDOW) == 0)
+            {
+                if ((exStyle & WS_EX_TOOLWINDOW) != 0)
+                    return false;
+
+                IntPtr owner = GetWindow(hWnd, GW_OWNER);
+                if (owner != IntPtr.Zero && IsWindowVisible(owner))
+                {
+                    string ownerClass = GetWindowClassName(owner);
+                    if (string.IsNullOrEmpty(ownerClass) || !WindowClassBlacklist.Contains(ownerClass))
+                        return false;
+                }
+            }
 
             // Skip non-activatable windows.
             if ((exStyle & WS_EX_NOACTIVATE) != 0)
                 return false;
 
+            // Skip DWM cloaked windows (与 IsSwitchableWindow 保持一致).
+            if (DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0 && cloaked != 0)
+                return false;
+
+            // Skip known internal/system window classes (e.g. GDI+ Hook Window)
             var className = new StringBuilder(256);
-            string classNameText = string.Empty;
             if (GetClassName(hWnd, className, className.Capacity) > 0)
             {
-                classNameText = className.ToString();
-                if (WindowClassBlacklist.Contains(classNameText))
+                if (WindowClassBlacklist.Contains(className.ToString()))
                     return false;
             }
 
             // Hidden windows without title are usually not user-facing business windows.
-            if (GetWindowTextLength(hWnd) == 0)
+            // 当规则包含 ClassName 条件时可跳过（同 IsSwitchableWindow）。
+            if (requireTitle && GetWindowTextLength(hWnd) == 0)
                 return false;
 
             return true;
@@ -410,7 +446,8 @@ namespace GestureSign.CorePlugins.ActivateApp
             bool isIconic = IsIconic(hWnd);
             var windowState = window.WindowState;
 
-            Logging.LogDebug($"[ActivateApp] HandleSingleWindow: target={DescribeWindow(hWnd)}, foreground={DescribeWindow(foregroundWindow)}, isForeground={isForeground}, isVisible={isVisible}, isCloaked={isCloaked}, isIconic={isIconic}, windowState={windowState}");
+            IntPtr owner = GetWindow(hWnd, GW_OWNER);
+            Logging.LogDebug($"[ActivateApp] HandleSingleWindow: target={DescribeWindow(hWnd)}, owner={DescribeWindow(owner)}, foreground={DescribeWindow(foregroundWindow)}, isForeground={isForeground}, isVisible={isVisible}, isCloaked={isCloaked}, isIconic={isIconic}, windowState={windowState}");
 
             if (!isVisible)
             {
@@ -535,11 +572,53 @@ namespace GestureSign.CorePlugins.ActivateApp
             // Activate the target window (show hidden + restore minimized)
             bool useAttach = ResolveUseAttachThreadInput();
             bool result = SystemWindow.TryActivateWindow(targetWindow, showHidden: true, restoreMinimized: true, useAttachThreadInput: useAttach);
-            Logging.LogDebug($"[ActivateApp] TryActivateWindow(multi, attach={useAttach}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
+            IntPtr targetOwner = GetWindow(targetWindow, GW_OWNER);
+            Logging.LogDebug($"[ActivateApp] TryActivateWindow(multi, attach={useAttach}) -> {result}, target owner={DescribeWindow(targetOwner)}, actual foreground={DescribeWindow(GetForegroundWindow())}");
 
             // Update last activated window
             _lastActivatedWindows[appKey] = targetWindow;
             return true;
+        }
+
+        /// <summary>
+        /// 检查目标进程是否仍在运行。
+        /// 有 ApplicationPath 时按完整路径匹配（避免同名进程误判），
+        /// 否则按 ProcessName 条件的进程名匹配。
+        /// </summary>
+        private static bool IsTargetProcessRunning(ActivateAppSettings settings)
+        {
+            string appPath = settings.WindowRule?.ApplicationPath;
+
+            // 有完整路径时按路径精确匹配
+            if (!string.IsNullOrEmpty(appPath))
+            {
+                string name = Path.GetFileNameWithoutExtension(appPath);
+                foreach (var proc in Process.GetProcessesByName(name))
+                {
+                    try
+                    {
+                        if (string.Equals(proc.MainModule?.FileName, appPath, StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+                    catch
+                    {
+                        // 权限不足无法访问 MainModule，跳过该进程继续检查
+                    }
+                }
+                return false;
+            }
+
+            // 回退到 ProcessName 条件
+            string processName = settings.WindowRule?.Conditions?
+                .FirstOrDefault(c => c.Type == MatchConditionType.ProcessName)?.Value;
+
+            if (!string.IsNullOrEmpty(processName))
+            {
+                string name = Path.GetFileNameWithoutExtension(processName);
+                return Process.GetProcessesByName(name).Length > 0;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -615,15 +694,233 @@ namespace GestureSign.CorePlugins.ActivateApp
             }
         }
 
-        private bool IsSwitchableWindow(IntPtr hWnd)
+        /// <summary>
+        /// 对 hidden scan 候选列表做后处理：
+        /// 1. 黑名单标题窗口尝试用同进程 owned 业务窗口替换
+        /// 2. 找出"被同进程其他候选作为 owner 引用"的窗口，降权（辅助根窗口）
+        /// 3. 在剩余候选中，WS_EX_APPWINDOW 窗口排在前面
+        /// </summary>
+        private List<IntPtr> FilterHiddenCandidates(List<IntPtr> candidates)
+        {
+            if (candidates.Count == 0)
+                return candidates;
+
+            // First pass: try replacing blacklisted-title windows with owned business windows.
+            var replaced = new List<IntPtr>();
+            var blacklisted = new HashSet<IntPtr>();
+            foreach (var candidate in candidates)
+            {
+                if (!IsBlacklistedWindowTitle(candidate))
+                    continue;
+
+                blacklisted.Add(candidate);
+                IntPtr ownedWindow = FindOwnedWindowInSameProcess(candidate);
+                if (ownedWindow != IntPtr.Zero)
+                {
+                    replaced.Add(ownedWindow);
+                }
+            }
+
+            if (replaced.Count > 0)
+            {
+                // 合并：替换结果 + 非黑名单的原始候选
+                var normal = candidates.Where(c => !blacklisted.Contains(c));
+                var merged = replaced.Concat(normal).Distinct().ToList();
+                SortByAppWindowPriority(merged);
+                return merged;
+            }
+
+            // If only blacklisted-title windows remain and no replacement found, don't activate them.
+            if (candidates.All(IsBlacklistedWindowTitle))
+                return new List<IntPtr>();
+
+            // 收集每个候选的 pid 和 owner
+            var candidateSet = new HashSet<IntPtr>(candidates);
+            var pidMap = new Dictionary<IntPtr, int>();
+            var ownerMap = new Dictionary<IntPtr, IntPtr>();
+
+            foreach (var hWnd in candidates)
+            {
+                GetWindowThreadProcessId(hWnd, out int pid);
+                pidMap[hWnd] = pid;
+                ownerMap[hWnd] = GetWindow(hWnd, GW_OWNER);
+            }
+
+            // 找出"被同进程其他候选作为 owner 引用"的窗口（辅助根窗口）
+            var ownerAuxiliary = new HashSet<IntPtr>();
+            foreach (var hWnd in candidates)
+            {
+                IntPtr owner = ownerMap[hWnd];
+                if (owner != IntPtr.Zero
+                    && candidateSet.Contains(owner)
+                    && pidMap.TryGetValue(owner, out int ownerPid)
+                    && ownerPid == pidMap[hWnd])
+                {
+                    ownerAuxiliary.Add(owner);
+                }
+            }
+
+            // 降权：优先保留非辅助窗口
+            var preferred = candidates.Where(h => !ownerAuxiliary.Contains(h)).ToList();
+            if (preferred.Count == 0)
+                preferred = candidates; // 兜底：全是辅助则回退原列表
+
+            SortByAppWindowPriority(preferred);
+
+            return preferred;
+        }
+
+        /// <summary>
+        /// WS_EX_APPWINDOW 窗口排在前面。
+        /// </summary>
+        private static void SortByAppWindowPriority(List<IntPtr> windows)
+        {
+            windows.Sort((a, b) =>
+            {
+                bool aApp = (GetWindowLong(a, GWL_EXSTYLE) & WS_EX_APPWINDOW) != 0;
+                bool bApp = (GetWindowLong(b, GWL_EXSTYLE) & WS_EX_APPWINDOW) != 0;
+                return bApp.CompareTo(aApp);
+            });
+        }
+
+        /// <summary>
+        /// 在同进程中查找以 ownerHWnd 为 owner 的窗口（单层）。
+        /// 用于单候选场景：判断候选是否是辅助根窗口，并找到被它 own 的业务窗口。
+        /// 优先返回带 WS_EX_APPWINDOW 的窗口。
+        /// </summary>
+        private IntPtr FindOwnedWindowInSameProcess(IntPtr ownerHWnd)
+        {
+            GetWindowThreadProcessId(ownerHWnd, out int ownerPid);
+            IntPtr bestCandidate = IntPtr.Zero;
+            bool bestHasAppWindow = false;
+
+            EnumWindows((hWnd, _) =>
+            {
+                if (hWnd == ownerHWnd)
+                    return true;
+
+                if (GetWindow(hWnd, GW_OWNER) != ownerHWnd)
+                    return true;
+
+                GetWindowThreadProcessId(hWnd, out int pid);
+                if (pid != ownerPid)
+                    return true;
+
+                // 窗口必须有标题
+                if (GetWindowTextLength(hWnd) == 0)
+                    return true;
+
+                if (IsBlacklistedWindowTitle(hWnd))
+                    return true;
+
+                if (!MatchesCurrentRule(hWnd))
+                    return true;
+
+                uint ownedExStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+
+                if ((ownedExStyle & WS_EX_NOACTIVATE) != 0)
+                    return true;
+
+                // 与主扫描保持一致的质量过滤
+                if ((ownedExStyle & WS_EX_TOOLWINDOW) != 0 && (ownedExStyle & WS_EX_APPWINDOW) == 0)
+                    return true;
+
+                var ownedClassName = new StringBuilder(256);
+                if (GetClassName(hWnd, ownedClassName, ownedClassName.Capacity) > 0)
+                {
+                    if (WindowClassBlacklist.Contains(ownedClassName.ToString()))
+                        return true;
+                }
+
+                if (DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0 && cloaked != 0)
+                    return true;
+
+                bool hasAppWindow = (ownedExStyle & WS_EX_APPWINDOW) != 0;
+                if (bestCandidate == IntPtr.Zero || (hasAppWindow && !bestHasAppWindow))
+                {
+                    bestCandidate = hWnd;
+                    bestHasAppWindow = hasAppWindow;
+                }
+
+                return true;
+            }, IntPtr.Zero);
+
+            return bestCandidate;
+        }
+
+        private void LogHiddenCandidates(string phase, List<IntPtr> candidates)
+        {
+            if (candidates.Count == 0)
+            {
+                Logging.LogDebug($"[ActivateApp] Hidden candidates ({phase}): (none)");
+                return;
+            }
+
+            var sb = new StringBuilder();
+            sb.Append($"[ActivateApp] Hidden candidates ({phase}): {candidates.Count} windows");
+            foreach (var hWnd in candidates)
+            {
+                GetWindowThreadProcessId(hWnd, out int pid);
+                IntPtr owner = GetWindow(hWnd, GW_OWNER);
+                uint exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+                string title = GetWindowTitle(hWnd);
+                sb.Append($"\n  0x{hWnd:X} pid={pid} owner=0x{owner:X} exStyle=0x{exStyle:X8} title='{title}'");
+            }
+            Logging.LogDebug(sb.ToString());
+        }
+
+        private bool MatchesCurrentRule(IntPtr hWnd)
+        {
+            var rule = _settings?.WindowRule;
+            if (rule == null)
+                return false;
+
+            bool hasConditions = rule.Conditions != null && rule.Conditions.Count > 0;
+            bool hasApplicationPath = !string.IsNullOrEmpty(rule.ApplicationPath);
+
+            try
+            {
+                if (hasConditions)
+                {
+                    return WindowMatcher.MatchAllConditions(new SystemWindow(hWnd), rule.Conditions);
+                }
+
+                if (hasApplicationPath)
+                {
+                    var processPath = WindowMatcher.GetProcessPath(hWnd);
+                    return !string.IsNullOrEmpty(processPath)
+                        && string.Equals(processPath, rule.ApplicationPath, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch
+            {
+                // Process may have exited or access denied.
+            }
+
+            return false;
+        }
+
+        private bool IsBlacklistedWindowTitle(IntPtr hWnd)
+        {
+            string title = GetWindowTitle(hWnd);
+            if (string.IsNullOrWhiteSpace(title))
+                return false;
+
+            return WindowTitleBlacklist.Contains(title.Trim());
+        }
+
+        private bool IsSwitchableWindow(IntPtr hWnd, bool requireTitle = true)
         {
             // Must be visible (even if minimized)
             if (!IsWindowVisible(hWnd))
                 return false;
 
-            // Must have a title
-            int length = GetWindowTextLength(hWnd);
-            if (length == 0)
+            // 通常要求有标题；但当规则包含 ClassName 条件时可跳过——
+            // 部分应用（如 Delphi Foxmail）的主窗口没有标题。
+            if (requireTitle && GetWindowTextLength(hWnd) == 0)
+                return false;
+
+            if (IsBlacklistedWindowTitle(hWnd))
                 return false;
 
             uint exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
@@ -639,8 +936,16 @@ namespace GestureSign.CorePlugins.ActivateApp
                     return false;
 
                 IntPtr ownerWindow = GetWindow(hWnd, GW_OWNER);
-                if (ownerWindow != IntPtr.Zero)
-                    return false;
+                // 跳过有可见 owner 的窗口（对话框、子窗口等）。
+                // 但如果 owner 是框架隐藏窗口（如 Delphi TApplication、VB6 ThunderRT6Main），则放行——
+                // 这类 owner 虽然 IsWindowVisible=True（有 WS_VISIBLE），但实际是 0 像素的消息窗口，
+                // owned 窗口才是真正的应用主窗口。用类黑名单识别这类伪可见 owner。
+                if (ownerWindow != IntPtr.Zero && IsWindowVisible(ownerWindow))
+                {
+                    string ownerClass = GetWindowClassName(ownerWindow);
+                    if (string.IsNullOrEmpty(ownerClass) || !WindowClassBlacklist.Contains(ownerClass))
+                        return false;
+                }
             }
 
             // Skip non-activatable windows.
