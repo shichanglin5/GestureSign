@@ -46,7 +46,9 @@ namespace GestureSign.CorePlugins.ActivateApp
             // TongDaXin helper root window title; activating it steals focus without showing business UI.
             "HIDENET",
             // Qt tray icon message window; not user-facing.
-            "QTrayIconMessageWindow"
+            "QTrayIconMessageWindow",
+            // Telegram ghost window that persists after closing; visible but not activatable.
+            "TelegramDesktop"
         };
 
         #endregion
@@ -202,13 +204,8 @@ namespace GestureSign.CorePlugins.ActivateApp
 
                 if (appWindows.Count == 0)
                 {
-                    // 先检查目标进程是否仍在运行——如果进程存在但无可激活窗口
-                    // （如只有辅助/helper 窗口），不应重复启动。
-                    if (IsTargetProcessRunning(_settings))
-                    {
-                        Logging.LogDebug("[ActivateApp] Target process is running but no activatable window found, skipping launch");
-                        return true;
-                    }
+                    // 无可激活窗口时启动应用。
+                    // 对单实例应用（如 Telegram、通达信），重复启动会恢复已有窗口而非创建新实例。
                     return TryLaunchApplication(_settings);
                 }
 
@@ -587,47 +584,6 @@ namespace GestureSign.CorePlugins.ActivateApp
             // Update last activated window
             _lastActivatedWindows[appKey] = targetWindow;
             return true;
-        }
-
-        /// <summary>
-        /// 检查目标进程是否仍在运行。
-        /// 有 ApplicationPath 时按完整路径匹配（避免同名进程误判），
-        /// 否则按 ProcessName 条件的进程名匹配。
-        /// </summary>
-        private static bool IsTargetProcessRunning(ActivateAppSettings settings)
-        {
-            string appPath = settings.WindowRule?.ApplicationPath;
-
-            // 有完整路径时按路径精确匹配
-            if (!string.IsNullOrEmpty(appPath))
-            {
-                string name = Path.GetFileNameWithoutExtension(appPath);
-                foreach (var proc in Process.GetProcessesByName(name))
-                {
-                    try
-                    {
-                        if (string.Equals(proc.MainModule?.FileName, appPath, StringComparison.OrdinalIgnoreCase))
-                            return true;
-                    }
-                    catch
-                    {
-                        // 权限不足无法访问 MainModule，跳过该进程继续检查
-                    }
-                }
-                return false;
-            }
-
-            // 回退到 ProcessName 条件
-            string processName = settings.WindowRule?.Conditions?
-                .FirstOrDefault(c => c.Type == MatchConditionType.ProcessName)?.Value;
-
-            if (!string.IsNullOrEmpty(processName))
-            {
-                string name = Path.GetFileNameWithoutExtension(processName);
-                return Process.GetProcessesByName(name).Length > 0;
-            }
-
-            return false;
         }
 
         /// <summary>
