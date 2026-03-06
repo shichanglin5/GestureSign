@@ -73,6 +73,34 @@ if (isVisible && !isCloaked)
 仅处理 Win32 层面不可见的窗口（`IsWindowVisible=false`），不处理 cloaked。
 注释中记录了 cloaked 窗口的已知限制。
 
+### 3.4 Cloaked owner 导致新窗口被过滤
+
+日期：2026-03-04
+
+Telegram 关闭主窗口后重新打开，新的主窗口 owner 指向旧的 cloaked 窗口。由于旧窗口 `IsWindowVisible=True`（DWM cloaked 但 Win32 层面可见），owner 可见性检查会将新窗口视为"有可见 owner 的子窗口"而过滤。
+
+**修复**：在 owner 可见性判定中增加 DWM cloaked 检查。当 owner `IsWindowVisible=True` 但 `DWMWA_CLOAKED != 0` 时，视为不可见，放行 owned 窗口。
+
+### 3.5 Ghost 窗口 `TelegramDesktop`
+
+日期：2026-03-05
+
+Telegram 关闭主窗口后，`TelegramDesktop` 窗口持续存在：
+
+- `IsWindowVisible=True`，`DWMWA_CLOAKED=0`（非 cloaked），窗口矩形正常大小
+- Win32 属性层面与真实窗口无法区分
+- 但实际不可交互、不可激活
+
+该窗口是 Qt 框架内部管理的辅助窗口，关闭主窗口后未被销毁。
+
+**修复**：将 `TelegramDesktop` 加入 `WindowTitleBlacklist`。这是最简单有效的方案，因为该窗口在 Win32 层面与真实窗口无结构性差异。
+
+### 3.6 无可激活窗口时的启动行为
+
+关闭 Telegram 主窗口后，可能只剩 ghost 窗口和 helper 窗口（均被过滤），导致 `appWindows.Count == 0`。此时直接进入 `TryLaunchApplication` 启动新实例。
+
+对于 Telegram 这样的单实例应用，重复启动会通过 IPC 通知已有进程恢复窗口（而非创建新实例），这正是我们需要的效果。
+
 ## 4. 已知限制
 
 - **cloaked 窗口无法通过外部 API 恢复显示**：这是 Qt 框架与 DWM 的交互方式决定的，与微信托盘恢复卡死属于同一类问题（Qt 内部状态机控制）
@@ -109,3 +137,40 @@ return string.Equals(windowTitle, pattern, StringComparison.OrdinalIgnoreCase);
 
 `ForceSetForegroundWindow` 简化为单次 `SetForegroundWindow` 调用。
 对于 UIAccess 进程，`SetForegroundWindow` 不受前台锁限制，单次调用足够。
+
+### 5.3 Owner cloaked 检查
+
+**文件**: `GestureSign.CorePlugins/ActivateApp/ActivateAppPlugin.cs`
+
+`IsSwitchableWindow` 和 `IsActivatableHiddenWindow` 中的 owner 可见性判定增加 DWM cloaked 检查：
+
+```csharp
+if (ownerWindow != IntPtr.Zero && IsWindowVisible(ownerWindow))
+{
+    if (DwmGetWindowAttribute(ownerWindow, DWMWA_CLOAKED, out int ownerCloaked, ...) == 0 && ownerCloaked != 0)
+    {
+        // owner is cloaked, treat as invisible - allow this window
+    }
+    else
+    {
+        // owner truly visible → filter owned window
+    }
+}
+```
+
+### 5.4 `TelegramDesktop` 加入标题黑名单
+
+**文件**: `GestureSign.CorePlugins/ActivateApp/ActivateAppPlugin.cs`
+
+```csharp
+private static readonly HashSet<string> WindowTitleBlacklist = new(StringComparer.OrdinalIgnoreCase)
+{
+    "HIDENET",
+    "QTrayIconMessageWindow",
+    "TelegramDesktop"  // ghost 窗口，关闭后残留
+};
+```
+
+### 5.5 `QTrayIconMessageWindow` 加入标题黑名单
+
+Qt 托盘图标消息窗口，不面向用户。在 hidden scan 中被过滤。

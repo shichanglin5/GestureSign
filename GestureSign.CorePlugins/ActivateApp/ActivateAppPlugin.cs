@@ -260,7 +260,11 @@ namespace GestureSign.CorePlugins.ActivateApp
         #region Core Logic Methods
 
         /// <summary>
-        /// Get windows matching the configured conditions
+        /// 获取符合规则的可激活窗口列表。
+        /// 1. 尝试缓存命中（带 IsSwitchableWindow 验证）
+        /// 2. 可见窗口扫描（IsSwitchableWindow）
+        /// 3. 隐藏窗口扫描（IsActivatableHiddenWindow + FilterHiddenCandidates 后处理）
+        /// requireTitle 由规则条件自动决定：包含 ClassName 条件时不要求标题。
         /// </summary>
         private List<IntPtr> GetMatchingWindows(ActivateAppSettings settings)
         {
@@ -375,6 +379,11 @@ namespace GestureSign.CorePlugins.ActivateApp
             return windows;
         }
 
+        /// <summary>
+        /// 隐藏窗口扫描的准入判断。与 IsSwitchableWindow（可见扫描）保持一致的
+        /// owner/exStyle/cloaked/class 黑名单/标题过滤规则，区别在于只接受
+        /// Win32 不可见的窗口（IsWindowVisible=false）。
+        /// </summary>
         private bool IsActivatableHiddenWindow(IntPtr hWnd, bool requireTitle = true)
         {
             if (!IsWindow(hWnd))
@@ -874,6 +883,11 @@ namespace GestureSign.CorePlugins.ActivateApp
             return WindowTitleBlacklist.Contains(title.Trim());
         }
 
+        /// <summary>
+        /// 可见窗口扫描的准入判断。判断逻辑接近系统任务栏/Alt+Tab 的规则：
+        /// visible + 非 cloaked + 非 ToolWindow + owner 判定 + class/title 黑名单。
+        /// owner 判定：有可见且非 cloaked 且 class 不在黑名单的 owner → 过滤（对话框/子窗口）。
+        /// </summary>
         private bool IsSwitchableWindow(IntPtr hWnd, bool requireTitle = true)
         {
             // Must be visible (even if minimized)
