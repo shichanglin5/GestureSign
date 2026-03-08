@@ -85,6 +85,13 @@ namespace GestureSign.Common.Applications
         public double ZoomSpeed { get; set; } = 1.0;
 
         /// <summary>
+        /// 缩放检测灵敏度（0.1-3.0，默认 1.0）
+        /// 值越小越容易进入缩放，越大需要更明显的捏合动作
+        /// 实际阈值 = 基础阈值 * ZoomSensitivity
+        /// </summary>
+        public double ZoomSensitivity { get; set; } = 1.0;
+
+        /// <summary>
         /// 滑动模式
         /// </summary>
         public ContinuousScrollMode ScrollMode { get; set; } = ContinuousScrollMode.InertialScroll;

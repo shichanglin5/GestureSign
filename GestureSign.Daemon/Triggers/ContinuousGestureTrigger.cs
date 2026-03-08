@@ -215,6 +215,7 @@ namespace GestureSign.Daemon.Triggers
                 else
                 {
                 double distDelta = currentDist - _lastFingerDistance;
+                double zoomSensitivity = Math.Clamp(config.ZoomSensitivity > 0 ? config.ZoomSensitivity : 1.0, 0.1, 3.0);
                 // 使用帧间位移（velocity.Delta*）而非 deltaX/deltaY 计算平移量
                 // deltaX/deltaY 在 Custom 模式下是累积值（用于 GetRateOfFire），不适合缩放检测
                 // countMismatch 时 delta 为 0，设最小值避免 avgMove=0 让缩放过于容易误触发
@@ -231,14 +232,15 @@ namespace GestureSign.Daemon.Triggers
                 }
 
                 // 本帧是否呈现缩放特征：距离变化大于平移量且超过绝对阈值
+                // zoomSensitivity 控制绝对阈值：值越小越容易进入缩放
                 bool frameIsZoomLike = Math.Abs(distDelta) > avgMove * 1.2
-                    && Math.Abs(distDelta) > _motionThreshold * 0.5;
+                    && Math.Abs(distDelta) > _motionThreshold * 0.5 * zoomSensitivity;
 
                 if (_isZooming)
                 {
                     // 已在缩放模式中：检测是否应退出
                     // 要求距离变化小（非缩放）且有显著平移（明确是滚动）
-                    if (Math.Abs(distDelta) < _motionThreshold * 0.3 && avgMove > _motionThreshold * 0.5)
+                    if (Math.Abs(distDelta) < _motionThreshold * 0.3 * zoomSensitivity && avgMove > _motionThreshold * 0.5)
                     {
                         // 本帧明显是滚动而非缩放
                         _scrollDetectFrames++;

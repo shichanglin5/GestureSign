@@ -35,9 +35,10 @@ namespace GestureSign.ControlPanel.Dialogs
 
         private void InitializeUI()
         {
-            // 缩放速度
+            // 缩放设置
             ZoomSpeedPanel.Visibility = _config.EnableZoom ? Visibility.Visible : Visibility.Collapsed;
             ZoomSpeedSlider.Value = _config.ZoomSpeed > 0 ? _config.ZoomSpeed : 1.0;
+            ZoomSensitivitySlider.Value = _config.ZoomSensitivity > 0 ? _config.ZoomSensitivity : 1.0;
 
             // InertialScroll 设置
             ScrollSettingsPanel.Visibility = _config.ScrollMode == ContinuousScrollMode.InertialScroll
@@ -191,9 +192,12 @@ namespace GestureSign.ControlPanel.Dialogs
 
         private void OkButton_Click(object sender, RoutedEventArgs e)
         {
-            // 保存缩放速度
+            // 保存缩放设置
             if (_config.EnableZoom)
+            {
                 _config.ZoomSpeed = ZoomSpeedSlider.Value;
+                _config.ZoomSensitivity = ZoomSensitivitySlider.Value;
+            }
 
             // 保存 InertialScroll 设置
             if (_config.ScrollMode == ContinuousScrollMode.InertialScroll)

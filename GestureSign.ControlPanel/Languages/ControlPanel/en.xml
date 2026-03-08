@@ -164,6 +164,7 @@ Email:ccfyzh@gmail.com
     <InertialScroll>Inertial Scroll</InertialScroll>
     <Custom>Custom</Custom>
     <ZoomSpeed>Zoom Speed</ZoomSpeed>
+    <ZoomSensitivity>Zoom Sensitivity</ZoomSensitivity>
     <ScrollSettings>Scroll Settings</ScrollSettings>
     <ScrollDirection>Direction</ScrollDirection>
     <DirectionBoth>Both</DirectionBoth>
