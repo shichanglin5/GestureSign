@@ -1220,11 +1220,12 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
             var stack = new StackPanel();
 
-            // 第一行：启用开关、手指数、缩放、模式、配置、删除
+            // 第一行：启用开关、手指数、缩放、滚动标签、模式、配置、删除
             var topRow = new Grid { Height = 28 };
             topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 启用
             topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 手指数
             topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 缩放
+            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 滚动标签
             topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 模式
             topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 配置
             topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 删除
@@ -1260,21 +1261,43 @@ namespace GestureSign.ControlPanel.MainWindowControls
             Grid.SetColumn(fingerCombo, 1);
             topRow.Children.Add(fingerCombo);
 
-            // 缩放 CheckBox（仅 2 指显示）
-            var zoomCheck = new CheckBox
+            // 缩放：标签 + CheckBox（仅 2 指显示）
+            var zoomPanel = new StackPanel
             {
-                Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Zoom"),
-                IsChecked = config.EnableZoom,
+                Orientation = Orientation.Horizontal,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 8, 0),
-                FontSize = 12,
                 Visibility = config.ContactCount == 2 ? Visibility.Visible : Visibility.Collapsed,
+            };
+            zoomPanel.Children.Add(new TextBlock
+            {
+                Text = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Zoom"),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 4, 0),
+            });
+            var zoomCheck = new CheckBox
+            {
+                IsChecked = config.EnableZoom,
+                VerticalAlignment = VerticalAlignment.Center,
                 Tag = config
             };
             zoomCheck.Checked += ContinuousGesturePropertyChanged;
             zoomCheck.Unchecked += ContinuousGesturePropertyChanged;
-            Grid.SetColumn(zoomCheck, 2);
-            topRow.Children.Add(zoomCheck);
+            zoomPanel.Children.Add(zoomCheck);
+            Grid.SetColumn(zoomPanel, 2);
+            topRow.Children.Add(zoomPanel);
+
+            // 滚动标签
+            var scrollLabel = new TextBlock
+            {
+                Text = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Scroll") + ":",
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 4, 0),
+                FontSize = 12,
+            };
+            Grid.SetColumn(scrollLabel, 3);
+            topRow.Children.Add(scrollLabel);
 
             // 模式 ComboBox
             var modeCombo = new ComboBox
@@ -1285,6 +1308,11 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Tag = config
             };
+            modeCombo.Items.Add(new ComboBoxItem
+            {
+                Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.None"),
+                Tag = ContinuousScrollMode.None
+            });
             modeCombo.Items.Add(new ComboBoxItem
             {
                 Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.InertialScroll"),
@@ -1306,10 +1334,11 @@ namespace GestureSign.ControlPanel.MainWindowControls
             if (modeCombo.SelectedItem == null)
                 modeCombo.SelectedIndex = 0;
             modeCombo.SelectionChanged += ScrollModeComboBox_SelectionChanged;
-            Grid.SetColumn(modeCombo, 3);
+            Grid.SetColumn(modeCombo, 4);
             topRow.Children.Add(modeCombo);
 
-            // 配置按钮
+            // 配置按钮（None 模式且未启用缩放时隐藏，无可配置项）
+            bool hasConfigurableItems = config.ScrollMode != ContinuousScrollMode.None || config.EnableZoom;
             var configBtn = new Button
             {
                 Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Configure"),
@@ -1317,10 +1346,11 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 Padding = new Thickness(6, 1, 6, 1),
                 FontSize = 11,
                 Margin = new Thickness(0, 0, 3, 0),
+                Visibility = hasConfigurableItems ? Visibility.Visible : Visibility.Collapsed,
                 Tag = config
             };
             configBtn.Click += ContinuousGestureConfigButton_Click;
-            Grid.SetColumn(configBtn, 4);
+            Grid.SetColumn(configBtn, 5);
             topRow.Children.Add(configBtn);
 
             // 删除按钮
@@ -1343,7 +1373,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
             delRect.OpacityMask = new VisualBrush { Visual = (Visual)FindResource("DeleteIcon") };
             delBtn.Content = delRect;
             delBtn.Click += DeleteContinuousGestureButton_Click;
-            Grid.SetColumn(delBtn, 5);
+            Grid.SetColumn(delBtn, 6);
             topRow.Children.Add(delBtn);
 
             stack.Children.Add(topRow);
@@ -1433,6 +1463,11 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
             config.ScrollMode = (ContinuousScrollMode)selectedItem.Tag;
             ApplicationManager.Instance.SaveApplications();
+
+            // 刷新行 UI，更新配置按钮可见性
+            var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+            if (selectedApp != null)
+                RefreshContinuousGesturePanel(selectedApp);
         }
 
         private void ContinuousGesturePropertyChanged(object sender, RoutedEventArgs e)
@@ -1443,6 +1478,11 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
             config.EnableZoom = checkBox.IsChecked == true;
             ApplicationManager.Instance.SaveApplications();
+
+            // 刷新行 UI，更新配置按钮可见性（None 模式下缩放开关影响按钮显隐）
+            var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
+            if (selectedApp != null)
+                RefreshContinuousGesturePanel(selectedApp);
         }
 
         private void ContinuousGestureConfigButton_Click(object sender, RoutedEventArgs e)
@@ -1450,6 +1490,9 @@ namespace GestureSign.ControlPanel.MainWindowControls
             var button = sender as Button;
             var config = button?.Tag as ContinuousGestureConfig;
             if (config == null) return;
+
+            // None 模式且未启用缩放时无可配置项
+            if (config.ScrollMode == ContinuousScrollMode.None && !config.EnableZoom) return;
 
             var selectedApp = lstAvailableApplication.SelectedItem as IApplication;
             if (selectedApp == null) return;

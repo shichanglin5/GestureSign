@@ -115,7 +115,12 @@ namespace GestureSign.Common.Applications
         /// <summary>
         /// 自定义方向命令
         /// </summary>
-        Custom = 1
+        Custom = 1,
+
+        /// <summary>
+        /// 不启用连续滑动
+        /// </summary>
+        None = 2
     }
 
     /// <summary>

@@ -215,9 +215,11 @@ namespace GestureSign.Daemon.Triggers
                 else
                 {
                 double distDelta = currentDist - _lastFingerDistance;
+                // 使用帧间位移（velocity.Delta*）而非 deltaX/deltaY 计算平移量
+                // deltaX/deltaY 在 Custom 模式下是累积值（用于 GetRateOfFire），不适合缩放检测
                 // countMismatch 时 delta 为 0，设最小值避免 avgMove=0 让缩放过于容易误触发
                 double avgMove = Math.Max(
-                    Math.Sqrt((double)deltaX * deltaX + (double)deltaY * deltaY),
+                    Math.Sqrt(velocity.DeltaX * velocity.DeltaX + velocity.DeltaY * velocity.DeltaY),
                     countMismatch ? _motionThreshold * 0.3 : 0);
 
                 // 注入失败后重置缩放状态，允许重新触发
@@ -344,12 +346,12 @@ namespace GestureSign.Daemon.Triggers
             else if (config.ScrollMode == ContinuousScrollMode.Custom)
             {
                 // Custom 模式：根据方向查找命令并执行
-                ExecuteCustomMode(config, velocity, deltaX, deltaY, fingerCount, e, latestPoints);
+                ExecuteCustomMode(config, velocity, deltaX, deltaY, e, latestPoints);
             }
         }
 
         private void ExecuteCustomMode(ContinuousGestureConfig config, VelocityVector velocity,
-            int deltaX, int deltaY, int fingerCount, PointsCapturedEventArgs e, List<Point> latestPoints)
+            int deltaX, int deltaY, PointsCapturedEventArgs e, List<Point> latestPoints)
         {
             if (config.DirectionCommands == null || config.DirectionCommands.Count == 0)
                 return;
