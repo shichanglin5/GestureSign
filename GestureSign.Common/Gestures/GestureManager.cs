@@ -263,15 +263,18 @@ namespace GestureSign.Common.Gestures
                 return null;
             }
 
-            FileManager.WaitFile(filePath);
-
             List<IGesture> gestureList = new List<IGesture>();
             int totalGesturesInFile = 0;
             int skippedLegacyGestures = 0;
 
             try
             {
-                string json = File.ReadAllText(filePath);
+                string json;
+                using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var sr = new StreamReader(fs))
+                {
+                    json = sr.ReadToEnd();
+                }
 
                 JsonTextReader reader = new JsonTextReader(new StringReader(json));
 

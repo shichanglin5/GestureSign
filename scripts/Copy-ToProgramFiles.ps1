@@ -40,3 +40,17 @@ if (-not (Test-Path $dest)) {
 Write-Host "Copying from: $src" -ForegroundColor Cyan
 Copy-Item "$src\*" -Destination $dest -Recurse -Force
 Write-Host "Files copied to $dest" -ForegroundColor Green
+
+# 创建开始菜单快捷方式（用于固定到开始屏幕）
+$startMenuDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+$lnkPath = Join-Path $startMenuDir "GestureSign.lnk"
+$targetExe = Join-Path $dest "GestureSign.exe"
+
+$shell = New-Object -ComObject WScript.Shell
+$shortcut = $shell.CreateShortcut($lnkPath)
+$shortcut.TargetPath = $targetExe
+$shortcut.WorkingDirectory = $dest
+$shortcut.IconLocation = "$targetExe,0"
+$shortcut.Description = "GestureSign"
+$shortcut.Save()
+Write-Host "Start menu shortcut created: $lnkPath" -ForegroundColor Green

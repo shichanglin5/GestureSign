@@ -222,11 +222,9 @@ namespace GestureSign.ControlPanel
                     using (Process daemon = new Process())
                     {
                         daemon.StartInfo.FileName = daemonPath;
-
-                        //daemon.StartInfo.UseShellExecute = false;
+                        daemon.StartInfo.UseShellExecute = true;
                         if (IsAdministrator())
                             daemon.StartInfo.Verb = "runas";
-                        daemon.StartInfo.CreateNoWindow = false;
                         daemon.Start();
                     }
                 }

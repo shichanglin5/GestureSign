@@ -28,16 +28,15 @@ namespace GestureSign.Common.Configuration
                 if (File.Exists(filePath))
                 {
                     backup = BackupFile(filePath);
-                    WaitFile(filePath);
                 }
 
-                // Open json file
-                using (StreamWriter sWrite = new StreamWriter(filePath))
+                using (var fs = OpenFileWithRetry(filePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+                using (var sWrite = new StreamWriter(fs))
                 {
                     JsonSerializer serializer = new JsonSerializer
                     {
                         NullValueHandling = NullValueHandling.Ignore,
-                        DefaultValueHandling = DefaultValueHandling.Include  // Changed to Include to save FingerCount
+                        DefaultValueHandling = DefaultValueHandling.Include
                     };
                     if (typeName)
                     {
@@ -46,7 +45,6 @@ namespace GestureSign.Common.Configuration
                     }
                     serializer.Serialize(sWrite, serializableObject);
                 }
-                //  File.WriteAllText(filePath, JsonConvert.SerializeObject(SerializableObject));
 
                 if (File.Exists(backup))
                     File.Delete(backup);
@@ -67,9 +65,13 @@ namespace GestureSign.Common.Configuration
             {
                 if (!File.Exists(filePath)) return default(T);
 
-                WaitFile(filePath);
+                string json;
+                using (var fs = OpenFileWithRetry(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var reader = new StreamReader(fs))
+                {
+                    json = reader.ReadToEnd();
+                }
 
-                string json = File.ReadAllText(filePath);
                 return JsonConvert.DeserializeObject<T>(json, typeName
                     ? new JsonSerializerSettings()
                     {
@@ -89,14 +91,40 @@ namespace GestureSign.Common.Configuration
             }
         }
 
-        public static void WaitFile(string filePath)
+        public static void WaitFile(string filePath, int maxRetries = 10)
         {
-            int count = 0;
-            while (IsFileLocked(filePath) && count != 10)
+            for (int i = 0; i < maxRetries; i++)
             {
-                count++;
-                Thread.Sleep(50);
+                try
+                {
+                    using (new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
+                    return;
+                }
+                catch (IOException) when (i < maxRetries - 1)
+                {
+                    Thread.Sleep(50);
+                }
+                catch (FileNotFoundException)
+                {
+                    return;
+                }
             }
+        }
+
+        private static FileStream OpenFileWithRetry(string filePath, FileMode mode, FileAccess access, FileShare share, int maxRetries = 10)
+        {
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    return new FileStream(filePath, mode, access, share);
+                }
+                catch (IOException) when (i < maxRetries - 1)
+                {
+                    Thread.Sleep(50);
+                }
+            }
+            return new FileStream(filePath, mode, access, share);
         }
 
         private static string BackupFile(string filePath)
@@ -117,26 +145,6 @@ namespace GestureSign.Common.Configuration
             }
         }
 
-        private static bool IsFileLocked(string file)
-        {
-            try
-            {
-                if (!File.Exists(file)) return false;
-                using (File.Open(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
-                {
-                    return false;
-                }
-            }
-            catch (IOException exception)
-            {
-                var errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(exception) & 65535;
-                return errorCode == 32 || errorCode == 33;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
         #endregion
     }
 }
