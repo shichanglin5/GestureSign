@@ -245,6 +245,7 @@
       <UseRegex>Use Regular Expression</UseRegex>
       <DisplayName>Display Name:</DisplayName>
       <MinimizeIfActivated>Minimize if already activated</MinimizeIfActivated>
+      <AutoLaunch>Auto launch when no matching windows</AutoLaunch>
       <ActivationMethod>Activation Method:</ActivationMethod>
       <ActivationMethod.UseGlobal>Use Global Setting</ActivationMethod.UseGlobal>
       <ActivationMethod.AttachThreadInput>AttachThreadInput (more reliable)</ActivationMethod.AttachThreadInput>

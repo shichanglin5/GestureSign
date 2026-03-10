@@ -45,6 +45,13 @@ namespace GestureSign.CorePlugins.ActivateApp
         public bool MinimizeIfActivated { get; set; } = true;
 
         /// <summary>
+        /// Automatically launch the application when no matching windows are found.
+        /// Default: true (launch app when no windows match)
+        /// When false, does nothing if no matching windows exist.
+        /// </summary>
+        public bool AutoLaunch { get; set; } = true;
+
+        /// <summary>
         /// 窗口激活方式。
         /// UseGlobal(0)：使用全局设置（默认）。
         /// AttachThreadInput(1)：合并输入队列后激活，更可靠但可能导致 Chromium/Qt 应用卡死。

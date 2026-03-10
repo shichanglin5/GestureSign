@@ -64,6 +64,9 @@ namespace GestureSign.CorePlugins.ActivateApp
                 // Get minimize if activated setting
                 _settings.MinimizeIfActivated = MinimizeIfActivatedCheckBox.IsChecked ?? true;
 
+                // Get auto launch setting
+                _settings.AutoLaunch = AutoLaunchCheckBox.IsChecked ?? true;
+
                 // Get activation method
                 int selectedIndex = ActivationMethodComboBox.SelectedIndex;
                 _settings.ActivationMethod = selectedIndex >= 0 && selectedIndex <= 2
@@ -90,6 +93,9 @@ namespace GestureSign.CorePlugins.ActivateApp
 
                 // Set minimize if activated checkbox
                 MinimizeIfActivatedCheckBox.IsChecked = _settings.MinimizeIfActivated;
+
+                // Set auto launch checkbox
+                AutoLaunchCheckBox.IsChecked = _settings.AutoLaunch;
 
                 // Set activation method (guard invalid enum values)
                 int methodIndex = (int)_settings.ActivationMethod;

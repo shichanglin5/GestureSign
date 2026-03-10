@@ -246,6 +246,7 @@
       <UseRegex>使用正则表达式</UseRegex>
       <DisplayName>显示名称:</DisplayName>
       <MinimizeIfActivated>已激活则最小化</MinimizeIfActivated>
+      <AutoLaunch>无匹配窗口时自动启动</AutoLaunch>
       <ActivationMethod>激活方式:</ActivationMethod>
       <ActivationMethod.UseGlobal>使用全局设置</ActivationMethod.UseGlobal>
       <ActivationMethod.AttachThreadInput>AttachThreadInput（更可靠）</ActivationMethod.AttachThreadInput>

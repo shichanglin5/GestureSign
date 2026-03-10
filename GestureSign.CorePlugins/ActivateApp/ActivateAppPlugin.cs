@@ -204,6 +204,12 @@ namespace GestureSign.CorePlugins.ActivateApp
 
                 if (appWindows.Count == 0)
                 {
+                    if (!_settings.AutoLaunch)
+                    {
+                        Logging.LogDebug("[ActivateApp] AutoLaunch disabled, skipping launch");
+                        return false;
+                    }
+
                     // 无可激活窗口时启动应用。
                     // 对单实例应用（如 Telegram、通达信），重复启动会恢复已有窗口而非创建新实例。
                     return TryLaunchApplication(_settings);

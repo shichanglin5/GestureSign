@@ -17,6 +17,12 @@
                   IsChecked="True"
                   Margin="0,0,0,8" />
 
+        <!-- Auto launch when no matching windows -->
+        <CheckBox x:Name="AutoLaunchCheckBox"
+                  Content="{localization:LocalisedText CorePlugins.ActivateApp.AutoLaunch}"
+                  IsChecked="True"
+                  Margin="0,0,0,8" />
+
         <!-- Activation Method -->
         <DockPanel Margin="0,0,0,15">
             <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.ActivationMethod}"
