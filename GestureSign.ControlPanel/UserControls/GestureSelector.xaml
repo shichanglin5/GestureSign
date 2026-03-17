@@ -34,14 +34,7 @@
                 </Style>
             </TextBlock.Style>
         </TextBlock>
-        <CheckBox x:Name="OverwriteExistingCheckBox"
-                  Content="{localization:LocalisedText GestureDefinition.OverwriteExisting}"
-                  HorizontalAlignment="Center"
-                  Margin="0,4,0,0"
-                  IsChecked="False"
-                  Visibility="Collapsed"
-                  Checked="OverwriteExistingCheckBox_Changed"
-                  Unchecked="OverwriteExistingCheckBox_Changed" />
+        <!-- OverwriteExistingCheckBox moved to RedrawButton row -->
         <TextBlock x:Name="DrawGestureTextBlock"
                    FontSize="14"
                    FontWeight="Bold"
@@ -62,6 +55,14 @@
                 BorderBrush="{StaticResource MahApps.Brushes.Highlight}"
                 Click="RedrawButton_Click"
                 Focusable="False" />
+            <CheckBox x:Name="OverwriteExistingCheckBox"
+                Content="{localization:LocalisedText GestureDefinition.OverwriteExisting}"
+                VerticalAlignment="Center"
+                Margin="10,0,0,0"
+                IsChecked="False"
+                Visibility="Collapsed"
+                Checked="OverwriteExistingCheckBox_Changed"
+                Unchecked="OverwriteExistingCheckBox_Changed" />
             <CheckBox x:Name="DiagnosticLoggingCheckBox"
                 Content="输出诊断日志"
                 VerticalAlignment="Center"

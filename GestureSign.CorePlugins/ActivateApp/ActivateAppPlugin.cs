@@ -212,12 +212,12 @@ namespace GestureSign.CorePlugins.ActivateApp
 
                     // Log matching result using GetMatchInfoString
                     var matchInfo = GetMatchInfoString(candidateSettings);
-                    Logging.LogDebug($"[ActivateApp] Activating[{index + 1}/{candidates.Count}]: {candidateSettings.WindowRule?.Name}, matched by [{matchInfo}]: {appWindows.Count} windows found");
-                    foreach (var w in appWindows)
-                    {
-                        IntPtr owner = GetWindow(w, GW_OWNER);
-                        Logging.LogDebug($"[ActivateApp]   {DescribeWindow(w)}, owner={DescribeWindow(owner)}");
-                    }
+                    // Logging.LogDebug($"[ActivateApp] Activating[{index + 1}/{candidates.Count}]: {candidateSettings.WindowRule?.Name}, matched by [{matchInfo}]: {appWindows.Count} windows found");
+                    // foreach (var w in appWindows)
+                    // {
+                    //     IntPtr owner = GetWindow(w, GW_OWNER);
+                    //     Logging.LogDebug($"[ActivateApp]   {DescribeWindow(w)}, owner={DescribeWindow(owner)}");
+                    // }
 
                     if (appWindows.Count == 0)
                     {
@@ -491,9 +491,8 @@ namespace GestureSign.CorePlugins.ActivateApp
             bool isCloaked = DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out int cloakedVal, sizeof(int)) == 0 && cloakedVal != 0;
             bool isIconic = IsIconic(hWnd);
             var windowState = window.WindowState;
-
-            IntPtr owner = GetWindow(hWnd, GW_OWNER);
-            Logging.LogDebug($"[ActivateApp] HandleSingleWindow: target={DescribeWindow(hWnd)}, owner={DescribeWindow(owner)}, foreground={DescribeWindow(foregroundWindow)}, isForeground={isForeground}, isVisible={isVisible}, isCloaked={isCloaked}, isIconic={isIconic}, windowState={windowState}");
+            // IntPtr owner = GetWindow(hWnd, GW_OWNER);
+            // Logging.LogDebug($"[ActivateApp] HandleSingleWindow: target={DescribeWindow(hWnd)}, owner={DescribeWindow(owner)}, foreground={DescribeWindow(foregroundWindow)}, isForeground={isForeground}, isVisible={isVisible}, isCloaked={isCloaked}, isIconic={isIconic}, windowState={windowState}");
 
             if (!isVisible)
             {

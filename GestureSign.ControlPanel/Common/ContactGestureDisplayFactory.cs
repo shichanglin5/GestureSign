@@ -18,8 +18,7 @@ namespace GestureSign.ControlPanel.Common
             switch (definition.Type)
             {
                 case GestureSign.Common.Input.RecordedGestureType.Tap:
-                    bool isBtn = definition.TapGesture?.Modifiers.HasFlag(GestureModifiers.PrimaryButtonDown) == true;
-                    return CreateTapDisplay(definition, useRingedDot: isBtn);
+                    return CreateTapDisplay(definition);
                 case GestureSign.Common.Input.RecordedGestureType.TipTap:
                     return CreateTipTapDisplay(definition);
                 default:
@@ -27,7 +26,7 @@ namespace GestureSign.ControlPanel.Common
             }
         }
 
-        private static IGesture CreateTapDisplay(RecordedGestureDefinitionResult definition, bool useRingedDot = false)
+        private static IGesture CreateTapDisplay(RecordedGestureDefinitionResult definition)
         {
             int fingerCount = definition.FingerCount <= 0 ? 2 : definition.FingerCount;
             var strokes = new List<List<Point>>();
@@ -39,12 +38,7 @@ namespace GestureSign.ControlPanel.Common
                 });
             }
 
-            var pattern = useRingedDot
-                ? new PointPattern(strokes, fingerCount)
-                  {
-                      StrokeStyles = Enumerable.Repeat(StrokeDisplayStyle.RingedDot, fingerCount).ToArray(),
-                  }
-                : new PointPattern(strokes, fingerCount);
+            var pattern = new PointPattern(strokes, fingerCount);
 
             return new Gesture(definition.Name, new[] { pattern }, fingerCount)
             {

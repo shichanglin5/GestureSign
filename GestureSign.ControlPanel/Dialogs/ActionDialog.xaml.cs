@@ -65,6 +65,7 @@ namespace GestureSign.ControlPanel.Dialogs
         protected ActionDialog()
         {
             InitializeComponent();
+            GestureSelector.GetUIModifiers = GetSelectedModifiers;
         }
 
         public ActionDialog(IAction sourceAction, IApplication sourceApplication) : this()
@@ -304,6 +305,7 @@ namespace GestureSign.ControlPanel.Dialogs
                 if (existingGesture != null)
                 {
                     existingGesture.MatchStrategy = gesture.MatchStrategy;
+                    existingGesture.Modifiers = gesture.Modifiers;
                     GestureManager.Instance.SaveGestures();
                 }
                 return true;
@@ -379,6 +381,10 @@ namespace GestureSign.ControlPanel.Dialogs
                         showModifiers = true;
                         initialModifiers = CurrentRecordedDefinition.TipTapGesture?.Modifiers ?? GestureModifiers.Default;
                         break;
+                    case RecordedGestureType.Trajectory:
+                        showModifiers = true;
+                        initialModifiers = CurrentGesture?.Modifiers ?? GestureModifiers.Default;
+                        break;
                     default:
                         showModifiers = false;
                         break;
@@ -386,7 +392,7 @@ namespace GestureSign.ControlPanel.Dialogs
             }
             else if (CurrentGesture != null)
             {
-                // 轨迹手势
+                // 轨迹手势（编辑已有手势）
                 showModifiers = true;
                 initialModifiers = CurrentGesture.Modifiers;
             }

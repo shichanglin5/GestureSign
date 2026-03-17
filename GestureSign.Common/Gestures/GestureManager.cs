@@ -448,6 +448,7 @@ namespace GestureSign.Common.Gestures
                         string gestureName = null;
                         int fingerCount = 0;
                         var matchStrategy = FingerMatchStrategy.Inherit;
+                        var modifiers = GestureModifiers.Default;
 
                         while (reader.Read())
                         {
@@ -465,6 +466,7 @@ namespace GestureSign.Common.Gestures
                                 gesture.Name = gestureName;
                                 gesture.FingerCount = fingerCount;
                                 gesture.MatchStrategy = matchStrategy;
+                                gesture.Modifiers = modifiers;
                                 gesture.PointPatterns = pointPatternList.ToArray();
 
                                 // Only add gesture if it has valid patterns
@@ -500,6 +502,11 @@ namespace GestureSign.Common.Gestures
                                 matchStrategy = Enum.IsDefined(typeof(FingerMatchStrategy), rawStrategy)
                                     ? (FingerMatchStrategy)rawStrategy
                                     : FingerMatchStrategy.Inherit;
+                            }
+                            else if (propertyName == "Modifiers")
+                            {
+                                int rawModifiers = reader.ReadAsInt32() ?? (int)GestureModifiers.Default;
+                                modifiers = (GestureModifiers)rawModifiers;
                             }
                             else if (propertyName == "PointPatterns")
                             {
@@ -985,17 +992,17 @@ namespace GestureSign.Common.Gestures
             return bestTotal == double.MinValue ? null : best;
         }
 
-        public string GetMostSimilarGestureName(PointPattern[] pointPattern)
+        public string GetMostSimilarGestureName(PointPattern[] pointPattern, GestureModifiers modifiers = GestureModifiers.Default)
         {
             if (pointPattern == null || pointPattern.Length == 0)
                 return null;
 
-            return GetGestureSetNameMatch(pointPattern[0].Points, pointPattern[0].FingerCount, GetGesturesListSnapshot());
+            return GetGestureSetNameMatch(pointPattern[0].Points, pointPattern[0].FingerCount, GetGesturesListSnapshot(), modifiers);
         }
 
         public string GetMostSimilarGestureName(IGesture gesture)
         {
-            return GetMostSimilarGestureName(gesture.PointPatterns);
+            return GetMostSimilarGestureName(gesture.PointPatterns, gesture.Modifiers);
         }
 
         public string[] GetAvailableGestures()

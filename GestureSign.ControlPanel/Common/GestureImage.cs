@@ -86,40 +86,57 @@ namespace GestureSign.ControlPanel.Common
                     if (pointPatterns[i].Points[j].Length == 1)
                     {
                         Point center = new Point(size.Width * j + size.Width / 2, size.Height / 2);
+                        bool isPrimaryBtn = modifiers.HasFlag(GestureModifiers.PrimaryButtonDown);
                         var style = styles != null && j < styles.Length
                             ? styles[j]
                             : StrokeDisplayStyle.FilledDot;
 
-                        switch (style)
+                        // PrimaryButtonDown 统一用描边效果（外圈 + 白色挖空 + 内圈）
+                        if (isPrimaryBtn && style != StrokeDisplayStyle.HollowCircle)
                         {
-                            case StrokeDisplayStyle.HollowCircle:
-                                double hollowRadius = drawingPen.Thickness * 1.6;
-                                Pen hollowPen = new Pen(brush, 1.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-                                hollowPen.Freeze();
-                                var hollowDrawing = new GeometryDrawing(null, hollowPen,
-                                    new EllipseGeometry(center, hollowRadius, hollowRadius));
-                                hollowDrawing.Freeze();
-                                drawingGroup.Children.Add(hollowDrawing);
-                                break;
+                            double outerRadius = drawingPen.Thickness * 1.5;
+                            double innerGapRadius = outerRadius - 1.5;
+                            double innerRadius = drawingPen.Thickness * 0.4;
 
-                            case StrokeDisplayStyle.RingedDot:
-                                var innerDrawing = new GeometryDrawing(brush, null,
-                                    new EllipseGeometry(center, drawingPen.Thickness / 2, drawingPen.Thickness / 2));
-                                innerDrawing.Freeze();
-                                drawingGroup.Children.Add(innerDrawing);
-                                double ringRadius = drawingPen.Thickness * 1.2;
-                                Pen ringPen = new Pen(brush, 1.2) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-                                ringPen.Freeze();
-                                var ringDrawing = new GeometryDrawing(null, ringPen,
-                                    new EllipseGeometry(center, ringRadius, ringRadius));
-                                ringDrawing.Freeze();
-                                drawingGroup.Children.Add(ringDrawing);
-                                break;
+                            // 外圈
+                            var outerDrawing = new GeometryDrawing(brush, null,
+                                new EllipseGeometry(center, outerRadius, outerRadius));
+                            outerDrawing.Freeze();
+                            drawingGroup.Children.Add(outerDrawing);
 
-                            default:
-                                pathGeometry.AddGeometry(new EllipseGeometry(center,
-                                    drawingPen.Thickness / 2, drawingPen.Thickness / 2));
-                                break;
+                            // 白色挖空
+                            var bgBrush = new SolidColorBrush(Colors.White);
+                            bgBrush.Freeze();
+                            var bgDrawing = new GeometryDrawing(bgBrush, null,
+                                new EllipseGeometry(center, innerGapRadius, innerGapRadius));
+                            bgDrawing.Freeze();
+                            drawingGroup.Children.Add(bgDrawing);
+
+                            // 内圈细点
+                            var dotDrawing = new GeometryDrawing(brush, null,
+                                new EllipseGeometry(center, innerRadius, innerRadius));
+                            dotDrawing.Freeze();
+                            drawingGroup.Children.Add(dotDrawing);
+                        }
+                        else
+                        {
+                            switch (style)
+                            {
+                                case StrokeDisplayStyle.HollowCircle:
+                                    double hollowRadius = drawingPen.Thickness * 1.6;
+                                    Pen hollowPen = new Pen(brush, 1.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+                                    hollowPen.Freeze();
+                                    var hollowDrawing = new GeometryDrawing(null, hollowPen,
+                                        new EllipseGeometry(center, hollowRadius, hollowRadius));
+                                    hollowDrawing.Freeze();
+                                    drawingGroup.Children.Add(hollowDrawing);
+                                    break;
+
+                                default:
+                                    pathGeometry.AddGeometry(new EllipseGeometry(center,
+                                        drawingPen.Thickness / 2, drawingPen.Thickness / 2));
+                                    break;
+                            }
                         }
                         continue;
                     }
@@ -149,11 +166,57 @@ namespace GestureSign.ControlPanel.Common
                     pathGeometry.AddGeometry(sg);
                 }
                 pathGeometry.Freeze();
-                GeometryDrawing drawing = new GeometryDrawing(null, drawingPen, pathGeometry);
-                drawing.Freeze();
-                drawingGroup.Children.Add(drawing);
+
+                // PrimaryButtonDown：外层描边 + 背景挖空 + 细内层轨迹，形成空心描边效果
+                if (modifiers.HasFlag(GestureModifiers.PrimaryButtonDown))
+                {
+                    double outerThickness = drawingPen.Thickness * 3;
+                    double innerGap = outerThickness - 2.0; // 背景挖空宽度，留出边缘作为描边
+
+                    // 1. 外层描边（原色）
+                    var outerPen = new Pen(brush, outerThickness)
+                    {
+                        StartLineCap = PenLineCap.Round,
+                        EndLineCap = PenLineCap.Round
+                    };
+                    outerPen.Freeze();
+                    var outerDrawing = new GeometryDrawing(null, outerPen, pathGeometry);
+                    outerDrawing.Freeze();
+                    drawingGroup.Children.Add(outerDrawing);
+
+                    // 2. 中间挖空（用背景色覆盖，形成空心效果）
+                    var bgBrush = new SolidColorBrush(Colors.White);
+                    bgBrush.Freeze();
+                    var bgPen = new Pen(bgBrush, innerGap)
+                    {
+                        StartLineCap = PenLineCap.Round,
+                        EndLineCap = PenLineCap.Round
+                    };
+                    bgPen.Freeze();
+                    var bgDrawing = new GeometryDrawing(null, bgPen, pathGeometry);
+                    bgDrawing.Freeze();
+                    drawingGroup.Children.Add(bgDrawing);
+
+                    // 3. 内层细轨迹
+                    var innerPen = new Pen(brush, drawingPen.Thickness * 0.8)
+                    {
+                        StartLineCap = PenLineCap.Round,
+                        EndLineCap = PenLineCap.Round
+                    };
+                    innerPen.Freeze();
+                    var innerDrawing = new GeometryDrawing(null, innerPen, pathGeometry);
+                    innerDrawing.Freeze();
+                    drawingGroup.Children.Add(innerDrawing);
+                }
+                else
+                {
+                    GeometryDrawing drawing = new GeometryDrawing(null, drawingPen, pathGeometry);
+                    drawing.Freeze();
+                    drawingGroup.Children.Add(drawing);
+                }
             }
-            // 修饰符标签：左上角（仅 Ctrl/Shift/Alt，PrimaryButtonDown 已由 RingedDot 笔画样式区分）
+
+            // 修饰符标签：左上角（Ctrl/Shift/Alt）
             var keyModifiers = modifiers & ~GestureModifiers.PrimaryButtonDown;
             if (keyModifiers != GestureModifiers.Default)
             {

@@ -341,7 +341,7 @@ namespace GestureSign.Daemon.Triggers
                     if (_zoomDetectFrames >= ZoomEnterFrames)
                     {
                         // 连续多帧检测到缩放特征，进入缩放模式
-                        Logging.LogDebug($"[CGT] zoom enter: consecutive zoom frames={_zoomDetectFrames} distDelta={distDelta:F1} avgMove={avgMove:F1}");
+                        // Logging.LogDebug($"[CGT] zoom enter: consecutive zoom frames={_zoomDetectFrames} distDelta={distDelta:F1} avgMove={avgMove:F1}");
                         _pinchZoomInjector.Start(System.Windows.Forms.Cursor.Position);
                         _isZooming = _pinchZoomInjector.IsActive;
                         if (_isZooming)

@@ -696,7 +696,7 @@ namespace GestureSign.Daemon.Input
                 var thresholdValue = _blockTouchInputThreshold.GetValueOrDefault();
                 _blockTouchInputThreshold = null;
 
-                Logging.LogDebug($"[PointCapture] Applying BlockTouchInputThreshold={thresholdValue} state={State} fingers={_peakFingerCount}");
+                // Logging.LogDebug($"[PointCapture] Applying BlockTouchInputThreshold={thresholdValue} state={State} fingers={_peakFingerCount}");
 
                 // Apply threshold synchronously to ensure blocking takes effect immediately
                 // This is critical for preventing the first touch frame from being forwarded to Windows
@@ -955,7 +955,7 @@ namespace GestureSign.Daemon.Input
 
                     var trajectoryGesture = new Gesture(null, _pointPatternCache.ToArray(), _peakFingerCount);
                     trajectoryGesture.Modifiers = activeModifiers;
-                    var existingSimilarGestureName = GestureManager.Instance.GetMostSimilarGestureName(_pointPatternCache.ToArray());
+                    var existingSimilarGestureName = GestureManager.Instance.GetMostSimilarGestureName(_pointPatternCache.ToArray(), activeModifiers);
                     if (!string.IsNullOrEmpty(existingSimilarGestureName))
                     {
                         var existingGesture = GestureManager.Instance.GetNewestGestureSample(existingSimilarGestureName) as Gesture;

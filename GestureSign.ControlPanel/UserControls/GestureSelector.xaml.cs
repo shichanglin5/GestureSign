@@ -50,6 +50,11 @@ namespace GestureSign.ControlPanel.UserControls
 
         public bool ShouldOverwriteExisting => OverwriteExistingCheckBox.IsChecked == true;
 
+        /// <summary>
+        /// 从 ActionDialog 获取当前 UI 上勾选的修饰符，用于训练结果的重匹配。
+        /// </summary>
+        public Func<GestureModifiers> GetUIModifiers { get; set; }
+
         public GestureSelector()
         {
             InitializeComponent();
@@ -63,6 +68,48 @@ namespace GestureSign.ControlPanel.UserControls
         {
             if (definition == null)
                 return;
+
+            // 用 UI 修饰符覆盖 Daemon 采样的修饰符，并重新匹配已有手势
+            if (GetUIModifiers != null)
+            {
+                var uiModifiers = GetUIModifiers();
+                if (definition.Type == RecordedGestureType.Trajectory && definition.TrajectoryGesture != null)
+                {
+                    definition.TrajectoryGesture.Modifiers = uiModifiers;
+                    // 用 UI 修饰符重新匹配
+                    var rematched = GestureManager.Instance.GetMostSimilarGestureName(
+                        definition.TrajectoryGesture.PointPatterns, uiModifiers);
+                    if (!string.IsNullOrEmpty(rematched))
+                    {
+                        var existing = GestureManager.Instance.GetNewestGestureSample(rematched) as Gesture;
+                        if (existing != null)
+                        {
+                            definition.TrajectoryGesture.Id = existing.Id;
+                            definition.TrajectoryGesture.Name = existing.Name;
+                            definition.GestureId = existing.Id;
+                            definition.Name = existing.Name;
+                            definition.MatchedExistingDefinition = true;
+                        }
+                    }
+                    else if (definition.MatchedExistingDefinition)
+                    {
+                        // Daemon 匹配到了（不区分修饰符），但 UI 修饰符下没有匹配 → 视为新手势
+                        definition.MatchedExistingDefinition = false;
+                        definition.TrajectoryGesture.Id = null;
+                        definition.TrajectoryGesture.Name = null;
+                        definition.GestureId = null;
+                        definition.Name = null;
+                    }
+                }
+                else if (definition.Type == RecordedGestureType.Tap && definition.TapGesture != null)
+                {
+                    definition.TapGesture.Modifiers = uiModifiers;
+                }
+                else if (definition.Type == RecordedGestureType.TipTap && definition.TipTapGesture != null)
+                {
+                    definition.TipTapGesture.Modifiers = uiModifiers;
+                }
+            }
 
             CurrentRecordedDefinition = definition;
 
@@ -99,8 +146,12 @@ namespace GestureSign.ControlPanel.UserControls
 
                 UpdateExistingTextBlock();
                 ExistingTextBlock.Visibility = Visibility.Visible;
-                OverwriteExistingCheckBox.IsChecked = false;
+                // 不重置 OverwriteExistingCheckBox.IsChecked，保留用户的勾选状态
                 OverwriteExistingCheckBox.Visibility = Visibility.Visible;
+
+                // 如果用户已勾选覆盖，直接显示录制的手势
+                if (OverwriteExistingCheckBox.IsChecked == true && _recordedGesture != null)
+                    CurrentGesture = _recordedGesture;
             }
             else
             {
@@ -242,15 +293,20 @@ namespace GestureSign.ControlPanel.UserControls
 
             if (_isUsingExistingGesture)
             {
-                // 切换到新建模式
+                // 切换到新建模式：克隆手势避免修改已有手势的引用
                 _isUsingExistingGesture = false;
                 CurrentRecordedDefinition.MatchedExistingDefinition = false;
 
                 if (CurrentRecordedDefinition.Type == RecordedGestureType.Trajectory && CurrentRecordedDefinition.TrajectoryGesture != null)
                 {
-                    var gesture = CurrentRecordedDefinition.TrajectoryGesture;
-                    gesture.Id = null;
-                    gesture.Name = null;
+                    var source = CurrentRecordedDefinition.TrajectoryGesture;
+                    var cloned = new Gesture(null, source.PointPatterns, source.FingerCount)
+                    {
+                        MatchStrategy = source.MatchStrategy,
+                        Modifiers = source.Modifiers,
+                    };
+                    CurrentRecordedDefinition.TrajectoryGesture = cloned;
+                    CurrentGesture = cloned;
                     CurrentRecordedDefinition.GestureId = null;
                     CurrentRecordedDefinition.Name = null;
                 }
