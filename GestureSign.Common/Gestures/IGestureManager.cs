@@ -9,7 +9,6 @@ namespace GestureSign.Common.Gestures
         void DeleteGesture(string gestureName);
         void DeleteGestureById(string gestureId);
         bool GestureExists(string gestureName);
-        string GestureName { get; set; }
         IGesture[] Gestures { get; }
         string[] GetAvailableGestures();
         IGesture GetNewestGestureSample(string gestureName);

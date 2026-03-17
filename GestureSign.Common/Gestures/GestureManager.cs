@@ -50,8 +50,6 @@ namespace GestureSign.Common.Gestures
 
         #region Public Instance Properties
 
-        public string GestureId { get; set; }
-        public string GestureName { get; set; }
         public IGesture[] Gestures
         {
             get
@@ -111,13 +109,6 @@ namespace GestureSign.Common.Gestures
 
         #region Events
 
-        protected void PointCapture_BeforePointsCaptured(object sender, PointsCapturedEventArgs e)
-        {
-            var capturedPoints = e.Points.Select(l => l.ToArray()).ToArray();
-            GestureName = GetGestureSetNameMatch(capturedPoints, e.FingerCount, GetGesturesListSnapshot());
-            GestureId = _matchedGestureId;
-        }
-
         #endregion
 
         #region Custom Events
@@ -172,11 +163,8 @@ namespace GestureSign.Common.Gestures
         {
             // Shortcut method to control singleton instantiation
 
-            // Wireup event to Touch capture class to catch points captured
-            if (pointCapture != null)
-            {
-                pointCapture.BeforePointsCaptured += PointCapture_BeforePointsCaptured;
-            }
+            // GestureManager no longer needs to subscribe BeforePointsCaptured;
+            // recognition is now triggered explicitly via Recognize() from PointCapture.
         }
 
         private void RebuildGestureIndex(IReadOnlyList<IGesture> gestures)
@@ -584,7 +572,14 @@ namespace GestureSign.Common.Gestures
             return gestureList;
         }
 
-        public string GetGestureSetNameMatch(Point[][] points, int fingerCount, List<IGesture> sourceGestures)
+        public GestureMatchResult? Recognize(Point[][] points, int fingerCount, GestureModifiers activeModifiers = GestureModifiers.Default)
+        {
+            var name = GetGestureSetNameMatch(points, fingerCount, GetGesturesListSnapshot(), activeModifiers);
+            if (name == null) return null;
+            return new GestureMatchResult(name, _matchedGestureId);
+        }
+
+        public string GetGestureSetNameMatch(Point[][] points, int fingerCount, List<IGesture> sourceGestures, GestureModifiers activeModifiers = GestureModifiers.Default)
         {
             if (points.Length == 0 || sourceGestures == null || sourceGestures.Count == 0)
             {
@@ -620,10 +615,12 @@ namespace GestureSign.Common.Gestures
                 }
             }
 
+            gestures = gestures.Where(g => g.Modifiers == activeModifiers).ToList();
+
             if (gestures.Count == 0)
             {
                 _matchedGestureId = null;
-                Logging.LogInfo($"[GestureMatch] No gesture registered for fingerCount={lookupFingerCount}, trajectoryCount={trajectoryCount} (inputFingerCount={fingerCount}, total loaded gestures={sourceGestures.Count})");
+                Logging.LogTrace($"[GestureMatch] No gesture registered for fingerCount={lookupFingerCount}, trajectoryCount={trajectoryCount}, modifiers={activeModifiers} (inputFingerCount={fingerCount}, total loaded gestures={sourceGestures.Count})");
                 return null;
             }
 
@@ -732,7 +729,7 @@ namespace GestureSign.Common.Gestures
                     if (matchResults.Count > 0)
                     {
                         var topMatch = matchResults.OrderByDescending(r => r.Probability).First();
-                        Logging.LogInfo($"[GestureMatch] No gesture passed threshold={threshold}% at trajectory {trajectoryIdx}, best={topMatch.Probability:F1}% (angular={topMatch.AngularProbability:F1}%, penalty={topMatch.StructuralPenalty:F1}%) name={topMatch.Name}");
+                        Logging.LogTrace($"[GestureMatch] No gesture passed threshold={threshold}% at trajectory {trajectoryIdx}, best={topMatch.Probability:F1}% (angular={topMatch.AngularProbability:F1}%, penalty={topMatch.StructuralPenalty:F1}%) name={topMatch.Name}");
                     }
                     return null;
                 }
@@ -762,7 +759,7 @@ namespace GestureSign.Common.Gestures
             return bestMatch;
         }
 
-        private static FingerMatchStrategy ResolveEffectiveMatchStrategy(IGesture gesture, FingerMatchStrategy globalMatchStrategy)
+        public static FingerMatchStrategy ResolveEffectiveMatchStrategy(IGesture gesture, FingerMatchStrategy globalMatchStrategy)
         {
             var gestureStrategy = gesture?.MatchStrategy ?? FingerMatchStrategy.Inherit;
             if (gestureStrategy == FingerMatchStrategy.AllFingers ||
@@ -774,7 +771,7 @@ namespace GestureSign.Common.Gestures
             return NormalizeGlobalMatchStrategy(globalMatchStrategy);
         }
 
-        private static FingerMatchStrategy NormalizeGlobalMatchStrategy(FingerMatchStrategy strategy)
+        public static FingerMatchStrategy NormalizeGlobalMatchStrategy(FingerMatchStrategy strategy)
         {
             return strategy == FingerMatchStrategy.FeatureFinger
                 ? FingerMatchStrategy.FeatureFinger
@@ -784,7 +781,7 @@ namespace GestureSign.Common.Gestures
         private string GetGestureSetNameMatchByFeatureFinger(Point[][] points, int fingerCount, List<IGesture> gestures)
         {
             int trajectoryCount = points.Length;
-            int featureTrajectoryIndex = GetFeatureFingerTrajectoryIndex(trajectoryCount, Configuration.AppConfig.FeatureFingerIndex);
+            int featureTrajectoryIndex = GetFeatureFingerTrajectoryIndex(trajectoryCount);
             double threshold = Configuration.AppConfig.GestureMatchProbability;
             const double secondaryViewFallbackDeficit = 3.0;
 
@@ -825,7 +822,7 @@ namespace GestureSign.Common.Gestures
                 _matchedGestureId = null;
                 if (topResult != null)
                 {
-                    Logging.LogInfo($"[GestureMatch] No gesture passed threshold={threshold}% at feature trajectory {featureTrajectoryIndex}, best={topResult.Probability:F1}% (angular={topResult.AngularProbability:F1}%, penalty={topResult.StructuralPenalty:F1}%) name={topResult.Name}");
+                    Logging.LogTrace($"[GestureMatch] No gesture passed threshold={threshold}% at feature trajectory {featureTrajectoryIndex}, best={topResult.Probability:F1}% (angular={topResult.AngularProbability:F1}%, penalty={topResult.StructuralPenalty:F1}%) name={topResult.Name}");
 
                     // Same threshold, different view: when feature lane is a near miss, retry using all-fingers.
                     if (trajectoryCount >= 3 && threshold - topResult.Probability <= secondaryViewFallbackDeficit)
@@ -833,7 +830,7 @@ namespace GestureSign.Common.Gestures
                         string fallbackMatch = GetGestureSetNameMatchWithTrajectoryAssignment(points, fingerCount, gestures);
                         if (!string.IsNullOrEmpty(fallbackMatch))
                         {
-                            Logging.LogInfo($"[GestureMatch] Feature view near-threshold miss recovered by all-fingers view: featureBest={topResult.Probability:F1}%, threshold={threshold}%");
+                            Logging.LogTrace($"[GestureMatch] Feature view near-threshold miss recovered by all-fingers view: featureBest={topResult.Probability:F1}%, threshold={threshold}%");
                             return fallbackMatch;
                         }
                     }
@@ -843,18 +840,12 @@ namespace GestureSign.Common.Gestures
             return bestMatch;
         }
 
-        public static int GetFeatureFingerTrajectoryIndex(int trajectoryCount, int configuredFeatureFingerIndex)
+        public static int GetFeatureFingerTrajectoryIndex(int trajectoryCount)
         {
-            if (trajectoryCount <= 1)
+            // 2 指取最左手指（index 0），3+ 指取第二根手指（index 1）
+            if (trajectoryCount <= 2)
                 return 0;
-
-            if (trajectoryCount == 2)
-                return 0;
-
-            // 2 指默认取首轨迹，3+ 指默认取第二轨迹；若配置有效则优先使用配置值。
-            int fallback = 1;
-            int candidate = configuredFeatureFingerIndex >= 0 ? configuredFeatureFingerIndex : fallback;
-            return Math.Min(candidate, trajectoryCount - 1);
+            return 1;
         }
 
         private string GetGestureSetNameMatchWithTrajectoryAssignment(Point[][] points, int fingerCount, List<IGesture> gestures)
@@ -908,7 +899,7 @@ namespace GestureSign.Common.Gestures
                 _matchedGestureId = null;
                 if (bestFailureResult != null)
                 {
-                    Logging.LogInfo($"[GestureMatch] No gesture passed threshold={threshold}% at trajectory {bestFailureTrajectoryIndex}, best={bestFailureResult.Probability:F1}% (angular={bestFailureResult.AngularProbability:F1}%, penalty={bestFailureResult.StructuralPenalty:F1}%) name={bestFailureName ?? bestFailureResult.Name}");
+                    Logging.LogTrace($"[GestureMatch] No gesture passed threshold={threshold}% at trajectory {bestFailureTrajectoryIndex}, best={bestFailureResult.Probability:F1}% (angular={bestFailureResult.AngularProbability:F1}%, penalty={bestFailureResult.StructuralPenalty:F1}%) name={bestFailureName ?? bestFailureResult.Name}");
                 }
             }
 
@@ -1038,11 +1029,6 @@ namespace GestureSign.Common.Gestures
         public IGesture GetGestureById(string gestureId)
         {
             return string.IsNullOrEmpty(gestureId) ? null : Gestures.LastOrDefault(g => string.Equals(g.Id, gestureId, StringComparison.Ordinal));
-        }
-
-        public IGesture GetNewestGestureSample()
-        {
-            return GetNewestGestureSample(this.GestureName);
         }
 
         public void DeleteGesture(string gestureName)

@@ -155,6 +155,11 @@ QQ交流群：576981420
     <MatchStrategyInherit>继承全局设置</MatchStrategyInherit>
     <MatchStrategyAllFingers>所有手指匹配</MatchStrategyAllFingers>
     <MatchStrategyFeatureFinger>特征手指匹配</MatchStrategyFeatureFinger>
+    <GestureModifiers>手势修饰符</GestureModifiers>
+    <ModPrimaryButton>按压触控板</ModPrimaryButton>
+    <ModCtrl>Ctrl</ModCtrl>
+    <ModShift>Shift</ModShift>
+    <ModAlt>Alt</ModAlt>
     <Messages>
       <ConditionError>条件错误</ConditionError>
     </Messages>
@@ -186,10 +191,12 @@ QQ交流群：576981420
     <ReverseDirection>反转垂直方向</ReverseDirection>
     <ReverseHorizontal>反转水平方向</ReverseHorizontal>
     <WinUIDetection>WinUI 检测</WinUIDetection>
+    <MomentumTriggerMaxIdle>触发阈值 (ms)</MomentumTriggerMaxIdle>
     <MomentumSettings>惯性滚动</MomentumSettings>
     <EnableMomentum>启用惯性</EnableMomentum>
     <MomentumTimeConstant>衰减时间常数 (ms)</MomentumTimeConstant>
     <MomentumMinVelocity>最小速度 (px/s)</MomentumMinVelocity>
+    <MomentumStopThreshold>停止阈值 (px/s)</MomentumStopThreshold>
     <MomentumMaxDuration>最大时长 (ms)</MomentumMaxDuration>
     <DirectionCommands>方向命令</DirectionCommands>
     <DirUp>上</DirUp>
@@ -363,7 +370,7 @@ QQ交流群：576981420
     <Edit>重画手势</Edit>
     <ExistingGesture>匹配到已有手势: {0}</ExistingGesture>
     <ExistingGestureNoName>匹配到已有手势</ExistingGestureNoName>
-    <NewGestureCreated>已新建手势</NewGestureCreated>
+    <NewGestureCreated>新建手势</NewGestureCreated>
     <OverwriteExisting>覆盖已有手势</OverwriteExisting>
     <DrawGesture>请画出手势</DrawGesture>
     <Redraw>重画</Redraw>

@@ -66,42 +66,6 @@
                            Margin="20,10,0,10"
                            HorizontalAlignment="Left" />
 
-                <!-- Keyboard HotKey -->
-                <TextBlock x:Name="KeyboardHotKeyTextBlock"
-                           Text="{localization:LocalisedText ActionDialog.KeyboardHotKey}"
-                           FontSize="14"
-                           FontWeight="Bold"
-                           Margin="20,0,0,0"
-                           HorizontalAlignment="Left" />
-                <controls:HotKeyBox x:Name="HotKeyTextBox"
-                                    AreModifierKeysRequired="True"
-                                    controls:TextBoxHelper.Watermark="{localization:LocalisedText ActionDialog.HotKeyWatermark}"
-                                    FontSize="14"
-                                    Margin="20,5,100,0">
-                </controls:HotKeyBox>
-                <Button x:Name="ResetHotKeyButton"
-                        Content="{localization:LocalisedText Common.Reset}"
-                        FontSize="14"
-                        MinWidth="60"
-                        Height="27"
-                        HorizontalAlignment="Right"
-                        BorderBrush="{StaticResource MahApps.Brushes.Highlight}"
-                        Click="ResetHotKeyButton_Click"
-                        Focusable="False"
-                        Margin="0,-26,14,0" />
-
-                <!-- Trigger Condition -->
-                <TextBlock Text="{localization:LocalisedText ActionDialog.TriggerCondition}"
-                           FontSize="14"
-                           Margin="20,10,0,0"
-                           HorizontalAlignment="Left"
-                           FontWeight="Bold" />
-                <TextBox x:Name="ConditionTextBox"
-                         FontSize="14"
-                         Margin="20,5,20,0"
-                         controls:TextBoxHelper.Watermark="{localization:LocalisedText ActionDialog.Default}"
-                         PreviewMouseUp="ConditionTextBox_PreviewMouseUp" />
-
                 <!-- Device Limit -->
                 <TextBlock Text="{localization:LocalisedText ActionDialog.DeviceLimit}"
                            FontSize="14"
@@ -138,6 +102,35 @@
                     <ComboBoxItem Content="{localization:LocalisedText ActionDialog.MatchStrategyAllFingers}" />
                     <ComboBoxItem Content="{localization:LocalisedText ActionDialog.MatchStrategyFeatureFinger}" />
                 </ComboBox>
+
+                <!-- Gesture Modifiers -->
+                <TextBlock x:Name="ModifiersLabel"
+                           Text="{localization:LocalisedText ActionDialog.GestureModifiers}"
+                           FontSize="14"
+                           FontWeight="Bold"
+                           Margin="20,10,0,0"
+                           HorizontalAlignment="Left"
+                           Visibility="Collapsed" />
+                <StackPanel x:Name="ModifiersPanel"
+                            Margin="20,5,20,5"
+                            Visibility="Collapsed">
+                    <CheckBox x:Name="ModPrimaryButton"
+                              Content="{localization:LocalisedText ActionDialog.ModPrimaryButton}"
+                              FontSize="14"
+                              Margin="0,2" />
+                    <CheckBox x:Name="ModCtrl"
+                              Content="{localization:LocalisedText ActionDialog.ModCtrl}"
+                              FontSize="14"
+                              Margin="0,2" />
+                    <CheckBox x:Name="ModShift"
+                              Content="{localization:LocalisedText ActionDialog.ModShift}"
+                              FontSize="14"
+                              Margin="0,2" />
+                    <CheckBox x:Name="ModAlt"
+                              Content="{localization:LocalisedText ActionDialog.ModAlt}"
+                              FontSize="14"
+                              Margin="0,2" />
+                </StackPanel>
 
                 <!-- Activate Window -->
                 <CheckBox x:Name="ActivateWindowCheckBox"

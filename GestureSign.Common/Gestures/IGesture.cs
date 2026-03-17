@@ -10,5 +10,7 @@
         int FingerCount { get; set; }
 
         FingerMatchStrategy MatchStrategy { get; set; }
+
+        GestureModifiers Modifiers { get; set; }
     }
 }

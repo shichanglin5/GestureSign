@@ -85,7 +85,7 @@ namespace GestureSign.ControlPanel.UserControls
             else
                 _recordedGesture = ContactGestureDisplayFactory.CreateDisplayGesture(definition);
 
-            GestureTypeTextBlock.Text = ContactGestureText.GetRecordedGestureTypeText(definition);
+            GestureTypeTextBlock.Text = ContactGestureText.GetRecordedGestureTypeText(definition) + GetModifierSuffix(definition);
 
             if (definition != null && definition.MatchedExistingDefinition)
             {
@@ -283,20 +283,36 @@ namespace GestureSign.ControlPanel.UserControls
         {
             if (_isUsingExistingGesture)
             {
-                if (!string.IsNullOrEmpty(_matchedOriginalName))
-                {
-                    string template = LocalizationProvider.Instance.GetTextValue("GestureDefinition.ExistingGesture") ?? "Matched existing gesture: {0}";
-                    ExistingTextBlock.Text = string.Format(template, _matchedOriginalName);
-                }
-                else
-                {
-                    ExistingTextBlock.Text = LocalizationProvider.Instance.GetTextValue("GestureDefinition.ExistingGestureNoName") ?? "Matched existing gesture";
-                }
+                string suffix = GetModifierSuffix(CurrentRecordedDefinition);
+                string name = !string.IsNullOrEmpty(_matchedOriginalName)
+                    ? _matchedOriginalName
+                    : _matchedOriginalId ?? (LocalizationProvider.Instance.GetTextValue("GestureDefinition.ExistingGestureNoName") ?? "Existing gesture");
+                ExistingTextBlock.Text = name + suffix;
             }
             else
             {
-                ExistingTextBlock.Text = LocalizationProvider.Instance.GetTextValue("GestureDefinition.NewGestureCreated") ?? "New gesture created";
+                ExistingTextBlock.Text = LocalizationProvider.Instance.GetTextValue("GestureDefinition.NewGestureCreated") ?? "New gesture";
             }
+        }
+
+        private static string GetModifierSuffix(RecordedGestureDefinitionResult definition)
+        {
+            GestureModifiers modifiers = GestureModifiers.Default;
+            if (definition?.Type == RecordedGestureType.Tap)
+                modifiers = definition.TapGesture?.Modifiers ?? GestureModifiers.Default;
+            else if (definition?.Type == RecordedGestureType.TipTap)
+                modifiers = definition.TipTapGesture?.Modifiers ?? GestureModifiers.Default;
+
+            if (modifiers == GestureModifiers.Default)
+                return string.Empty;
+
+            var parts = new System.Collections.Generic.List<string>();
+            if (modifiers.HasFlag(GestureModifiers.PrimaryButtonDown))
+                parts.Add(LocalizationProvider.Instance.GetTextValue("ActionDialog.ModPrimaryButton") ?? "Primary Button");
+            if (modifiers.HasFlag(GestureModifiers.Ctrl)) parts.Add("Ctrl");
+            if (modifiers.HasFlag(GestureModifiers.Shift)) parts.Add("Shift");
+            if (modifiers.HasFlag(GestureModifiers.Alt)) parts.Add("Alt");
+            return " + " + string.Join("+", parts);
         }
 
         private void imgGestureThumbnail_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -314,7 +330,7 @@ namespace GestureSign.ControlPanel.UserControls
             // 已有手势打开时，显示类型标签
             if (CurrentRecordedDefinition != null)
             {
-                GestureTypeTextBlock.Text = ContactGestureText.GetRecordedGestureTypeText(CurrentRecordedDefinition);
+                GestureTypeTextBlock.Text = ContactGestureText.GetRecordedGestureTypeText(CurrentRecordedDefinition) + GetModifierSuffix(CurrentRecordedDefinition);
             }
 
             UpdateTrainingUi();

@@ -17,10 +17,9 @@ namespace GestureSign.ControlPanel.Common
 
             switch (definition.Type)
             {
-                case GestureSign.Common.Input.RecordedGestureType.Click:
-                    return CreateClickDisplay(definition);
                 case GestureSign.Common.Input.RecordedGestureType.Tap:
-                    return CreateTapDisplay(definition);
+                    bool isBtn = definition.TapGesture?.Modifiers.HasFlag(GestureModifiers.PrimaryButtonDown) == true;
+                    return CreateTapDisplay(definition, useRingedDot: isBtn);
                 case GestureSign.Common.Input.RecordedGestureType.TipTap:
                     return CreateTipTapDisplay(definition);
                 default:
@@ -28,7 +27,7 @@ namespace GestureSign.ControlPanel.Common
             }
         }
 
-        private static IGesture CreateTapDisplay(RecordedGestureDefinitionResult definition)
+        private static IGesture CreateTapDisplay(RecordedGestureDefinitionResult definition, bool useRingedDot = false)
         {
             int fingerCount = definition.FingerCount <= 0 ? 2 : definition.FingerCount;
             var strokes = new List<List<Point>>();
@@ -40,34 +39,17 @@ namespace GestureSign.ControlPanel.Common
                 });
             }
 
-            // Tap: 所有手指都是实心圆
-            var pattern = new PointPattern(strokes, fingerCount);
+            var pattern = useRingedDot
+                ? new PointPattern(strokes, fingerCount)
+                  {
+                      StrokeStyles = Enumerable.Repeat(StrokeDisplayStyle.RingedDot, fingerCount).ToArray(),
+                  }
+                : new PointPattern(strokes, fingerCount);
+
             return new Gesture(definition.Name, new[] { pattern }, fingerCount)
             {
                 Id = definition.GestureId,
-            };
-        }
-
-        private static IGesture CreateClickDisplay(RecordedGestureDefinitionResult definition)
-        {
-            int fingerCount = definition.ClickGesture?.FingerCount ?? definition.FingerCount;
-            var strokes = new List<List<Point>>();
-            for (int i = 0; i < fingerCount; i++)
-            {
-                strokes.Add(new List<Point>
-                {
-                    new Point(20 + i * 24, 34)
-                });
-            }
-
-            // Click: 所有手指都是实心圆+外圈
-            var pattern = new PointPattern(strokes, fingerCount)
-            {
-                StrokeStyles = Enumerable.Repeat(StrokeDisplayStyle.RingedDot, fingerCount).ToArray(),
-            };
-            return new Gesture(definition.Name, new[] { pattern }, fingerCount)
-            {
-                Id = definition.GestureId,
+                Modifiers = definition.TapGesture?.Modifiers ?? GestureModifiers.Default,
             };
         }
 
@@ -81,12 +63,6 @@ namespace GestureSign.ControlPanel.Common
 
             switch (definition.Type)
             {
-                case RecordedGestureType.Click when definition.ClickGesture != null:
-                    definition.ClickGesture.Id ??= Guid.NewGuid().ToString("N");
-                    definition.ClickGesture.Name ??= ContactGestureText.GetClickName(definition.ClickGesture.FingerCount);
-                    definition.GestureId = definition.ClickGesture.Id;
-                    definition.Name = definition.ClickGesture.Name;
-                    break;
                 case RecordedGestureType.Tap when definition.TapGesture != null:
                     definition.TapGesture.Id ??= Guid.NewGuid().ToString("N");
                     definition.TapGesture.Name ??= ContactGestureText.GetTapName(definition.TapGesture.FingerCount);
@@ -117,10 +93,6 @@ namespace GestureSign.ControlPanel.Common
 
             switch (definition.Type)
             {
-                case RecordedGestureType.Click when definition.ClickGesture != null:
-                    global.ContactGestures.Clicks.RemoveAll(c => c.Id == definition.ClickGesture.Id);
-                    global.ContactGestures.Clicks.Add(definition.ClickGesture);
-                    break;
                 case RecordedGestureType.Tap when definition.TapGesture != null:
                     global.ContactGestures.Taps.RemoveAll(t => t.Id == definition.TapGesture.Id);
                     global.ContactGestures.Taps.Add(definition.TapGesture);
@@ -172,6 +144,7 @@ namespace GestureSign.ControlPanel.Common
             return new Gesture(definition.Name, new[] { pattern }, total)
             {
                 Id = definition.GestureId,
+                Modifiers = definition.TipTapGesture?.Modifiers ?? GestureModifiers.Default,
             };
         }
     }

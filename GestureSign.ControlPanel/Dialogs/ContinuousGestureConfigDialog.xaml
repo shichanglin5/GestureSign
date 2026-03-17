@@ -208,6 +208,28 @@
                        FontWeight="Bold"
                        Margin="0,0,0,8" />
 
+            <!-- 触发惯性最大末帧静止时长 -->
+            <DockPanel Margin="0,0,0,5">
+                <TextBlock Text="{localization:LocalisedText ContinuousGesture.MomentumTriggerMaxIdle}"
+                           VerticalAlignment="Center"
+                           Width="150"
+                           FontSize="13" />
+                <TextBlock DockPanel.Dock="Right"
+                           Text="{Binding ElementName=MomentumTriggerMaxIdleSlider,Path=Value,StringFormat={}{0:F0}}"
+                           VerticalAlignment="Center"
+                           Width="40"
+                           TextAlignment="Right"
+                           FontSize="13"
+                           Margin="5,0,0,0" />
+                <Slider x:Name="MomentumTriggerMaxIdleSlider"
+                        Minimum="30"
+                        Maximum="300"
+                        TickFrequency="10"
+                        IsSnapToTickEnabled="True"
+                        Value="120"
+                        VerticalAlignment="Center" />
+            </DockPanel>
+
             <CheckBox x:Name="EnableMomentumCheckBox"
                       Content="{localization:LocalisedText ContinuousGesture.EnableMomentum}"
                       FontSize="13"
@@ -253,11 +275,33 @@
                                FontSize="13"
                                Margin="5,0,0,0" />
                     <Slider x:Name="MomentumMinVelocitySlider"
-                            Minimum="1"
-                            Maximum="100"
-                            TickFrequency="1"
+                            Minimum="0"
+                            Maximum="1000"
+                            TickFrequency="10"
                             IsSnapToTickEnabled="True"
                             Value="10"
+                            VerticalAlignment="Center" />
+                </DockPanel>
+
+                <!-- 停止阈值 -->
+                <DockPanel Margin="0,0,0,5">
+                    <TextBlock Text="{localization:LocalisedText ContinuousGesture.MomentumStopThreshold}"
+                               VerticalAlignment="Center"
+                               Width="150"
+                               FontSize="13" />
+                    <TextBlock DockPanel.Dock="Right"
+                               Text="{Binding ElementName=MomentumStopThresholdSlider,Path=Value,StringFormat={}{0:F0}}"
+                               VerticalAlignment="Center"
+                               Width="40"
+                               TextAlignment="Right"
+                               FontSize="13"
+                               Margin="5,0,0,0" />
+                    <Slider x:Name="MomentumStopThresholdSlider"
+                            Minimum="0"
+                            Maximum="2000"
+                            TickFrequency="50"
+                            IsSnapToTickEnabled="True"
+                            Value="500"
                             VerticalAlignment="Center" />
                 </DockPanel>
 

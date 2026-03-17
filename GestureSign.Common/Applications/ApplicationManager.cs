@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using GestureSign.Common.Configuration;
+using GestureSign.Common.Gestures;
 using GestureSign.Common.Input;
 using GestureSign.Common.Log;
 using ManagedWinapi.Windows;
@@ -351,14 +352,9 @@ namespace GestureSign.Common.Applications
             return GetApplicationFromWindow(systemWindow);
         }
 
-        public IEnumerable<IAction> GetRecognizedDefinedAction(string GestureName)
+        public IEnumerable<IAction> GetRecognizedDefinedAction(string gestureId)
         {
-            return GetDefinedAction(null, GestureName, _recognizedApplication, true);
-        }
-
-        public IEnumerable<IAction> GetRecognizedDefinedAction(string gestureId, string gestureName)
-        {
-            return GetDefinedAction(gestureId, gestureName, _recognizedApplication, true);
+            return GetDefinedAction(gestureId, _recognizedApplication, true);
         }
 
         public List<IAction> GetRecognizedDefinedAction(Func<IAction, bool> predicate)
@@ -375,22 +371,18 @@ namespace GestureSign.Common.Applications
             return recognizedActions;
         }
 
-        public IEnumerable<IAction> GetDefinedAction(string gestureName, IEnumerable<IApplication> application, bool useGlobal)
-        {
-            return GetDefinedAction(null, gestureName, application, useGlobal);
-        }
-
-        public IEnumerable<IAction> GetDefinedAction(string gestureId, string gestureName, IEnumerable<IApplication> application, bool useGlobal)
+        public IEnumerable<IAction> GetDefinedAction(string gestureId, IEnumerable<IApplication> application, bool useGlobal)
         {
             if (application == null)
             {
                 return Enumerable.Empty<IAction>();
             }
+            // 只用 gestureId 匹配，避免同名但不同修饰符的 action 被误触发
             // Attempt to retrieve an action on the application passed in
             var appActions = application
                 .Where(app => !(app is IgnoredApp) && app.Actions != null)
                 .SelectMany(app => app.Actions
-                    .Where(a => a.IsEnabled && ((gestureId != null && a.GestureId == gestureId) || a.GestureName == gestureName) && a.Commands != null && a.Commands.Any(com => com != null && com.IsEnabled))
+                    .Where(a => a.IsEnabled && a.GestureId == gestureId && a.Commands != null && a.Commands.Any(com => com != null && com.IsEnabled))
                     .Select(a => new { App = app, Action = a }))
                 .ToList();
 
@@ -399,7 +391,7 @@ namespace GestureSign.Common.Applications
             // If there is was no action found on given application, try to get an action for global application
             if (!finalAction.Any() && useGlobal)
             {
-                finalAction = GetGlobalApplication().Actions.Where(a => a.IsEnabled && ((gestureId != null && a.GestureId == gestureId) || a.GestureName == gestureName));
+                finalAction = GetGlobalApplication().Actions.Where(a => a.IsEnabled && a.GestureId == gestureId);
             }
 
             // Return whatever the result was
@@ -431,12 +423,12 @@ namespace GestureSign.Common.Applications
             return Applications.Where(a => a is IgnoredApp).OrderBy(a => a.Name).Cast<IgnoredApp>();
         }
 
-        public IEnumerable<ICommand> GetRecognizedTapCommands(int fingerCount)
+        public IEnumerable<ICommand> GetRecognizedTapCommands(int fingerCount, GestureModifiers modifiers)
         {
-            return GetRecognizedTapCommands(null, fingerCount);
+            return GetRecognizedTapCommands(null, fingerCount, modifiers);
         }
 
-        public IEnumerable<ICommand> GetRecognizedTapCommands(string gestureId, int fingerCount)
+        public IEnumerable<ICommand> GetRecognizedTapCommands(string gestureId, int fingerCount, GestureModifiers modifiers)
         {
             if (_recognizedApplication != null)
             {
@@ -445,6 +437,7 @@ namespace GestureSign.Common.Applications
                     .SelectMany(app => app.ContactGestures.Taps
                         .Where(t => t.IsEnabled
                             && t.FingerCount == fingerCount
+                            && t.Modifiers == modifiers
                             && (gestureId == null || (!string.IsNullOrEmpty(t.Id) && string.Equals(t.Id, gestureId, StringComparison.Ordinal)))
                             && t.Commands != null)
                         .SelectMany(t => t.Commands))
@@ -458,6 +451,7 @@ namespace GestureSign.Common.Applications
             var globalCommands = GetGlobalApplication()?.ContactGestures?.Taps?
                 .Where(t => t.IsEnabled
                     && t.FingerCount == fingerCount
+                    && t.Modifiers == modifiers
                     && (gestureId == null || (!string.IsNullOrEmpty(t.Id) && string.Equals(t.Id, gestureId, StringComparison.Ordinal)))
                     && t.Commands != null)
                 .SelectMany(t => t.Commands)
@@ -467,40 +461,7 @@ namespace GestureSign.Common.Applications
             return globalCommands ?? Enumerable.Empty<ICommand>();
         }
 
-        public IEnumerable<ICommand> GetRecognizedClickCommands(string gestureId, int fingerCount)
-        {
-            if (_recognizedApplication != null)
-            {
-                var appCommands = _recognizedApplication
-                    .Where(app => !(app is IgnoredApp) && app.ContactGestures != null && app.ContactGestures.Enabled)
-                    .SelectMany(app => app.ContactGestures.Clicks
-                        .Where(click => click.IsEnabled
-                            && click.FingerCount == fingerCount
-                            && !string.IsNullOrEmpty(click.Id)
-                            && string.Equals(click.Id, gestureId, StringComparison.Ordinal)
-                            && click.Commands != null)
-                        .SelectMany(click => click.Commands))
-                    .Where(command => command != null && command.IsEnabled)
-                    .ToList();
-
-                if (appCommands.Count > 0)
-                    return appCommands;
-            }
-
-            var globalCommands = GetGlobalApplication()?.ContactGestures?.Clicks?
-                .Where(click => click.IsEnabled
-                    && click.FingerCount == fingerCount
-                    && !string.IsNullOrEmpty(click.Id)
-                    && string.Equals(click.Id, gestureId, StringComparison.Ordinal)
-                    && click.Commands != null)
-                .SelectMany(click => click.Commands)
-                .Where(command => command != null && command.IsEnabled)
-                .ToList();
-
-            return globalCommands ?? Enumerable.Empty<ICommand>();
-        }
-
-        public IEnumerable<ICommand> GetRecognizedTipTapCommands(string gestureId, int fingerCount)
+        public IEnumerable<ICommand> GetRecognizedTipTapCommands(string gestureId, int fingerCount, GestureModifiers modifiers)
         {
             if (_recognizedApplication != null)
             {
@@ -509,6 +470,7 @@ namespace GestureSign.Common.Applications
                     .SelectMany(app => (app.ContactGestures.TipTaps ?? new List<TipTapGestureConfig>())
                         .Where(t => t.IsEnabled &&
                                     t.FingerCount == fingerCount &&
+                                    t.Modifiers == modifiers &&
                                     !string.IsNullOrEmpty(t.Id) &&
                                     string.Equals(t.Id, gestureId, StringComparison.Ordinal) &&
                                     t.Commands != null)
@@ -523,6 +485,7 @@ namespace GestureSign.Common.Applications
             var globalCommands = GetGlobalApplication()?.ContactGestures?.TipTaps?
                 .Where(t => t.IsEnabled &&
                             t.FingerCount == fingerCount &&
+                            t.Modifiers == modifiers &&
                             !string.IsNullOrEmpty(t.Id) &&
                             string.Equals(t.Id, gestureId, StringComparison.Ordinal) &&
                             t.Commands != null)
@@ -533,14 +496,13 @@ namespace GestureSign.Common.Applications
             return globalCommands ?? Enumerable.Empty<ICommand>();
         }
 
-        public IEnumerable<TapGestureConfig> GetRecognizedTapDefinitions(int fingerCount)
+        public IEnumerable<TapGestureConfig> GetRecognizedTapDefinitions(int fingerCount, GestureModifiers modifiers)
         {
             if (_recognizedApplication != null)
             {
                 var appConfigs = _recognizedApplication
                     .Where(app => !(app is IgnoredApp) && app.ContactGestures != null && app.ContactGestures.Enabled)
-                    .SelectMany(app => app.ContactGestures.Taps
-                        .Where(t => t.IsEnabled && t.FingerCount == fingerCount))
+                    .SelectMany(app => app.ContactGestures.Taps.Where(t => t.IsEnabled && t.FingerCount == fingerCount && t.Modifiers == modifiers))
                     .ToList();
 
                 if (appConfigs.Count > 0)
@@ -548,41 +510,20 @@ namespace GestureSign.Common.Applications
             }
 
             var globalConfigs = GetGlobalApplication()?.ContactGestures?.Taps?
-                .Where(t => t.IsEnabled && t.FingerCount == fingerCount)
+                .Where(t => t.IsEnabled && t.FingerCount == fingerCount && t.Modifiers == modifiers)
                 .ToList();
 
             return globalConfigs ?? Enumerable.Empty<TapGestureConfig>();
         }
 
-        public IEnumerable<ClickGestureConfig> GetRecognizedClickDefinitions(int fingerCount)
-        {
-            if (_recognizedApplication != null)
-            {
-                var appConfigs = _recognizedApplication
-                    .Where(app => !(app is IgnoredApp) && app.ContactGestures != null && app.ContactGestures.Enabled)
-                    .SelectMany(app => app.ContactGestures.Clicks
-                        .Where(click => click.IsEnabled && click.FingerCount == fingerCount))
-                    .ToList();
-
-                if (appConfigs.Count > 0)
-                    return appConfigs;
-            }
-
-            var globalConfigs = GetGlobalApplication()?.ContactGestures?.Clicks?
-                .Where(click => click.IsEnabled && click.FingerCount == fingerCount)
-                .ToList();
-
-            return globalConfigs ?? Enumerable.Empty<ClickGestureConfig>();
-        }
-
-        public IEnumerable<TipTapGestureConfig> GetRecognizedTipTapConfigs(int fingerCount)
+        public IEnumerable<TipTapGestureConfig> GetRecognizedTipTapConfigs(int fingerCount, GestureModifiers modifiers)
         {
             if (_recognizedApplication != null)
             {
                 var appConfigs = _recognizedApplication
                     .Where(app => !(app is IgnoredApp) && app.ContactGestures != null && app.ContactGestures.Enabled)
                     .SelectMany(app => app.ContactGestures.TipTaps
-                        .Where(t => t.IsEnabled && t.FingerCount == fingerCount))
+                        .Where(t => t.IsEnabled && t.FingerCount == fingerCount && t.Modifiers == modifiers))
                     .ToList();
 
                 if (appConfigs.Count > 0)
@@ -590,20 +531,20 @@ namespace GestureSign.Common.Applications
             }
 
             var globalConfigs = GetGlobalApplication()?.ContactGestures?.TipTaps?
-                .Where(t => t.IsEnabled && t.FingerCount == fingerCount)
+                .Where(t => t.IsEnabled && t.FingerCount == fingerCount && t.Modifiers == modifiers)
                 .ToList();
 
             return globalConfigs ?? Enumerable.Empty<TipTapGestureConfig>();
         }
 
-        public IEnumerable<TipTapGestureConfig> GetRecognizedTipTapConfigsByFixCount(int fixFingerCount)
+        public IEnumerable<TipTapGestureConfig> GetRecognizedTipTapConfigsByFixCount(int fixFingerCount, GestureModifiers modifiers)
         {
             if (_recognizedApplication != null)
             {
                 var appConfigs = _recognizedApplication
                     .Where(app => !(app is IgnoredApp) && app.ContactGestures != null && app.ContactGestures.Enabled)
                     .SelectMany(app => app.ContactGestures.TipTaps
-                        .Where(t => t.IsEnabled && t.FixFingerCount == fixFingerCount))
+                        .Where(t => t.IsEnabled && t.FixFingerCount == fixFingerCount && t.Modifiers == modifiers))
                     .ToList();
 
                 if (appConfigs.Count > 0)
@@ -611,23 +552,17 @@ namespace GestureSign.Common.Applications
             }
 
             var globalConfigs = GetGlobalApplication()?.ContactGestures?.TipTaps?
-                .Where(t => t.IsEnabled && t.FixFingerCount == fixFingerCount)
+                .Where(t => t.IsEnabled && t.FixFingerCount == fixFingerCount && t.Modifiers == modifiers)
                 .ToList();
 
             return globalConfigs ?? Enumerable.Empty<TipTapGestureConfig>();
         }
-        public IEnumerable<TapGestureConfig> GetGlobalTapDefinitions(int fingerCount)
+
+        public IEnumerable<TapGestureConfig> GetGlobalTapDefinitions(int fingerCount, GestureModifiers modifiers)
         {
             return GetGlobalApplication()?.ContactGestures?.Taps?
-                .Where(t => t.IsEnabled && t.FingerCount == fingerCount)
+                .Where(t => t.IsEnabled && t.FingerCount == fingerCount && t.Modifiers == modifiers)
                 .ToList() ?? Enumerable.Empty<TapGestureConfig>();
-        }
-
-        public IEnumerable<ClickGestureConfig> GetGlobalClickDefinitions(int fingerCount)
-        {
-            return GetGlobalApplication()?.ContactGestures?.Clicks?
-                .Where(click => click.IsEnabled && click.FingerCount == fingerCount)
-                .ToList() ?? Enumerable.Empty<ClickGestureConfig>();
         }
 
         public IEnumerable<TipTapGestureConfig> GetGlobalTipTapDefinitions(int fingerCount)

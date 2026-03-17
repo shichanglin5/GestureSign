@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.ComponentModel;
 using GestureSign.Common.Configuration;
+using GestureSign.Common.Gestures;
 
 namespace GestureSign.Common.Applications
 {
@@ -104,6 +105,9 @@ namespace GestureSign.Common.Applications
         public TapGestureRecognition Recognition { get; set; } = new TapGestureRecognition();
 
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public GestureModifiers Modifiers { get; set; } = GestureModifiers.Default;
+
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public List<Command> Commands { get; set; } = new List<Command>();
     }
 
@@ -124,6 +128,9 @@ namespace GestureSign.Common.Applications
         public ContactGestureDirection Direction { get; set; } = ContactGestureDirection.None;
 
         public TipTapRecognition Recognition { get; set; } = new TipTapRecognition();
+
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public GestureModifiers Modifiers { get; set; } = GestureModifiers.Default;
 
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public List<Command> Commands { get; set; } = new List<Command>();

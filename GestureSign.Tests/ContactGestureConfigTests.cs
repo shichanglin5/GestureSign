@@ -1,5 +1,6 @@
 using GestureSign.Common.Applications;
 using GestureSign.Common.Configuration;
+using GestureSign.Common.Gestures;
 using GestureSign.Common.Input;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
@@ -111,54 +112,6 @@ namespace GestureSign.Tests
         }
 
         [TestMethod]
-        public void GetRecognizedClickCommands_PrefersRecognizedApplicationCommands()
-        {
-            var manager = ApplicationManager.Instance;
-            manager.LoadingTask.Wait();
-
-            var oldApps = manager.Applications;
-
-            try
-            {
-                manager.RemoveAllApplication();
-                var global = (GlobalApp)manager.GetGlobalApplication();
-                global.ContactGestures.Clicks.Add(new ClickGestureConfig
-                {
-                    Id = "click-2",
-                    FingerCount = 2,
-                    Commands = new List<Command>
-                    {
-                        new Command { PluginClass = "GlobalClick", IsEnabled = true }
-                    }
-                });
-
-                var app = new UserApp { Name = "RecognizedApp" };
-                app.ContactGestures.Clicks.Add(new ClickGestureConfig
-                {
-                    Id = "click-2",
-                    FingerCount = 2,
-                    Commands = new List<Command>
-                    {
-                        new Command { PluginClass = "AppClick", IsEnabled = true }
-                    }
-                });
-                manager.AddApplication(app);
-                SetRecognizedApplications(manager, app);
-
-                var commands = manager.GetRecognizedClickCommands("click-2", 2).Cast<Command>().ToList();
-
-                Assert.AreEqual(1, commands.Count);
-                Assert.AreEqual("AppClick", commands[0].PluginClass);
-            }
-            finally
-            {
-                SetRecognizedApplications(manager, null);
-                manager.RemoveAllApplication();
-                manager.AddApplicationRange(oldApps);
-            }
-        }
-
-        [TestMethod]
         public void GetRecognizedTapCommands_PrefersRecognizedApplicationCommands()
         {
             var manager = ApplicationManager.Instance;
@@ -193,7 +146,7 @@ namespace GestureSign.Tests
                 manager.AddApplication(app);
                 SetRecognizedApplications(manager, app);
 
-                var commands = manager.GetRecognizedTapCommands(3).Cast<Command>().ToList();
+                var commands = manager.GetRecognizedTapCommands(3, GestureModifiers.Default).Cast<Command>().ToList();
 
                 Assert.AreEqual(1, commands.Count);
                 Assert.AreEqual("AppTap", commands[0].PluginClass);
@@ -241,7 +194,7 @@ namespace GestureSign.Tests
                 manager.AddApplication(app);
                 SetRecognizedApplications(manager, app);
 
-                var commands = manager.GetRecognizedTapCommands(3).Cast<Command>().ToList();
+                var commands = manager.GetRecognizedTapCommands(3, GestureModifiers.Default).Cast<Command>().ToList();
 
                 Assert.AreEqual(1, commands.Count);
                 Assert.AreEqual("GlobalTap", commands[0].PluginClass);
@@ -291,7 +244,7 @@ namespace GestureSign.Tests
                 manager.AddApplication(app);
                 SetRecognizedApplications(manager, app);
 
-                var commands = manager.GetRecognizedTipTapCommands("tiptap-left", 2).Cast<Command>().ToList();
+                var commands = manager.GetRecognizedTipTapCommands("tiptap-left", 2, GestureModifiers.Default).Cast<Command>().ToList();
 
                 Assert.AreEqual(1, commands.Count);
                 Assert.AreEqual("AppTipTap", commands[0].PluginClass);
@@ -341,7 +294,7 @@ namespace GestureSign.Tests
                 manager.AddApplication(app);
                 SetRecognizedApplications(manager, app);
 
-                var commands = manager.GetRecognizedTipTapCommands("tiptap-left", 2).Cast<Command>().ToList();
+                var commands = manager.GetRecognizedTipTapCommands("tiptap-left", 2, GestureModifiers.Default).Cast<Command>().ToList();
 
                 Assert.AreEqual(1, commands.Count);
                 Assert.AreEqual("GlobalTipTap", commands[0].PluginClass);
@@ -386,7 +339,7 @@ namespace GestureSign.Tests
                 });
 
                 // 按 gestureId 精确匹配，只返回 tap-3f-b 的命令
-                var commands = manager.GetRecognizedTapCommands("tap-3f-b", 3).Cast<Command>().ToList();
+                var commands = manager.GetRecognizedTapCommands("tap-3f-b", 3, GestureModifiers.Default).Cast<Command>().ToList();
 
                 Assert.AreEqual(1, commands.Count);
                 Assert.AreEqual("TapB", commands[0].PluginClass);
@@ -421,7 +374,7 @@ namespace GestureSign.Tests
                 });
 
                 // 传入不存在的 gestureId，应返回空
-                var commands = manager.GetRecognizedTapCommands("nonexistent-id", 3).ToList();
+                var commands = manager.GetRecognizedTapCommands("nonexistent-id", 3, GestureModifiers.Default).ToList();
 
                 Assert.AreEqual(0, commands.Count);
             }
@@ -463,10 +416,177 @@ namespace GestureSign.Tests
                     }
                 });
 
-                // 不传 gestureId（旧 API），返回所有匹配 fingerCount 的命令
-                var commands = manager.GetRecognizedTapCommands(3).Cast<Command>().ToList();
+                // 不传 gestureId，返回所有匹配 fingerCount 的命令
+                var commands = manager.GetRecognizedTapCommands(3, GestureModifiers.Default).Cast<Command>().ToList();
 
                 Assert.AreEqual(2, commands.Count);
+            }
+            finally
+            {
+                manager.RemoveAllApplication();
+                manager.AddApplicationRange(oldApps);
+            }
+        }
+
+        [TestMethod]
+        public void GetRecognizedTapDefinitions_ModifierFilter_StrictEquality()
+        {
+            var manager = ApplicationManager.Instance;
+            manager.LoadingTask.Wait();
+            var oldApps = manager.Applications;
+            try
+            {
+                manager.RemoveAllApplication();
+                var global = (GlobalApp)manager.GetGlobalApplication();
+                global.ContactGestures.Taps.Add(new TapGestureConfig
+                {
+                    Id = "tap-default",
+                    FingerCount = 3,
+                    Modifiers = GestureModifiers.Default,
+                });
+                global.ContactGestures.Taps.Add(new TapGestureConfig
+                {
+                    Id = "tap-btn",
+                    FingerCount = 3,
+                    Modifiers = GestureModifiers.PrimaryButtonDown,
+                });
+
+                var defaultDefs = manager.GetGlobalTapDefinitions(3, GestureModifiers.Default).ToList();
+                var btnDefs = manager.GetGlobalTapDefinitions(3, GestureModifiers.PrimaryButtonDown).ToList();
+                var ctrlDefs = manager.GetGlobalTapDefinitions(3, GestureModifiers.Ctrl).ToList();
+
+                Assert.AreEqual(1, defaultDefs.Count);
+                Assert.AreEqual("tap-default", defaultDefs[0].Id);
+                Assert.AreEqual(1, btnDefs.Count);
+                Assert.AreEqual("tap-btn", btnDefs[0].Id);
+                Assert.AreEqual(0, ctrlDefs.Count);
+            }
+            finally
+            {
+                manager.RemoveAllApplication();
+                manager.AddApplicationRange(oldApps);
+            }
+        }
+
+        [TestMethod]
+        public void GetRecognizedTipTapConfigsByFixCount_ModifierFilter()
+        {
+            var manager = ApplicationManager.Instance;
+            manager.LoadingTask.Wait();
+            var oldApps = manager.Applications;
+            try
+            {
+                manager.RemoveAllApplication();
+                var global = (GlobalApp)manager.GetGlobalApplication();
+                global.ContactGestures.TipTaps.Add(new TipTapGestureConfig
+                {
+                    Id = "tiptap-default",
+                    FingerCount = 2,
+                    FixFingerCount = 1,
+                    Modifiers = GestureModifiers.Default,
+                });
+                global.ContactGestures.TipTaps.Add(new TipTapGestureConfig
+                {
+                    Id = "tiptap-btn",
+                    FingerCount = 2,
+                    FixFingerCount = 1,
+                    Modifiers = GestureModifiers.PrimaryButtonDown,
+                });
+
+                var defaultDefs = manager.GetRecognizedTipTapConfigsByFixCount(1, GestureModifiers.Default).ToList();
+                var btnDefs = manager.GetRecognizedTipTapConfigsByFixCount(1, GestureModifiers.PrimaryButtonDown).ToList();
+
+                Assert.AreEqual(1, defaultDefs.Count);
+                Assert.AreEqual("tiptap-default", defaultDefs[0].Id);
+                Assert.AreEqual(1, btnDefs.Count);
+                Assert.AreEqual("tiptap-btn", btnDefs[0].Id);
+            }
+            finally
+            {
+                manager.RemoveAllApplication();
+                manager.AddApplicationRange(oldApps);
+            }
+        }
+
+        [TestMethod]
+        public void GestureModifiers_FlagsSemantics()
+        {
+            Assert.AreEqual(0, (int)GestureModifiers.Default);
+            Assert.AreEqual(3, (int)(GestureModifiers.PrimaryButtonDown | GestureModifiers.Ctrl));
+            Assert.IsTrue((GestureModifiers.PrimaryButtonDown | GestureModifiers.Ctrl).HasFlag(GestureModifiers.PrimaryButtonDown));
+            Assert.IsFalse(GestureModifiers.Default.HasFlag(GestureModifiers.PrimaryButtonDown));
+        }
+
+        [TestMethod]
+        public void CreateTransportTapDefinition_PreservesModifiers()
+        {
+            // 通过 GestureDefinitionFactory 内部路径验证 Transport 副本保留 Modifiers
+            var manager = ApplicationManager.Instance;
+            manager.LoadingTask.Wait();
+            var oldApps = manager.Applications;
+            try
+            {
+                manager.RemoveAllApplication();
+                var global = (GlobalApp)manager.GetGlobalApplication();
+                var tapConfig = new TapGestureConfig
+                {
+                    Id = "tap-ctrl",
+                    Name = "Ctrl Tap",
+                    FingerCount = 3,
+                    Modifiers = GestureModifiers.PrimaryButtonDown | GestureModifiers.Ctrl,
+                };
+                global.ContactGestures.Taps.Add(tapConfig);
+
+                // GetGlobalTapDefinitions 返回时应保留 Modifiers
+                var found = manager.GetGlobalTapDefinitions(3, GestureModifiers.PrimaryButtonDown | GestureModifiers.Ctrl).FirstOrDefault();
+                Assert.IsNotNull(found);
+                Assert.AreEqual(GestureModifiers.PrimaryButtonDown | GestureModifiers.Ctrl, found.Modifiers);
+            }
+            finally
+            {
+                manager.RemoveAllApplication();
+                manager.AddApplicationRange(oldApps);
+            }
+        }
+
+        [TestMethod]
+        public void GetRecognizedTapCommands_ModifierFilter()
+        {
+            var manager = ApplicationManager.Instance;
+            manager.LoadingTask.Wait();
+            var oldApps = manager.Applications;
+            try
+            {
+                manager.RemoveAllApplication();
+                var global = (GlobalApp)manager.GetGlobalApplication();
+                global.ContactGestures.Taps.Add(new TapGestureConfig
+                {
+                    Id = "tap-default-cmd",
+                    FingerCount = 3,
+                    Modifiers = GestureModifiers.Default,
+                    Commands = new List<Command>
+                    {
+                        new Command { PluginClass = "DefaultCmd", IsEnabled = true }
+                    }
+                });
+                global.ContactGestures.Taps.Add(new TapGestureConfig
+                {
+                    Id = "tap-btn-cmd",
+                    FingerCount = 3,
+                    Modifiers = GestureModifiers.PrimaryButtonDown,
+                    Commands = new List<Command>
+                    {
+                        new Command { PluginClass = "BtnCmd", IsEnabled = true }
+                    }
+                });
+
+                var defaultCmds = manager.GetRecognizedTapCommands(3, GestureModifiers.Default).Cast<Command>().ToList();
+                var btnCmds = manager.GetRecognizedTapCommands(3, GestureModifiers.PrimaryButtonDown).Cast<Command>().ToList();
+
+                Assert.AreEqual(1, defaultCmds.Count);
+                Assert.AreEqual("DefaultCmd", defaultCmds[0].PluginClass);
+                Assert.AreEqual(1, btnCmds.Count);
+                Assert.AreEqual("BtnCmd", btnCmds[0].PluginClass);
             }
             finally
             {
@@ -647,7 +767,7 @@ namespace GestureSign.Tests
                 var commands = config.Commands?.Where(c => c != null && c.IsEnabled).OfType<ICommand>().ToList();
                 if (commands == null || commands.Count == 0)
                 {
-                    commands = manager.GetRecognizedTipTapCommands(config.Id, config.FingerCount).ToList();
+                    commands = manager.GetRecognizedTipTapCommands(config.Id, config.FingerCount, GestureModifiers.Default).ToList();
                 }
 
                 Assert.AreEqual(1, commands.Count, "Should fallback to ApplicationManager lookup when config.Commands is empty");

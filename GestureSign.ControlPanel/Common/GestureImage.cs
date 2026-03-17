@@ -56,31 +56,12 @@ namespace GestureSign.ControlPanel.Common
             return scaledStroke.ToArray();
         }
 
-        public static DrawingImage CreateImage(PointPattern[] pointPatterns, Size size, Color color)
+        public static DrawingImage CreateImage(PointPattern[] pointPatterns, Size size, Color color, bool featureFingerOnly = false, GestureModifiers modifiers = GestureModifiers.Default)
         {
             if (pointPatterns == null)
                 return null;
 
             DrawingGroup drawingGroup = new DrawingGroup();
-
-            // Add finger count text if available
-            if (pointPatterns.Length > 0 && pointPatterns[0].FingerCount > 0)
-            {
-                FormattedText formattedText = new FormattedText(
-                    pointPatterns[0].FingerCount.ToString(),
-                    System.Globalization.CultureInfo.CurrentCulture,
-                    FlowDirection.LeftToRight,
-                    new Typeface("Arial"),
-                    size.Height / 4,
-                    new SolidColorBrush(color));
-
-                GeometryDrawing textDrawing = new GeometryDrawing(
-                    new SolidColorBrush(color),
-                    null,
-                    formattedText.BuildGeometry(new Point(size.Width - formattedText.Width - 5, 5)));
-                textDrawing.Freeze();
-                drawingGroup.Children.Add(textDrawing);
-            }
 
             for (int i = 0; i < pointPatterns.Length; i++)
             {
@@ -92,8 +73,16 @@ namespace GestureSign.ControlPanel.Common
 
                 if (pointPatterns[i].Points == null) return null;
                 var styles = pointPatterns[i].StrokeStyles;
+
+                // 特征手指模式：只渲染特征手指那根轨迹
+                int featureIndex = featureFingerOnly
+                    ? GestureManager.GetFeatureFingerTrajectoryIndex(pointPatterns[i].Points.Length)
+                    : -1;
+
                 for (int j = 0; j < pointPatterns[i].Points.Length; j++)
                 {
+                    if (featureFingerOnly && j != featureIndex)
+                        continue;
                     if (pointPatterns[i].Points[j].Length == 1)
                     {
                         Point center = new Point(size.Width * j + size.Width / 2, size.Height / 2);
@@ -164,6 +153,32 @@ namespace GestureSign.ControlPanel.Common
                 drawing.Freeze();
                 drawingGroup.Children.Add(drawing);
             }
+            // 修饰符标签：左上角（仅 Ctrl/Shift/Alt，PrimaryButtonDown 已由 RingedDot 笔画样式区分）
+            var keyModifiers = modifiers & ~GestureModifiers.PrimaryButtonDown;
+            if (keyModifiers != GestureModifiers.Default)
+            {
+                var labelParts = new System.Collections.Generic.List<string>();
+                if (modifiers.HasFlag(GestureModifiers.Ctrl)) labelParts.Add("Ctrl");
+                if (modifiers.HasFlag(GestureModifiers.Shift)) labelParts.Add("Shift");
+                if (modifiers.HasFlag(GestureModifiers.Alt)) labelParts.Add("Alt");
+                string labelText = string.Join("+", labelParts);
+
+                FormattedText modText = new FormattedText(
+                    labelText,
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface("Arial"),
+                    size.Height / 5,
+                    new SolidColorBrush(color));
+
+                GeometryDrawing modDrawing = new GeometryDrawing(
+                    new SolidColorBrush(color),
+                    null,
+                    modText.BuildGeometry(new Point(5, 5)));
+                modDrawing.Freeze();
+                drawingGroup.Children.Add(modDrawing);
+            }
+
             //  myPath.Data = sg;
             drawingGroup.Freeze();
             DrawingImage drawingImage = new DrawingImage(drawingGroup);

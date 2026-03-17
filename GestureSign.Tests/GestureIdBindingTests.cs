@@ -38,7 +38,7 @@ namespace GestureSign.Tests
             var app = new UserApp { Name = "TestApp" };
             app.AddAction(action);
 
-            var result = ApplicationManager.Instance.GetDefinedAction("g1", "RenamedName", new[] { app }, false).ToList();
+            var result = ApplicationManager.Instance.GetDefinedAction("g1", new[] { app }, false).ToList();
 
             Assert.AreEqual(1, result.Count);
             Assert.AreEqual("ById", result[0].Name);

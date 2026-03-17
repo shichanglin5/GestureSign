@@ -62,19 +62,17 @@ namespace GestureSign.Tests
         }
 
         [TestMethod]
-        public void GetFeatureFingerTrajectoryIndex_WhenTwoFingers_UsesFirstTrajectory()
+        public void GetFeatureFingerTrajectoryIndex_WhenOneOrTwoFingers_UsesFirstTrajectory()
         {
-            var index = GestureManager.GetFeatureFingerTrajectoryIndex(2, configuredFeatureFingerIndex: 1);
-
-            Assert.AreEqual(0, index);
+            Assert.AreEqual(0, GestureManager.GetFeatureFingerTrajectoryIndex(1));
+            Assert.AreEqual(0, GestureManager.GetFeatureFingerTrajectoryIndex(2));
         }
 
         [TestMethod]
-        public void GetFeatureFingerTrajectoryIndex_WhenConfiguredOutOfRange_ClampsToLastTrajectory()
+        public void GetFeatureFingerTrajectoryIndex_WhenThreeOrMoreFingers_UsesSecondTrajectory()
         {
-            var index = GestureManager.GetFeatureFingerTrajectoryIndex(4, configuredFeatureFingerIndex: 8);
-
-            Assert.AreEqual(3, index);
+            Assert.AreEqual(1, GestureManager.GetFeatureFingerTrajectoryIndex(3));
+            Assert.AreEqual(1, GestureManager.GetFeatureFingerTrajectoryIndex(4));
         }
 
         private static PointPatternMatchResult CreateResult(double probability)

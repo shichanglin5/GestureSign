@@ -64,9 +64,11 @@ namespace GestureSign.ControlPanel.Dialogs
             ReverseHorizontalCheckBox.IsChecked = settings.ReverseHorizontalDirection;
             WinUIDetectionCheckBox.IsChecked = settings.EnableWinUIDetection;
 
+            MomentumTriggerMaxIdleSlider.Value = settings.MomentumTriggerMaxIdleMs;
             EnableMomentumCheckBox.IsChecked = settings.EnableMomentum;
             MomentumTimeConstantSlider.Value = settings.MomentumTimeConstantMs;
             MomentumMinVelocitySlider.Value = settings.MomentumMinVelocity;
+            MomentumStopThresholdSlider.Value = settings.MomentumStopThreshold;
             MomentumMaxDurationSlider.Value = settings.MomentumMaxDurationMs;
             MomentumDetailsPanel.Visibility = settings.EnableMomentum ? Visibility.Visible : Visibility.Collapsed;
 
@@ -106,9 +108,11 @@ namespace GestureSign.ControlPanel.Dialogs
                 settings.ReverseDirection = ReverseDirectionCheckBox.IsChecked == true;
                 settings.ReverseHorizontalDirection = ReverseHorizontalCheckBox.IsChecked == true;
                 settings.EnableWinUIDetection = WinUIDetectionCheckBox.IsChecked == true;
+                settings.MomentumTriggerMaxIdleMs = (int)MomentumTriggerMaxIdleSlider.Value;
                 settings.EnableMomentum = EnableMomentumCheckBox.IsChecked == true;
                 settings.MomentumTimeConstantMs = MomentumTimeConstantSlider.Value;
                 settings.MomentumMinVelocity = MomentumMinVelocitySlider.Value;
+                settings.MomentumStopThreshold = MomentumStopThresholdSlider.Value;
                 settings.MomentumMaxDurationMs = MomentumMaxDurationSlider.Value;
 
                 _config.ScrollSettings = settings;

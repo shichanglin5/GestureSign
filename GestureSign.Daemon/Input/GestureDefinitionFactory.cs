@@ -2,12 +2,13 @@
 using GestureSign.Common.Gestures;
 using GestureSign.Common.Input;
 using System.Linq;
+using System;
 
 namespace GestureSign.Daemon.Input
 {
     internal static class GestureDefinitionFactory
     {
-        public static RecordedGestureDefinitionResult Create(RecordedGestureSample sample, IGesture trajectoryGesture = null)
+        public static RecordedGestureDefinitionResult Create(RecordedGestureSample sample, IGesture trajectoryGesture = null, GestureModifiers modifiers = GestureModifiers.Default)
         {
             var type = GestureClassifier.Classify(sample);
             var result = new RecordedGestureDefinitionResult
@@ -19,20 +20,24 @@ namespace GestureSign.Daemon.Input
             switch (type)
             {
                 case RecordedGestureType.Click:
-                    var click = GestureClassifier.CreateClickDefinition(sample);
-                    var existingClick = ApplicationManager.Instance.GetGlobalClickDefinitions(click.FingerCount).FirstOrDefault();
-                    if (existingClick != null)
+                    // Click 识别结果转为 Tap + PrimaryButtonDown，统一到 Tap 匹配路径
+                    var tapFromClick = GestureClassifier.CreateTapDefinition(sample);
+                    tapFromClick.Modifiers = modifiers;
+                    var existingTapForClick = ApplicationManager.Instance.GetGlobalTapDefinitions(tapFromClick.FingerCount, modifiers).FirstOrDefault();
+                    if (existingTapForClick != null)
                     {
-                        click = CreateTransportClickDefinition(existingClick);
+                        tapFromClick = CreateTransportTapDefinition(existingTapForClick);
                         result.MatchedExistingDefinition = true;
                     }
-                    result.GestureId = click.Id;
-                    result.Name = click.Name;
-                    result.ClickGesture = click;
+                    result.Type = RecordedGestureType.Tap;
+                    result.GestureId = tapFromClick.Id;
+                    result.Name = tapFromClick.Name;
+                    result.TapGesture = tapFromClick;
                     break;
                 case RecordedGestureType.Tap:
                     var tap = GestureClassifier.CreateTapDefinition(sample);
-                    var existingTap = ApplicationManager.Instance.GetGlobalTapDefinitions(tap.FingerCount).FirstOrDefault();
+                    tap.Modifiers = modifiers;
+                    var existingTap = ApplicationManager.Instance.GetGlobalTapDefinitions(tap.FingerCount, modifiers).FirstOrDefault();
                     if (existingTap != null)
                     {
                         tap = CreateTransportTapDefinition(existingTap);
@@ -44,8 +49,9 @@ namespace GestureSign.Daemon.Input
                     break;
                 case RecordedGestureType.TipTap:
                     var tipTap = GestureClassifier.CreateTipTapDefinition(sample);
+                    tipTap.Modifiers = modifiers;
                     var existingTipTap = ApplicationManager.Instance.GetGlobalTipTapDefinitions(tipTap.FingerCount)
-                        .FirstOrDefault(t => t.FixFingerCount == tipTap.FixFingerCount && t.Direction == tipTap.Direction);
+                        .FirstOrDefault(t => t.FixFingerCount == tipTap.FixFingerCount && t.Direction == tipTap.Direction && t.Modifiers == modifiers);
                     if (existingTipTap != null)
                     {
                         tipTap = CreateTransportTipTapDefinition(existingTipTap);
@@ -88,28 +94,6 @@ namespace GestureSign.Daemon.Input
             return result;
         }
 
-        private static ClickGestureConfig CreateTransportClickDefinition(ClickGestureConfig source)
-        {
-            if (source == null)
-                return null;
-
-            return new ClickGestureConfig
-            {
-                Id = source.Id,
-                Name = source.Name,
-                IsEnabled = source.IsEnabled,
-                FingerCount = source.FingerCount,
-                Recognition = source.Recognition == null
-                    ? new ClickGestureRecognition()
-                    : new ClickGestureRecognition
-                    {
-                        MaxPressDurationMs = source.Recognition.MaxPressDurationMs,
-                        MaxMovementPx = source.Recognition.MaxMovementPx,
-                        MinFingerCount = source.Recognition.MinFingerCount,
-                    },
-            };
-        }
-
         private static TapGestureConfig CreateTransportTapDefinition(TapGestureConfig source)
         {
             if (source == null)
@@ -121,6 +105,7 @@ namespace GestureSign.Daemon.Input
                 Name = source.Name,
                 IsEnabled = source.IsEnabled,
                 FingerCount = source.FingerCount,
+                Modifiers = source.Modifiers,
                 Recognition = source.Recognition == null
                     ? new TapGestureRecognition()
                     : new TapGestureRecognition
@@ -145,6 +130,7 @@ namespace GestureSign.Daemon.Input
                 FingerCount = source.FingerCount,
                 FixFingerCount = source.FixFingerCount,
                 Direction = source.Direction,
+                Modifiers = source.Modifiers,
                 Recognition = source.Recognition == null
                     ? new TipTapRecognition()
                     : new TipTapRecognition

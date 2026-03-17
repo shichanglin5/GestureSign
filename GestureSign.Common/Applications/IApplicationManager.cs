@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Threading.Tasks;
+using GestureSign.Common.Gestures;
 using ManagedWinapi.Windows;
 
 namespace GestureSign.Common.Applications
@@ -11,22 +12,17 @@ namespace GestureSign.Common.Applications
         List<IApplication> Applications { get; }
         SystemWindow CaptureWindow { get; }
         void AddApplication(IApplication Application);
-        IEnumerable<IAction> GetRecognizedDefinedAction(string GestureName);
-        IEnumerable<IAction> GetRecognizedDefinedAction(string gestureId, string gestureName);
+        IEnumerable<IAction> GetRecognizedDefinedAction(string gestureId);
         IEnumerable<IApplication> GetApplicationFromPoint(Point testPoint);
         IApplication[] GetApplicationFromWindow(SystemWindow Window, bool userApplicationOnly);
         IApplication[] GetAvailableUserApplications();
-        IEnumerable<IAction> GetDefinedAction(string GestureName, IEnumerable<IApplication> Application, bool UseGlobal);
-        IEnumerable<IAction> GetDefinedAction(string gestureId, string gestureName, IEnumerable<IApplication> Application, bool UseGlobal);
-        IEnumerable<ICommand> GetRecognizedTapCommands(int fingerCount);
-        IEnumerable<ICommand> GetRecognizedTapCommands(string gestureId, int fingerCount);
-        IEnumerable<ICommand> GetRecognizedClickCommands(string gestureId, int fingerCount);
-        IEnumerable<TapGestureConfig> GetRecognizedTapDefinitions(int fingerCount);
-        IEnumerable<ClickGestureConfig> GetRecognizedClickDefinitions(int fingerCount);
-        IEnumerable<TipTapGestureConfig> GetRecognizedTipTapConfigs(int fingerCount);
-        IEnumerable<TipTapGestureConfig> GetRecognizedTipTapConfigsByFixCount(int fixFingerCount);
-        IEnumerable<TapGestureConfig> GetGlobalTapDefinitions(int fingerCount);
-        IEnumerable<ClickGestureConfig> GetGlobalClickDefinitions(int fingerCount);
+        IEnumerable<IAction> GetDefinedAction(string gestureId, IEnumerable<IApplication> Application, bool UseGlobal);
+        IEnumerable<ICommand> GetRecognizedTapCommands(int fingerCount, GestureModifiers modifiers);
+        IEnumerable<ICommand> GetRecognizedTapCommands(string gestureId, int fingerCount, GestureModifiers modifiers);
+        IEnumerable<TapGestureConfig> GetRecognizedTapDefinitions(int fingerCount, GestureModifiers modifiers);
+        IEnumerable<TipTapGestureConfig> GetRecognizedTipTapConfigs(int fingerCount, GestureModifiers modifiers);
+        IEnumerable<TipTapGestureConfig> GetRecognizedTipTapConfigsByFixCount(int fixFingerCount, GestureModifiers modifiers);
+        IEnumerable<TapGestureConfig> GetGlobalTapDefinitions(int fingerCount, GestureModifiers modifiers);
         IEnumerable<TipTapGestureConfig> GetGlobalTipTapDefinitions(int fingerCount);
         IEnumerable<TipTapGestureConfig> GetGlobalTipTapDefinitionsByFixCount(int fixFingerCount);
         IApplication GetExistingUserApplication(string ApplicationName);
@@ -36,6 +32,3 @@ namespace GestureSign.Common.Applications
         bool SaveApplications();
     }
 }
-
-
-

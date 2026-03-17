@@ -212,19 +212,19 @@ namespace GestureSign.Daemon.Input
 
                 if (!hasFixDown)
                 {
-                    Logging.LogTrace($"[TipTapMatch] FAIL: fixId={fixId} has no down time");
+                    // Logging.LogTrace($"[TipTapMatch] FAIL: fixId={fixId} has no down time");
                     return false;
                 }
 
                 if (hasTapDown && hasFixDown && fixDownMs > tapDownMs)
                 {
-                    Logging.LogTrace($"[TipTapMatch] FAIL: fixId={fixId} down at {fixDownMs:F0}ms after tap down at {tapDownMs:F0}ms");
+                    // Logging.LogTrace($"[TipTapMatch] FAIL: fixId={fixId} down at {fixDownMs:F0}ms after tap down at {tapDownMs:F0}ms");
                     return false;
                 }
 
                 if (hasTapUp && hasFixUp && fixUpMs < tapUpMs)
                 {
-                    Logging.LogTrace($"[TipTapMatch] FAIL: fixId={fixId} up at {fixUpMs:F0}ms before tap up at {tapUpMs:F0}ms");
+                    // Logging.LogTrace($"[TipTapMatch] FAIL: fixId={fixId} up at {fixUpMs:F0}ms before tap up at {tapUpMs:F0}ms");
                     return false;
                 }
             }
@@ -232,7 +232,7 @@ namespace GestureSign.Daemon.Input
             bool hasHoldEvidence = TipTapMath.HasMinimumFixHoldBeforeTap(session, fixIds, tapId, recognition.FixMinHoldMs);
             if (!hasHoldEvidence)
             {
-                Logging.LogTrace($"[TipTapMatch] FAIL: fix hold time < {recognition.FixMinHoldMs}ms before tap down");
+                // Logging.LogTrace($"[TipTapMatch] FAIL: fix hold time < {recognition.FixMinHoldMs}ms before tap down");
                 return false;
             }
 
@@ -241,7 +241,7 @@ namespace GestureSign.Daemon.Input
 
             if (TipTapMath.GetTrajectoryDistance(tapTrajectory) > recognition.TapMaxMovementPx)
             {
-                Logging.LogTrace($"[TipTapMatch] FAIL: tap moved {TipTapMath.GetTrajectoryDistance(tapTrajectory):F1}px > threshold {recognition.TapMaxMovementPx}px");
+                // Logging.LogTrace($"[TipTapMatch] FAIL: tap moved {TipTapMath.GetTrajectoryDistance(tapTrajectory):F1}px > threshold {recognition.TapMaxMovementPx}px");
                 return false;
             }
 
@@ -250,7 +250,7 @@ namespace GestureSign.Daemon.Input
             ContactGestureDirection actualDirection = TipTapMath.DetermineDirection(fixXs, tapTrajectory.Last().X, recognition.DirectionDeadzonePx);
             if (expectedDirection != ContactGestureDirection.None && expectedDirection != actualDirection)
             {
-                Logging.LogTrace($"[TipTapMatch] FAIL: direction mismatch: expected={expectedDirection}, actual={actualDirection}");
+                // Logging.LogTrace($"[TipTapMatch] FAIL: direction mismatch: expected={expectedDirection}, actual={actualDirection}");
                 return false;
             }
 

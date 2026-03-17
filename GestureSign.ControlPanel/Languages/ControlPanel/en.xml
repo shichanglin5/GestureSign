@@ -154,6 +154,11 @@ Email:ccfyzh@gmail.com
     <MatchStrategyInherit>Inherit Global Setting</MatchStrategyInherit>
     <MatchStrategyAllFingers>All Fingers Matching</MatchStrategyAllFingers>
     <MatchStrategyFeatureFinger>Feature Finger Matching</MatchStrategyFeatureFinger>
+    <GestureModifiers>Gesture Modifiers</GestureModifiers>
+    <ModPrimaryButton>Primary Button Down</ModPrimaryButton>
+    <ModCtrl>Ctrl</ModCtrl>
+    <ModShift>Shift</ModShift>
+    <ModAlt>Alt</ModAlt>
   </ActionDialog>
   <ContinuousGesture>
     <Title>Two-finger Continuous</Title>
@@ -182,10 +187,12 @@ Email:ccfyzh@gmail.com
     <ReverseDirection>Reverse Vertical</ReverseDirection>
     <ReverseHorizontal>Reverse Horizontal</ReverseHorizontal>
     <WinUIDetection>WinUI Detection</WinUIDetection>
+    <MomentumTriggerMaxIdle>Trigger Idle Threshold (ms)</MomentumTriggerMaxIdle>
     <MomentumSettings>Momentum</MomentumSettings>
     <EnableMomentum>Enable Momentum</EnableMomentum>
     <MomentumTimeConstant>Decay Time Constant (ms)</MomentumTimeConstant>
     <MomentumMinVelocity>Min Velocity (px/s)</MomentumMinVelocity>
+    <MomentumStopThreshold>Stop Threshold (px/s)</MomentumStopThreshold>
     <MomentumMaxDuration>Max Duration (ms)</MomentumMaxDuration>
     <DirectionCommands>Direction Commands</DirectionCommands>
     <DirUp>Up</DirUp>
@@ -359,7 +366,7 @@ Email:ccfyzh@gmail.com
     <Edit>Redraw Gesture</Edit>
     <ExistingGesture>Matched existing gesture: {0}</ExistingGesture>
     <ExistingGestureNoName>Matched existing gesture</ExistingGestureNoName>
-    <NewGestureCreated>New gesture created</NewGestureCreated>
+    <NewGestureCreated>New gesture</NewGestureCreated>
     <OverwriteExisting>Overwrite existing gesture</OverwriteExisting>
     <DrawGesture>Please draw a gesture</DrawGesture>
     <Redraw>Redraw</Redraw>

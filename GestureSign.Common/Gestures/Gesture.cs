@@ -30,6 +30,8 @@ namespace GestureSign.Common.Gestures
 
         public FingerMatchStrategy MatchStrategy { get; set; } = FingerMatchStrategy.Inherit;
 
+        public GestureModifiers Modifiers { get; set; } = GestureModifiers.Default;
+
         #endregion
     }
 }

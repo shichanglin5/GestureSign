@@ -146,7 +146,7 @@ namespace GestureSign.Tests
 
         private static Action CreateAction(string name, string gestureName, bool isEnabled = true, bool commandEnabled = true)
         {
-            var action = new Action { Name = name, GestureName = gestureName, IsEnabled = isEnabled };
+            var action = new Action { Name = name, GestureId = gestureName, GestureName = gestureName, IsEnabled = isEnabled };
             action.AddCommand(new Command { PluginClass = "TestPlugin", IsEnabled = commandEnabled });
             return action;
         }

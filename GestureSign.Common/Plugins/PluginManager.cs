@@ -52,7 +52,7 @@ namespace GestureSign.Common.Plugins
         {
             var pointCapture = (IPointCapture)sender;
             // Get action to be executed
-            var executableActions = ApplicationManager.Instance.GetRecognizedDefinedAction(e.GestureId, e.GestureName)?.ToList();
+            var executableActions = ApplicationManager.Instance.GetRecognizedDefinedAction(e.GestureId)?.ToList();
 
             if (executableActions == null || executableActions.Count == 0)
             {

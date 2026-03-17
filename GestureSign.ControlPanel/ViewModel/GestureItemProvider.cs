@@ -102,6 +102,7 @@ namespace GestureSign.ControlPanel.ViewModel
             var brush = (SolidColorBrush)Application.Current.Resources["MahApps.Brushes.Highlight"];
             var color = brush.Color;
 
+            var globalStrategy = GestureManager.NormalizeGlobalMatchStrategy(AppConfig.TrajectoryMatchStrategy);
             foreach (var g in GestureManager.Instance.Gestures)
             {
                 var gesture = (Gesture)g;
@@ -113,9 +114,11 @@ namespace GestureSign.ControlPanel.ViewModel
                 }
                 result = result.TrimEnd(',');
 
+                var effectiveStrategy = GestureManager.ResolveEffectiveMatchStrategy(gesture, globalStrategy);
+                bool featureOnly = effectiveStrategy == FingerMatchStrategy.FeatureFinger;
                 GestureItem newItem = new GestureItem()
                 {
-                    GestureImage = GestureImage.CreateImage(gesture.PointPatterns, new Size(60, 60), color),
+                    GestureImage = GestureImage.CreateImage(gesture.PointPatterns, new Size(60, 60), color, featureOnly, gesture.Modifiers),
                     Features = GestureManager.Instance.GetNewGestureId(gesture.PointPatterns),
                     PatternCount = gesture?.PointPatterns.Max(p => p.Points.Length) ?? 0,
                     Applications = result,
@@ -157,18 +160,32 @@ namespace GestureSign.ControlPanel.ViewModel
 
             var item = new GestureItem
             {
-                GestureImage = GestureImage.CreateImage(displayGesture.PointPatterns, new Size(60, 60), color),
+                GestureImage = GestureImage.CreateImage(displayGesture.PointPatterns, new Size(60, 60), color, modifiers: displayGesture.Modifiers),
                 Gesture = displayGesture,
             };
 
-            // 如果 GestureManager 中已有同 Id 的条目（从 Gestures.json 加载的旧副本），替换它
+            // 如果已有同 Id 的条目（如从 Gestures.json 加载的旧轨迹副本），需要更新
             if (gestureMap.TryGetValue(id, out var existingItem))
             {
                 int index = GestureItems.IndexOf(existingItem);
                 if (index >= 0)
-                    GestureItems[index] = item;
+                {
+                    if (existingItem.FingerCount != item.FingerCount)
+                    {
+                        // FingerCount 变了，原地 Replace 不会触发分组重算，需要 Remove + Add
+                        GestureItems.RemoveAt(index);
+                        GestureItems.Add(item);
+                    }
+                    else
+                    {
+                        // 同分组内更新，原地替换保持顺序
+                        GestureItems[index] = item;
+                    }
+                }
                 else
+                {
                     GestureItems.Add(item);
+                }
             }
             else
             {
@@ -203,21 +220,6 @@ namespace GestureSign.ControlPanel.ViewModel
                 AddOrReplaceContactGestureItem(gestureMap, definition, tap.Id, tap.Name, color);
             }
 
-            foreach (var click in contactGestures.Clicks)
-            {
-                if (string.IsNullOrEmpty(click.Id))
-                    continue;
-
-                var definition = new RecordedGestureDefinitionResult
-                {
-                    Type = RecordedGestureType.Click,
-                    FingerCount = click.FingerCount,
-                    GestureId = click.Id,
-                    Name = click.Name,
-                    ClickGesture = click,
-                };
-                AddOrReplaceContactGestureItem(gestureMap, definition, click.Id, click.Name, color);
-            }
 
             foreach (var tipTap in contactGestures.TipTaps)
             {

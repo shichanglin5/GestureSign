@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Data;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
 using GestureSign.Common.Applications;
@@ -11,8 +9,6 @@ using GestureSign.Common.Log;
 using GestureSign.ControlPanel.Common;
 using GestureSign.ControlPanel.ViewModel;
 using MahApps.Metro.Controls;
-using ManagedWinapi;
-using ManagedWinapi.Hooks;
 using System.Linq;
 using GestureSign.Common.Input;
 
@@ -86,7 +82,6 @@ namespace GestureSign.ControlPanel.Dialogs
             if (_sourceAction != null)
             {
                 ActionNameTextBox.Text = _sourceAction.Name;
-                ConditionTextBox.Text = _sourceAction.Condition;
                 ActivateWindowCheckBox.IsChecked = _sourceAction.ActivateWindow;
                 TouchScreenCheckBox.IsChecked = !_sourceAction.IgnoredDevices.HasFlag(Devices.TouchScreen);
                 TouchPadCheckBox.IsChecked = !_sourceAction.IgnoredDevices.HasFlag(Devices.TouchPad);
@@ -111,10 +106,6 @@ namespace GestureSign.ControlPanel.Dialogs
                         CurrentGesture = gesture;
                 }
 
-                var hotkey = _sourceAction.Hotkey;
-                if (hotkey != null)
-                    HotKeyTextBox.HotKey = new HotKey(KeyInterop.KeyFromVirtualKey(hotkey.KeyCode), (ModifierKeys)hotkey.ModifierKeys);
-
             }
 
             // 加载手势匹配策略（仅轨迹手势）
@@ -125,8 +116,20 @@ namespace GestureSign.ControlPanel.Dialogs
         {
             if (CurrentRecordedDefinition != null && CurrentRecordedDefinition.Type != RecordedGestureType.Trajectory)
             {
-                // Contact gesture (Tap/Click/TipTap): save to ContactGestures only,
+                // Contact gesture (Tap/TipTap): save to ContactGestures only,
                 // not to GestureManager (Gestures.json) to avoid StrokeStyles loss on reload
+                var mods = GetSelectedModifiers();
+                switch (CurrentRecordedDefinition.Type)
+                {
+                    case RecordedGestureType.Tap:
+                        if (CurrentRecordedDefinition.TapGesture != null)
+                            CurrentRecordedDefinition.TapGesture.Modifiers = mods;
+                        break;
+                    case RecordedGestureType.TipTap:
+                        if (CurrentRecordedDefinition.TipTapGesture != null)
+                            CurrentRecordedDefinition.TipTapGesture.Modifiers = mods;
+                        break;
+                }
                 SaveRecordedDefinition(CurrentRecordedDefinition);
             }
             else if (CurrentGesture != null && CurrentGesture.PointPatterns != null)
@@ -140,20 +143,6 @@ namespace GestureSign.ControlPanel.Dialogs
                 if (!DialogResult.GetValueOrDefault())
                     DialogResult = true;
                 Close();
-            }
-        }
-
-        private void ResetHotKeyButton_Click(object sender, RoutedEventArgs e)
-        {
-            HotKeyTextBox.HotKey = null;
-        }
-
-        private void ConditionTextBox_PreviewMouseUp(object sender, MouseButtonEventArgs e)
-        {
-            EditConditionDialog editConditionDialog = new EditConditionDialog(ConditionTextBox.Text);
-            if (editConditionDialog.ShowDialog().Value)
-            {
-                ConditionTextBox.Text = editConditionDialog.ConditionTextBox.Text;
             }
         }
 
@@ -171,19 +160,6 @@ namespace GestureSign.ControlPanel.Dialogs
 
         private bool SaveAction()
         {
-            try
-            {
-                var regex = new Regex("finger_[0-9]+_((start|end)_[XY]%?|ID)");
-                var replaced = regex.Replace(ConditionTextBox.Text, "10");
-
-                DataTable dataTable = new DataTable();
-                dataTable.Compute(replaced, null);
-            }
-            catch (Exception exception)
-            {
-                return ShowErrorMessage(LocalizationProvider.Instance.GetTextValue("ActionDialog.Messages.ConditionError"), exception.Message);
-            }
-
             // 直接使用 Contains 检查 _sourceAction 是否在列表中
             if (_sourceApplication.Actions.Contains(_sourceAction))
             {
@@ -195,16 +171,8 @@ namespace GestureSign.ControlPanel.Dialogs
             }
 
             // Store new values
-            NewAction.Condition = string.IsNullOrWhiteSpace(ConditionTextBox.Text) ? null : ConditionTextBox.Text;
             NewAction.ActivateWindow = ActivateWindowCheckBox.IsChecked;
             NewAction.Name = ActionNameTextBox.Text.Trim();
-            NewAction.Hotkey = HotKeyTextBox.HotKey != null
-                ? new Hotkey()
-                {
-                    KeyCode = KeyInterop.VirtualKeyFromKey(HotKeyTextBox.HotKey.Key),
-                    ModifierKeys = (int)HotKeyTextBox.HotKey.ModifierKeys
-                }
-                : null;
 
             if (CurrentRecordedDefinition != null && CurrentRecordedDefinition.Type != RecordedGestureType.Trajectory)
             {
@@ -238,19 +206,6 @@ namespace GestureSign.ControlPanel.Dialogs
                 return null;
 
             var global = ApplicationManager.Instance.GetGlobalApplication()?.ContactGestures;
-            var click = global?.Clicks?.FirstOrDefault(c => c.Id == gestureId);
-            if (click != null)
-            {
-                return new RecordedGestureDefinitionResult
-                {
-                    Type = RecordedGestureType.Click,
-                    GestureId = click.Id,
-                    Name = click.Name,
-                    FingerCount = click.FingerCount,
-                    ClickGesture = click,
-                };
-            }
-
             var tap = global?.Taps?.FirstOrDefault(t => t.Id == gestureId);
             if (tap != null)
             {
@@ -282,6 +237,10 @@ namespace GestureSign.ControlPanel.Dialogs
 
         private bool SaveRecordedDefinition(RecordedGestureDefinitionResult definition)
         {
+            // 清理 GestureManager 中可能残留的同 Id 轨迹手势副本，避免运行时轨迹匹配误触发
+            if (!string.IsNullOrEmpty(definition?.GestureId))
+                GestureManager.Instance.DeleteGestureById(definition.GestureId);
+
             return ContactGestureDisplayFactory.SaveToGlobalApp(definition);
         }
 
@@ -312,11 +271,6 @@ namespace GestureSign.ControlPanel.Dialogs
                     if (tap != null)
                         tap.Commands = commands;
                     break;
-                case RecordedGestureType.Click:
-                    var click = global.ContactGestures.Clicks.FirstOrDefault(c => c.Id == gestureId);
-                    if (click != null)
-                        click.Commands = commands;
-                    break;
                 case RecordedGestureType.TipTap:
                     var tipTap = global.ContactGestures.TipTaps.FirstOrDefault(t => t.Id == gestureId);
                     if (tipTap != null)
@@ -337,8 +291,9 @@ namespace GestureSign.ControlPanel.Dialogs
                 gesture.Name = GestureManager.Instance.GetNewGestureName();
             }
 
-            // 应用用户选择的匹配策略
+            // 应用用户选择的匹配策略和修饰符
             gesture.MatchStrategy = GetSelectedMatchStrategy();
+            gesture.Modifiers = GetSelectedModifiers();
 
             // 匹配到已有手势且不覆盖时，只更新策略，不覆盖轨迹数据
             bool isMatchedExisting = CurrentRecordedDefinition != null && CurrentRecordedDefinition.MatchedExistingDefinition;
@@ -375,37 +330,75 @@ namespace GestureSign.ControlPanel.Dialogs
             {
                 MatchStrategyLabel.Visibility = Visibility.Collapsed;
                 MatchStrategyComboBox.Visibility = Visibility.Collapsed;
-                return;
+            }
+            else
+            {
+                MatchStrategyLabel.Visibility = Visibility.Visible;
+                MatchStrategyComboBox.Visibility = Visibility.Visible;
+
+                // 从已有手势读取策略
+                var strategy = FingerMatchStrategy.Inherit;
+                if (_sourceAction != null && !string.IsNullOrEmpty(_sourceAction.GestureId))
+                {
+                    var existingGesture = GestureManager.Instance.GetGestureById(_sourceAction.GestureId);
+                    if (existingGesture != null)
+                        strategy = existingGesture.MatchStrategy;
+                }
+
+                // 录制匹配到已有手势时，从匹配到的手势加载策略
+                if (strategy == FingerMatchStrategy.Inherit
+                    && CurrentRecordedDefinition?.MatchedExistingDefinition == true
+                    && !string.IsNullOrEmpty(CurrentRecordedDefinition.GestureId))
+                {
+                    var matchedGesture = GestureManager.Instance.GetGestureById(CurrentRecordedDefinition.GestureId);
+                    if (matchedGesture != null)
+                        strategy = matchedGesture.MatchStrategy;
+                }
+
+                MatchStrategyComboBox.SelectedIndex = strategy switch
+                {
+                    FingerMatchStrategy.AllFingers => 1,
+                    FingerMatchStrategy.FeatureFinger => 2,
+                    _ => 0,
+                };
             }
 
-            MatchStrategyLabel.Visibility = Visibility.Visible;
-            MatchStrategyComboBox.Visibility = Visibility.Visible;
+            // 修饰符面板：Tap/TipTap/轨迹均显示，Click 旧数据显示并预设 PrimaryButtonDown
+            bool showModifiers;
+            GestureModifiers initialModifiers = GestureModifiers.Default;
 
-            // 从已有手势读取策略
-            var strategy = FingerMatchStrategy.Inherit;
-            if (_sourceAction != null && !string.IsNullOrEmpty(_sourceAction.GestureId))
+            if (CurrentRecordedDefinition != null)
             {
-                var existingGesture = GestureManager.Instance.GetGestureById(_sourceAction.GestureId);
-                if (existingGesture != null)
-                    strategy = existingGesture.MatchStrategy;
+                switch (CurrentRecordedDefinition.Type)
+                {
+                    case RecordedGestureType.Tap:
+                        showModifiers = true;
+                        initialModifiers = CurrentRecordedDefinition.TapGesture?.Modifiers ?? GestureModifiers.Default;
+                        break;
+                    case RecordedGestureType.TipTap:
+                        showModifiers = true;
+                        initialModifiers = CurrentRecordedDefinition.TipTapGesture?.Modifiers ?? GestureModifiers.Default;
+                        break;
+                    default:
+                        showModifiers = false;
+                        break;
+                }
+            }
+            else if (CurrentGesture != null)
+            {
+                // 轨迹手势
+                showModifiers = true;
+                initialModifiers = CurrentGesture.Modifiers;
+            }
+            else
+            {
+                showModifiers = false;
             }
 
-            // 录制匹配到已有手势时，从匹配到的手势加载策略
-            if (strategy == FingerMatchStrategy.Inherit
-                && CurrentRecordedDefinition?.MatchedExistingDefinition == true
-                && !string.IsNullOrEmpty(CurrentRecordedDefinition.GestureId))
-            {
-                var matchedGesture = GestureManager.Instance.GetGestureById(CurrentRecordedDefinition.GestureId);
-                if (matchedGesture != null)
-                    strategy = matchedGesture.MatchStrategy;
-            }
-
-            MatchStrategyComboBox.SelectedIndex = strategy switch
-            {
-                FingerMatchStrategy.AllFingers => 1,
-                FingerMatchStrategy.FeatureFinger => 2,
-                _ => 0,
-            };
+            var modifiersVisibility = showModifiers ? Visibility.Visible : Visibility.Collapsed;
+            ModifiersLabel.Visibility = modifiersVisibility;
+            ModifiersPanel.Visibility = modifiersVisibility;
+            InitModifiersCheckBoxes(initialModifiers);
         }
 
         private FingerMatchStrategy GetSelectedMatchStrategy()
@@ -416,6 +409,24 @@ namespace GestureSign.ControlPanel.Dialogs
                 2 => FingerMatchStrategy.FeatureFinger,
                 _ => FingerMatchStrategy.Inherit,
             };
+        }
+
+        private GestureModifiers GetSelectedModifiers()
+        {
+            var m = GestureModifiers.Default;
+            if (ModPrimaryButton.IsChecked == true) m |= GestureModifiers.PrimaryButtonDown;
+            if (ModCtrl.IsChecked == true) m |= GestureModifiers.Ctrl;
+            if (ModShift.IsChecked == true) m |= GestureModifiers.Shift;
+            if (ModAlt.IsChecked == true) m |= GestureModifiers.Alt;
+            return m;
+        }
+
+        private void InitModifiersCheckBoxes(GestureModifiers modifiers)
+        {
+            ModPrimaryButton.IsChecked = modifiers.HasFlag(GestureModifiers.PrimaryButtonDown);
+            ModCtrl.IsChecked = modifiers.HasFlag(GestureModifiers.Ctrl);
+            ModShift.IsChecked = modifiers.HasFlag(GestureModifiers.Shift);
+            ModAlt.IsChecked = modifiers.HasFlag(GestureModifiers.Alt);
         }
 
         private void MatchStrategyComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)

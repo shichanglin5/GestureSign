@@ -1,3 +1,4 @@
+using GestureSign.Common.Gestures;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -100,6 +101,12 @@ namespace GestureSign.Common.Applications
         /// InertialScroll 模式的参数
         /// </summary>
         public InertialScrollSettings ScrollSettings { get; set; }
+
+        /// <summary>
+        /// 手势修饰符（Default/PrimaryButtonDown/Ctrl/Shift/Alt 的组合）
+        /// </summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public GestureModifiers Modifiers { get; set; } = GestureModifiers.Default;
 
         /// <summary>
         /// 自定义模式下，各方向的命令配置
