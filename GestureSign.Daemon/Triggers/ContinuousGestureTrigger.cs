@@ -168,7 +168,12 @@ namespace GestureSign.Daemon.Triggers
             if (_lastPoints == null || fingerCountChanged)
             {
                 if (_lastPoints == null)
+                {
                     _activeModifiers = PointCapture.Instance.GetCurrentModifiers();
+                    // 首帧强制刷新前台窗口识别，避免窗口切换后 _recognizedApplication 仍为旧值
+                    // （触控板两指先后落下时，CaptureStarted 以 FingerCount=1 触发会跳过刷新）
+                    ApplicationManager.Instance.GetForegroundApplications();
+                }
                 InitializeActiveContinuousConfig(gestureFingerCount);
             }
 

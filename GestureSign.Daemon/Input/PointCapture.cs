@@ -427,7 +427,9 @@ namespace GestureSign.Daemon.Input
             if (eventType == EVENT_SYSTEM_FOREGROUND || eventType == EVENT_SYSTEM_MINIMIZEEND)
             {
                 if (State != CaptureState.Ready || Mode != CaptureMode.Normal || hwnd.Equals(IntPtr.Zero))
+                {
                     return;
+                }
                 var systemWindow = new SystemWindow(hwnd);
                 if (!systemWindow.Visible)
                     return;

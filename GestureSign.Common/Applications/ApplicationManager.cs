@@ -84,7 +84,10 @@ namespace GestureSign.Common.Applications
             if (pointCapture.Mode == CaptureMode.Training) return;
 
             // 单指手势不需要识别，直接跳过
-            if (e.FingerCount < 2) return;
+            if (e.FingerCount < 2)
+            {
+                return;
+            }
 
             CaptureWindow = GetCaptureWindowByTargetMode(pointCapture.SourceDevice, e.FirstCapturedPoints.FirstOrDefault());
             _recognizedApplication = GetApplicationFromWindow(CaptureWindow);
