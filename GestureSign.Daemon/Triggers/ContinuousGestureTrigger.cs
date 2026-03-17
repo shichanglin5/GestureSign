@@ -1,4 +1,5 @@
 ﻿﻿﻿using GestureSign.Common.Applications;
+using GestureSign.Common.Gestures;
 using GestureSign.Common.Input;
 using GestureSign.Common.Log;
 using GestureSign.Common.Plugins;
@@ -27,6 +28,7 @@ namespace GestureSign.Daemon.Triggers
         private const int VelocityHistorySize = 3;
         private int _scrollFrameCount;
         private ContinuousGestureConfig _activeConfig;
+        private GestureModifiers _activeModifiers = GestureModifiers.Default;
         private InertialScrollSettings _activeScrollSettings;
         private bool _activeEnableScroll;
         private bool _activeEnableZoom;
@@ -98,10 +100,11 @@ namespace GestureSign.Daemon.Triggers
             // 最后一帧到松手的时间：如果手指静止超过阈值再松开，不触发惯性
             long msSinceLastFrame = _velocityStopwatch.ElapsedMilliseconds;
 
+            int triggerMaxIdleMs = _activeScrollSettings?.MomentumTriggerMaxIdleMs ?? 80;
             if (_lastFingerCount > 0 &&
                 _lastVelocity != null &&
                 _scrollFrameCount >= 3 &&
-                msSinceLastFrame < 80 &&
+                msSinceLastFrame < triggerMaxIdleMs &&
                 _scrollExecutors.TryGetValue(_lastFingerCount, out var lastExecutor))
             {
                 if (_activeEnableScroll)
@@ -109,7 +112,7 @@ namespace GestureSign.Daemon.Triggers
                     var window = ApplicationManager.Instance.CaptureWindow;
                     var settings = _activeScrollSettings ?? new InertialScrollSettings();
                     var inertialVelocity = GetAveragedVelocity(_lastVelocity.Value);
-                    // Logging.LogDebug($"[CGT] CaptureEnded: frames={_scrollFrameCount} sinceLastFrame={msSinceLastFrame}ms avgVel=({inertialVelocity.VelocityX:F1},{inertialVelocity.VelocityY:F1}) mag={inertialVelocity.Magnitude:F1} minVel={settings.MomentumMinVelocity}");
+                    Logging.LogDebug($"[CGT] CaptureEnded: frames={_scrollFrameCount} sinceLastFrame={msSinceLastFrame}ms avgVel=({inertialVelocity.VelocityX:F1},{inertialVelocity.VelocityY:F1}) mag={inertialVelocity.Magnitude:F1} minVel={settings.MomentumMinVelocity}");
                     lastExecutor.StartInertiaIfNeeded(inertialVelocity, window, settings, _lastSourceDevice, _lastTouchPoint);
                 }
             }
@@ -121,6 +124,7 @@ namespace GestureSign.Daemon.Triggers
             _velocityHistory.Clear();
             _scrollFrameCount = 0;
             _lastVelocity = null;
+            _activeModifiers = GestureModifiers.Default;
             ResetActiveContinuousConfig();
             ResetVelocityDirectionTracking();
         }
@@ -163,10 +167,15 @@ namespace GestureSign.Daemon.Triggers
 
             if (_lastPoints == null || fingerCountChanged)
             {
+                if (_lastPoints == null)
+                    _activeModifiers = PointCapture.Instance.GetCurrentModifiers();
                 InitializeActiveContinuousConfig(gestureFingerCount);
             }
 
             var config = _activeConfig;
+            // 修饰符过滤：配置的修饰符必须与采样时的修饰符一致
+            if (config != null && config.Modifiers != _activeModifiers)
+                config = null;
             if (config == null) return;
 
             bool enableZoom = _activeEnableZoom;
@@ -377,6 +386,12 @@ namespace GestureSign.Daemon.Triggers
                 var window = ApplicationManager.Instance.CaptureWindow;
                 var settings = _activeScrollSettings ?? new InertialScrollSettings();
                 _scrollFrameCount++;
+                // Logging.LogTrace($"[CGT] scroll frame={_scrollFrameCount} dt={_velocityStopwatch.ElapsedMilliseconds}ms dx={velocity.DeltaX:F1} dy={velocity.DeltaY:F1} vx={velocity.VelocityX:F0} vy={velocity.VelocityY:F0}");
+                if (velocity.DeltaX == 0 && velocity.DeltaY == 0)
+                {
+                    _lastPoints = latestPoints;
+                    return;
+                }
                 executor.ProcessFrame(velocity, window, settings, _lastSourceDevice, _lastTouchPoint);
 
                 _lastPoints = latestPoints;

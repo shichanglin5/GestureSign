@@ -628,7 +628,11 @@ namespace GestureSign.Daemon.Input
         {
             RecordTrainingDiagnosticFrame("up", e);
 
+            // TrackAllPoints 内部会调用 InferImplicitContactReleases（触控板专用）。
             TrackAllPoints(e.InputPointList);
+
+            // 触控屏需要额外的隐式释放推断，逻辑与触控板不同，在 PointUp 事件中单独处理。
+            InferTouchScreenImplicitReleases(e.InputPointList);
 
             bool allContactsReleased = AreAllTrackedContactsReleased();
 
@@ -644,7 +648,7 @@ namespace GestureSign.Daemon.Input
                         return;
                     }
 
-                    // 部分手指先抬起时保持会话，避免 100ms 超时把四指手势静默清理。
+                    // 部分手指先抬起时保持会话，避免超时把多指手势静默清理。
                     _inactivityTimer?.Change(GetInactivityTimeoutMs(), Timeout.Infinite);
                     e.Handled = Mode != CaptureMode.UserDisabled;
                     return;
@@ -690,7 +694,7 @@ namespace GestureSign.Daemon.Input
                 var thresholdValue = _blockTouchInputThreshold.GetValueOrDefault();
                 _blockTouchInputThreshold = null;
 
-                // Logging.LogDebug($"[PointCapture] Applying BlockTouchInputThreshold={thresholdValue}");
+                Logging.LogDebug($"[PointCapture] Applying BlockTouchInputThreshold={thresholdValue} state={State} fingers={_peakFingerCount}");
 
                 // Apply threshold synchronously to ensure blocking takes effect immediately
                 // This is critical for preventing the first touch frame from being forwarded to Windows
@@ -724,13 +728,23 @@ namespace GestureSign.Daemon.Input
         {
             _currentContext.Post((state) =>
             {
-                // Auto-clear stuck gestures if no PointMove received for 100ms
+                // Auto-clear stuck gestures if no PointMove received for the timeout period.
+                // Only clear if no contacts are active: active contacts mean fingers are still on screen,
+                // in which case we just reset the timer and wait (touches may have paused mid-gesture).
                 if (State == CaptureState.Capturing || State == CaptureState.CapturingInvalid)
                 {
                     int activeContacts = _activeContactIds?.Count ?? 0;
+
+                    if (activeContacts > 0)
+                    {
+                        // Fingers still on screen — not a stuck gesture, just a pause. Keep waiting.
+                        _inactivityTimer?.Change(GetInactivityTimeoutMs(), Timeout.Infinite);
+                        return;
+                    }
+
                     int trajectories = _pointsCaptured?.Count ?? 0;
                     int totalPoints = _pointsCaptured?.Values.Sum(v => v.Count) ?? 0;
-                    GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] Inactivity timeout ({GetInactivityTimeoutMs()}ms) - clearing capture, state={State}, activeContacts={activeContacts}, peakFingers={_peakFingerCount}, trajectories={trajectories}, totalPoints={totalPoints}");
+                    GestureSign.Common.Log.Logging.LogWarning($"[PointCapture] Inactivity timeout ({GetInactivityTimeoutMs()}ms) - clearing stuck capture, state={State}, peakFingers={_peakFingerCount}, trajectories={trajectories}, totalPoints={totalPoints}");
 
                     // Force end capture to clear the gesture
                     try
@@ -741,8 +755,6 @@ namespace GestureSign.Daemon.Input
 
                         State = CaptureState.Ready;
                         ResetSessionTracking();
-
-                        // GestureSign.Common.Log.Logging.LogInfo($"[PointCapture] Stuck gesture cleared, State reset to Ready, surface cleared");
                     }
                     catch (Exception ex)
                     {
@@ -915,8 +927,14 @@ namespace GestureSign.Daemon.Input
             State = CaptureState.Ready;
 
             // Notify PointsCaptured event subscribers that points have been captured.
-            //CaptureWindow GetGestureName
             OnBeforePointsCaptured(pointsInformation);
+
+            // 采样当前修饰符状态（结束时松开的修饰键不计入）
+            var activeModifiers = GetCurrentModifiers();
+
+            // Run trajectory gesture recognition and store result for use below.
+            var trajectoryPoints = pointsInformation.Points.Select(l => l.ToArray()).ToArray();
+            var trajectoryMatch = GestureManager.Instance.Recognize(trajectoryPoints, pointsInformation.FingerCount, activeModifiers);
 
 
             if (pointsInformation.Cancel)
@@ -934,6 +952,7 @@ namespace GestureSign.Daemon.Input
                     _pointPatternCache.Add(pointPattern);
 
                     var trajectoryGesture = new Gesture(null, _pointPatternCache.ToArray(), _peakFingerCount);
+                    trajectoryGesture.Modifiers = activeModifiers;
                     var existingSimilarGestureName = GestureManager.Instance.GetMostSimilarGestureName(_pointPatternCache.ToArray());
                     if (!string.IsNullOrEmpty(existingSimilarGestureName))
                     {
@@ -955,7 +974,7 @@ namespace GestureSign.Daemon.Input
                         FeatureTrajectories = _pointsCaptured?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
                     };
 
-                    var definition = GestureDefinitionFactory.Create(sample, trajectoryGesture);
+                    var definition = GestureDefinitionFactory.Create(sample, trajectoryGesture, activeModifiers);
                     definition.DiagnosticData = TrainingDiagnosticsFormatter.Format(sample, definition, _trainingDiagnosticFrames, SourceDevice);
 
                     if (_isTestMode)
@@ -979,10 +998,12 @@ namespace GestureSign.Daemon.Input
 
             if (contactGesture.IsMatch && contactGesture.Kind == ContactGestureKind.MultiFingerClick)
             {
-                var clickDefinition = ApplicationManager.Instance.GetRecognizedClickDefinitions(contactGesture.FingerCount).FirstOrDefault();
-                if (clickDefinition != null)
+                // Click = Tap + PrimaryButtonDown，统一到 Tap 匹配路径
+                var clickAsTapModifiers = activeModifiers | GestureModifiers.PrimaryButtonDown;
+                var tapFromClickDefinition = ApplicationManager.Instance.GetRecognizedTapDefinitions(contactGesture.FingerCount, clickAsTapModifiers).FirstOrDefault();
+                if (tapFromClickDefinition != null)
                 {
-                    FireContactGestureRecognized(pointsInformation, clickDefinition.Id, clickDefinition.Name);
+                    FireContactGestureRecognized(pointsInformation, tapFromClickDefinition.Id, tapFromClickDefinition.Name);
                     ResetSessionTracking();
                     return;
                 }
@@ -990,7 +1011,7 @@ namespace GestureSign.Daemon.Input
 
             if (contactGesture.IsMatch && contactGesture.Kind == ContactGestureKind.MultiFingerTap)
             {
-                var tapDefinition = ApplicationManager.Instance.GetRecognizedTapDefinitions(contactGesture.FingerCount).FirstOrDefault();
+                var tapDefinition = ApplicationManager.Instance.GetRecognizedTapDefinitions(contactGesture.FingerCount, activeModifiers).FirstOrDefault();
                 if (tapDefinition != null)
                 {
                     FireContactGestureRecognized(pointsInformation, tapDefinition.Id, tapDefinition.Name);
@@ -1001,7 +1022,7 @@ namespace GestureSign.Daemon.Input
 
             if (EnableTipTapRecognition)
             {
-                var tipTapConfigs = ApplicationManager.Instance.GetRecognizedTipTapConfigs(pointsInformation.FingerCount).ToList();
+                var tipTapConfigs = ApplicationManager.Instance.GetRecognizedTipTapConfigs(pointsInformation.FingerCount, activeModifiers).ToList();
                 foreach (var tipTapConfig in tipTapConfigs)
                 {
                     var effectiveConfig = new TipTapGestureConfig
@@ -1012,6 +1033,7 @@ namespace GestureSign.Daemon.Input
                         FingerCount = tipTapConfig.FingerCount,
                         FixFingerCount = tipTapConfig.FixFingerCount,
                         Direction = tipTapConfig.Direction,
+                        Modifiers = tipTapConfig.Modifiers,
                         Recognition = GetEffectiveTipTapRecognition(tipTapConfig.Recognition),
                     };
                     var tipTapResult = _tipTapRecognizer.ProcessSnapshot(pointsInformation.Session, effectiveConfig);
@@ -1027,27 +1049,20 @@ namespace GestureSign.Daemon.Input
             }
 
             // Fire recognized event if we found a gesture match, otherwise throw not recognized event
-            if (GestureManager.Instance.GestureName == null && _peakFingerCount >= 2)
+            int trajCount = _pointsCaptured?.Count ?? 0;
+            int totalPoints = _pointsCaptured?.Values.Sum(v => v.Count) ?? 0;
+            var matchStrategy = AppConfig.TrajectoryMatchStrategy;
+            if (trajectoryMatch != null)
             {
-                int trajCount = _pointsCaptured?.Count ?? 0;
-                int totalPoints = _pointsCaptured?.Values.Sum(v => v.Count) ?? 0;
-                var matchStrategy = AppConfig.TrajectoryMatchStrategy;
-                Logging.LogInfo($"[PointCapture] No trajectory gesture matched: trajectories={trajCount}, totalPoints={totalPoints}, fingers={_peakFingerCount}, strategy={matchStrategy}");
+                // Logging.LogTrace($"[PointCapture] Trajectory gesture matched: name={trajectoryMatch.Name}, trajectories={trajCount}, totalPoints={totalPoints}, fingers={_peakFingerCount}, strategy={matchStrategy}");
+                List<Point> capturedPoints = SourceDevice == Devices.TouchPad ? [_touchPadStartPoint] : pointsInformation.FirstCapturedPoints;
+                OnGestureRecognized(new RecognitionEventArgs(trajectoryMatch.Id, trajectoryMatch.Name, pointsInformation.Points, capturedPoints, [.. _pointsCaptured.Keys]));
             }
-            if (GestureManager.Instance.GestureName != null)
-            {
-                int trajCount = _pointsCaptured?.Count ?? 0;
-                int totalPoints = _pointsCaptured?.Values.Sum(v => v.Count) ?? 0;
-                var matchStrategy = AppConfig.TrajectoryMatchStrategy;
-                Logging.LogInfo($"[PointCapture] Trajectory gesture matched: name={GestureManager.Instance.GestureName}, trajectories={trajCount}, totalPoints={totalPoints}, fingers={_peakFingerCount}, strategy={matchStrategy}");
-                List<Point> capturedPoints = SourceDevice == Devices.TouchPad ? new List<Point>() { _touchPadStartPoint } : pointsInformation.FirstCapturedPoints;
-                OnGestureRecognized(new RecognitionEventArgs(GestureManager.Instance.GestureId, GestureManager.Instance.GestureName, pointsInformation.Points, capturedPoints, _pointsCaptured.Keys.ToList()));
-            }
-            //else
-            //    OnGestureNotRecognized(new RecognitionEventArgs(pointsInformation.Points, pointsInformation.FirstCapturedPoints, _pointsCaptured.Keys.ToList()));
-
+            // else
+            // {
+            //     Logging.LogTrace($"[PointCapture] No trajectory gesture matched: trajectories={trajCount}, totalPoints={totalPoints}, fingers={_peakFingerCount}, strategy={matchStrategy}");
+            // }
             OnAfterPointsCaptured(pointsInformation);
-
             ResetSessionTracking();
         }
 
@@ -1056,6 +1071,21 @@ namespace GestureSign.Daemon.Input
         //    // Notify subscribers that gesture capture has been canceled
         //    OnCaptureCanceled(new PointsCapturedEventArgs(new List<List<Point>>(_pointsCaptured.Values)));
         //}
+
+        /// <summary>
+        /// 采样当前激活的手势修饰符状态（EndCapture 时或连续手势首帧时调用）。
+        /// 结束时已松开的修饰键不计入。
+        /// </summary>
+        public GestureModifiers GetCurrentModifiers()
+        {
+            var m = GestureModifiers.Default;
+            if (_primaryButtonWasPressed) m |= GestureModifiers.PrimaryButtonDown;
+            var modKeys = System.Windows.Forms.Control.ModifierKeys;
+            if ((modKeys & System.Windows.Forms.Keys.Control) != 0) m |= GestureModifiers.Ctrl;
+            if ((modKeys & System.Windows.Forms.Keys.Shift) != 0) m |= GestureModifiers.Shift;
+            if ((modKeys & System.Windows.Forms.Keys.Alt) != 0) m |= GestureModifiers.Alt;
+            return m;
+        }
 
         /// <summary>
         /// 将触控板坐标转换为屏幕坐标（使用全局参考点，仅用于参考手指自身）
@@ -1189,8 +1219,9 @@ namespace GestureSign.Daemon.Input
             _featureFingerIds?.Clear();
             _featureFingerDrawContactId = null;
             _peakFingerCount = _activeContactIds?.Count ?? 0;
-            _primaryButtonWasPressed = false;
-            _isPrimaryButtonDown = false;
+            // 子 session rebase：按键若仍处于按下状态则保留 WasPressed，下一次 TipTap 仍能正确带 PrimaryButtonDown 修饰符
+            _primaryButtonWasPressed = _isPrimaryButtonDown;
+            _isPrimaryButtonDown = false;  // 下一帧 TrackPrimaryButton 会根据实际帧状态重建
             _primaryButtonDownTimeMs = null;
             _primaryButtonUpTimeMs = null;
             _primaryButtonFingerCount = 0;
@@ -1282,7 +1313,7 @@ namespace GestureSign.Daemon.Input
                 : (DateTime.UtcNow - _contactSessionStartedAt).TotalMilliseconds;
         }
 
-        private void PublishTrainingGestureDefinition(PointsCapturedEventArgs pointsInformation, TipTapGestureConfig matchedTipTapConfig = null)
+        private void PublishTrainingGestureDefinition(PointsCapturedEventArgs pointsInformation, TipTapGestureConfig matchedTipTapConfig = null, GestureModifiers? overrideModifiers = null)
         {
             if (Mode != CaptureMode.Training || pointsInformation == null)
                 return;
@@ -1297,7 +1328,7 @@ namespace GestureSign.Daemon.Input
             };
 
             var definition = matchedTipTapConfig == null
-                ? GestureDefinitionFactory.Create(sample)
+                ? GestureDefinitionFactory.Create(sample, null, overrideModifiers ?? GetCurrentModifiers())
                 : GestureDefinitionFactory.CreateTipTapMatch(sample, matchedTipTapConfig);
             definition.DiagnosticData = TrainingDiagnosticsFormatter.Format(sample, definition, _trainingDiagnosticFrames, SourceDevice);
 
@@ -1359,20 +1390,24 @@ namespace GestureSign.Daemon.Input
             pointsInfo.Analysis = analysis;
 
             ApplicationManager.Instance.GetForegroundApplications();
-            var clickDefinition = ApplicationManager.Instance.GetRecognizedClickDefinitions(fingerCount).FirstOrDefault();
+            // Click = Tap + PrimaryButtonDown，统一到 Tap 匹配路径
+            var clickModifiers = GetCurrentModifiers() | GestureModifiers.PrimaryButtonDown;
+            var tapFromClickDef = ApplicationManager.Instance.GetRecognizedTapDefinitions(fingerCount, clickModifiers).FirstOrDefault();
 
             if (Mode == CaptureMode.Training)
             {
-                PublishTrainingGestureDefinition(pointsInfo);
+                // Click 训练需传入 clickModifiers（含 PrimaryButtonDown），
+                // 此时物理按键已松开，GetCurrentModifiers() 不含 PrimaryButtonDown
+                PublishTrainingGestureDefinition(pointsInfo, overrideModifiers: clickModifiers);
                 OnAfterPointsCaptured(pointsInfo);
             }
-            else if (clickDefinition != null)
+            else if (tapFromClickDef != null)
             {
-                FireContactGestureRecognized(pointsInfo, clickDefinition.Id, clickDefinition.Name);
+                FireContactGestureRecognized(pointsInfo, tapFromClickDef.Id, tapFromClickDef.Name);
             }
             else
             {
-                Logging.LogTrace($"[PointCapture] Real-time Click recognized but no definition found: fingers={fingerCount}");
+                Logging.LogTrace($"[PointCapture] Real-time Click recognized but no Tap+PrimaryButtonDown definition found: fingers={fingerCount}");
                 return false;
             }
 
@@ -1408,7 +1443,7 @@ namespace GestureSign.Daemon.Input
                 if (candidateFixIds.Count < 1)
                     continue;
 
-                var configs = ApplicationManager.Instance.GetRecognizedTipTapConfigsByFixCount(candidateFixIds.Count).ToList();
+                var configs = ApplicationManager.Instance.GetRecognizedTipTapConfigsByFixCount(candidateFixIds.Count, GetCurrentModifiers()).ToList();
                 foreach (var config in configs)
                 {
                     if (!config.IsEnabled)
@@ -1645,19 +1680,22 @@ namespace GestureSign.Daemon.Input
                         stroke.Add(actualPoint);
                     }
 
-                    // 追踪手指移动时间，用于 TipTap fix 手指静止判定
+                    // 追踪手指移动时间，用于 TipTap fix 手指静止判定。
+                    // 使用原始设备坐标（inputPoint.Point）而非屏幕转换后坐标，
+                    // 避免 TouchPad 坐标转换因鼠标位置变化而产生虚假位移。
+                    var rawPoint = inputPoint.Point;
                     if (_contactLastPosition.TryGetValue(inputPoint.ContactIdentifier, out var lastPos))
                     {
-                        double moveDist = PointPatternMath.GetDistance(lastPos, actualPoint);
+                        double moveDist = PointPatternMath.GetDistance(lastPos, rawPoint);
                         if (moveDist > FingerMovementJitterThresholdPx)
                         {
                             _contactLastMovedTimeMs[inputPoint.ContactIdentifier] = GetContactSessionElapsedMs();
-                            _contactLastPosition[inputPoint.ContactIdentifier] = actualPoint;
+                            _contactLastPosition[inputPoint.ContactIdentifier] = rawPoint;
                         }
                     }
                     else
                     {
-                        _contactLastPosition[inputPoint.ContactIdentifier] = actualPoint;
+                        _contactLastPosition[inputPoint.ContactIdentifier] = rawPoint;
                     }
                 }
                 else
@@ -1674,6 +1712,13 @@ namespace GestureSign.Daemon.Input
             InferImplicitContactReleases(points);
         }
 
+        /// <summary>
+        /// 触控板隐式释放推断：在每帧 TrackAllPoints 末尾调用。
+        /// 触控板驱动在每帧都会报告所有活跃触点（含静止触点），
+        /// 因此某个已跟踪 contactId 从帧中缺席即意味着它已被驱动静默释放。
+        /// 注意：触控屏不能使用此逻辑，因为触控屏静止手指不发 UPDATE，
+        /// 缺席不等于释放——触控屏专用逻辑见 InferTouchScreenImplicitReleases。
+        /// </summary>
         private void InferImplicitContactReleases(List<InputPoint> points)
         {
             if (SourceDevice != Devices.TouchPad || _activeContactIds == null || _activeContactIds.Count == 0)
@@ -1686,6 +1731,39 @@ namespace GestureSign.Daemon.Input
 
             foreach (int missingId in missingIds)
             {
+                _activeContactIds.Remove(missingId);
+                if (!_contactUpTimesMs.ContainsKey(missingId))
+                {
+                    _contactUpTimesMs[missingId] = GetContactSessionElapsedMs();
+                    _contactUpOrder.Add(missingId);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 触控屏隐式释放推断：仅在 PointUp 事件中调用（不在 PointMove 中调用）。
+        /// 触控屏驱动只在触点状态变化时上报，静止触点不发 UPDATE，
+        /// 因此不能像触控板那样用"帧缺席"推断释放（会误判静止手指）。
+        /// 但在 PointUp 帧中：驱动会报告所有发生状态变化的触点（UP 或仍接触）。
+        /// 若某已跟踪 contactId 在 PointUp 帧中完全缺席（既非 UP 也非接触），
+        /// 说明驱动在此帧丢失了该触点的 UP 事件——可安全推断为同步释放。
+        /// </summary>
+        private void InferTouchScreenImplicitReleases(List<InputPoint> points)
+        {
+            // 仅对触控屏生效，且当前帧必须包含至少一个 UP 事件（否则不是 PointUp 帧）
+            if (SourceDevice != Devices.TouchScreen || _activeContactIds == null || _activeContactIds.Count == 0)
+                return;
+            if (!points.Any(p => p.State == DeviceStates.None))
+                return;
+
+            var reportedIds = new HashSet<int>(points.Select(p => p.ContactIdentifier));
+            var implicitReleases = _activeContactIds.Where(id => !reportedIds.Contains(id)).ToList();
+            if (implicitReleases.Count == 0)
+                return;
+
+            foreach (int missingId in implicitReleases)
+            {
+                Logging.LogDebug($"[PointCapture] TouchScreen implicit release: contactId={missingId} absent from PointUp frame (driver dropped UP event)");
                 _activeContactIds.Remove(missingId);
                 if (!_contactUpTimesMs.ContainsKey(missingId))
                 {
@@ -1809,7 +1887,7 @@ namespace GestureSign.Daemon.Input
         /// <summary>
         /// 尝试锁定用于绘制的特征手指 contactId。
         /// 锁定条件（满足其一）：
-        /// 1. 任一手指移动距离超过 MinimumPointDistance 阈值（已产生有效轨迹点）
+        /// 1. 任一手指从起点位移超过 TapDistanceThreshold（50px）
         /// 2. 当前 session 首手指 down 超过 MultiFingerDelay（手指数量已稳定）
         /// 锁定后按 _pointsCaptured 首点 X 坐标排序，用 GetFeatureFingerTrajectoryIndex 选取特征手指。
         /// </summary>
@@ -1818,11 +1896,12 @@ namespace GestureSign.Daemon.Input
             if (_featureFingerDrawContactId.HasValue || _pointsCaptured == null || _pointsCaptured.Count == 0)
                 return;
 
-            // 条件 1：任一手指已有超过 1 个采样点（说明移动超过 MinimumPointDistance）
+            // 条件 1：任一手指从起点位移超过 TapDistanceThreshold
+            int tapThreshold = AppConfig.TapDistanceThreshold;
             bool hasSignificantMovement = false;
             foreach (var stroke in _pointsCaptured.Values)
             {
-                if (stroke.Count > 1)
+                if (stroke.Count >= 2 && PointPatternMath.GetDistance(stroke[0], stroke[^1]) >= tapThreshold)
                 {
                     hasSignificantMovement = true;
                     break;
@@ -1850,7 +1929,7 @@ namespace GestureSign.Daemon.Input
                 .OrderBy(kv => kv.Value.Count > 0 ? kv.Value[0].X : int.MaxValue)
                 .ToList();
             int trajectoryCount = sortedEntries.Count;
-            int featureIndex = GestureManager.GetFeatureFingerTrajectoryIndex(trajectoryCount, AppConfig.FeatureFingerIndex);
+            int featureIndex = GestureManager.GetFeatureFingerTrajectoryIndex(trajectoryCount);
             _featureFingerDrawContactId = sortedEntries[featureIndex].Key;
 
             // 触摸板：更新偏移参考点为特征手指的起始点，

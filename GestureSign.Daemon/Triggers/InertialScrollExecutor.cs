@@ -64,6 +64,11 @@ namespace GestureSign.Daemon.Triggers
         private double _accumulatedY;
         private DateTime _lastGestureTime = DateTime.MinValue;
         private const int NewGestureThresholdMs = 200;
+        /// <summary>
+        /// 方向状态继承超时（ms）：两次滑动间隔小于此值时保留方向状态，
+        /// 避免快速连续滑动每次都经历 Undecided 缓冲阶段。
+        /// </summary>
+        private const int DirectionStateInheritMs = 1500;
 
         private bool _isWinUIApp;
         private IntPtr _cachedWindowHandle;
@@ -82,6 +87,11 @@ namespace GestureSign.Daemon.Triggers
         // 触控屏滚动目标：触控屏以手指触摸点为滚动目标，触控板以鼠标位置为目标
         private bool _isTouchScreen;
         private POINT _touchScreenPoint;
+
+        // 惯性继承速度：手指同向落下时，从惯性剩余速度平滑衔接
+        private double _inheritedVelocityX;
+        private double _inheritedVelocityY;
+        private DateTime _inheritedVelocityTime = DateTime.MinValue;
 
         // V2 方向状态机：窗口比例判定 + 滞回
         private enum DirectionState { Undecided, LockX, LockY, Free2D }
@@ -108,7 +118,8 @@ namespace GestureSign.Daemon.Triggers
             Devices sourceDevice = Devices.None, Point touchPoint = default)
         {
             if (settings == null) return;
-            // 在获取 lock 之前先标记取消惯性，让 OnInertiaTick 尽快退出释放 lock
+            // 在获取 lock 之前先记录惯性状态，再标记取消惯性让 OnInertiaTick 尽快退出释放 lock
+            bool wasInertiaActive = _isInertiaActive;
             _isInertiaActive = false;
             _inertiaTimer?.Stop();
             lock (_lock)
@@ -123,12 +134,72 @@ namespace GestureSign.Daemon.Triggers
                 var timeSinceLastGesture = (velocity.Timestamp - _lastGestureTime).TotalMilliseconds;
                 if (timeSinceLastGesture > NewGestureThresholdMs)
                 {
-                    _accumulatedX = 0;
-                    _accumulatedY = 0;
-                    _directionState = DirectionState.Undecided;
-                    _windowBuffer.Clear();
-                    _undecidedBuffer.Clear();
-                    ResetPrimaryDirectionTracking();
+                    if (wasInertiaActive)
+                    {
+                        // 惯性刚停：判断手指是否静止落下
+                        double stopThreshold = settings.MomentumStopThreshold;
+                        bool isStationary = velocity.Magnitude < stopThreshold;
+                        bool sameDirectionX = Math.Sign(velocity.VelocityX) == Math.Sign(_inertiaStartVelocityX);
+                        bool sameDirectionY = Math.Sign(velocity.VelocityY) == Math.Sign(_inertiaStartVelocityY);
+                        bool isSameDirection = (Math.Abs(_inertiaStartVelocityX) > Math.Abs(_inertiaStartVelocityY))
+                            ? sameDirectionX
+                            : sameDirectionY;
+
+                        if (!isStationary && isSameDirection)
+                        {
+                            // 同向：计算惯性剩余速度，取 max 作为继承速度
+                            double elapsedMs = _inertiaStopwatch.ElapsedMilliseconds;
+                            double tau = settings.MomentumTimeConstantMs;
+                            double decay = tau > 0 ? Math.Exp(-elapsedMs / tau) : 0;
+                            double residualVx = _inertiaStartVelocityX * decay;
+                            double residualVy = _inertiaStartVelocityY * decay;
+                            // 取 max：继承速度不低于手指当前速度（同向），也不高于惯性剩余速度
+                            _inheritedVelocityX = Math.Sign(residualVx) == Math.Sign(velocity.VelocityX)
+                                ? (Math.Abs(residualVx) > Math.Abs(velocity.VelocityX) ? residualVx : 0)
+                                : 0;
+                            _inheritedVelocityY = Math.Sign(residualVy) == Math.Sign(velocity.VelocityY)
+                                ? (Math.Abs(residualVy) > Math.Abs(velocity.VelocityY) ? residualVy : 0)
+                                : 0;
+                            _inheritedVelocityTime = velocity.Timestamp;
+                            // 保留方向状态，不重置
+                        }
+                        else
+                        {
+                            // 静止或反向：清零继承速度，重置方向状态
+                            _inheritedVelocityX = 0;
+                            _inheritedVelocityY = 0;
+                            _accumulatedX = 0;
+                            _accumulatedY = 0;
+                            _directionState = DirectionState.Undecided;
+                            _windowBuffer.Clear();
+                            _undecidedBuffer.Clear();
+                            ResetPrimaryDirectionTracking();
+                        }
+                    }
+                    else
+                    {
+                        // 无惯性：根据间隔长短决定是否继承方向状态
+                        _inheritedVelocityX = 0;
+                        _inheritedVelocityY = 0;
+                        _accumulatedX = 0;
+                        _accumulatedY = 0;
+                        if (timeSinceLastGesture > DirectionStateInheritMs
+                            || _directionState == DirectionState.Undecided)
+                        {
+                            // 长间隔或上次也没确定方向：完全重置
+                            _directionState = DirectionState.Undecided;
+                            _windowBuffer.Clear();
+                            _undecidedBuffer.Clear();
+                            ResetPrimaryDirectionTracking();
+                        }
+                        else
+                        {
+                            // 短间隔且上次已确定方向：保留方向状态，清窗口缓冲
+                            _windowBuffer.Clear();
+                            _undecidedBuffer.Clear();
+                            ResetPrimaryDirectionTracking();
+                        }
+                    }
                 }
                 _lastGestureTime = velocity.Timestamp;
 
@@ -146,12 +217,42 @@ namespace GestureSign.Daemon.Triggers
                     return;
 
                 double speedMultiplier = CalculateSpeedMultiplier(velocity.Magnitude, settings.AccelerationFactor);
+                // Logging.LogTrace($"[ISE] ProcessFrame: rawDx={velocity.DeltaX:F1} rawDy={velocity.DeltaY:F1} mag={velocity.Magnitude:F1} speedMul={speedMultiplier:F2} timeSinceLast={timeSinceLastGesture:F0}ms");
 
                 double verticalMultiplier = speedMultiplier * (settings.ReverseDirection ? -1 : 1);
                 double horizontalMultiplier = speedMultiplier * (settings.ReverseHorizontalDirection ? 1 : -1);
 
                 double deltaX = velocity.DeltaX * horizontalMultiplier;
                 double deltaY = velocity.DeltaY * verticalMultiplier;
+
+                // 继承速度：按 tau 衰减后取 max（继承速度 > 手指速度时补偿差值）
+                if (_inheritedVelocityX != 0 || _inheritedVelocityY != 0)
+                {
+                    double dtMs = (velocity.Timestamp - _inheritedVelocityTime).TotalMilliseconds;
+                    double tau = settings.MomentumTimeConstantMs;
+                    double decay = tau > 0 ? Math.Exp(-dtMs / tau) : 0;
+                    _inheritedVelocityX *= decay;
+                    _inheritedVelocityY *= decay;
+                    _inheritedVelocityTime = velocity.Timestamp;
+
+                    // 将继承速度换算为本帧 delta（基于本帧 dt）
+                    double frameDtMs = Math.Max(1, (velocity.Timestamp - _lastGestureTime).TotalMilliseconds);
+                    if (frameDtMs > 50) frameDtMs = 50; // 防止首帧 dt 过大
+                    double inheritDeltaX = _inheritedVelocityX * (frameDtMs / 1000.0) * (settings.ReverseHorizontalDirection ? 1 : -1);
+                    double inheritDeltaY = _inheritedVelocityY * (frameDtMs / 1000.0) * (settings.ReverseDirection ? -1 : 1);
+
+                    // 取 max：继承 delta 大于手指 delta 时用继承值
+                    if (Math.Abs(inheritDeltaX) > Math.Abs(deltaX)) deltaX = inheritDeltaX;
+                    if (Math.Abs(inheritDeltaY) > Math.Abs(deltaY)) deltaY = inheritDeltaY;
+
+                    // 继承速度衰减到阈值以下时清零
+                    if (Math.Sqrt(_inheritedVelocityX * _inheritedVelocityX + _inheritedVelocityY * _inheritedVelocityY)
+                        < settings.MomentumMinVelocity)
+                    {
+                        _inheritedVelocityX = 0;
+                        _inheritedVelocityY = 0;
+                    }
+                }
 
                 if (settings.Direction == ScrollDirection.Vertical)
                     deltaX = 0;
@@ -166,6 +267,7 @@ namespace GestureSign.Daemon.Triggers
                         return; // delta 已缓冲，不输出滚动
                 }
 
+                // Logging.LogTrace($"[ISE] ExecuteScroll: deltaX={deltaX:F2} deltaY={deltaY:F2}");
                 ExecuteResolvedScroll(deltaX, deltaY, settings);
             }
         }
@@ -193,10 +295,10 @@ namespace GestureSign.Daemon.Triggers
         {
             _accumulatedX = 0;
             _accumulatedY = 0;
-            _lastGestureTime = DateTime.MinValue;
             ResetPrimaryDirectionTracking();
-            // 注意：不重置 _directionState，需要保留到惯性阶段结束。
-            // 在 ProcessFrame 的新手势检测（timeSinceLastGesture > NewGestureThresholdMs）中重置。
+            // 不重置 _lastGestureTime：保留最后一帧的时间戳，
+            // 让下次 ProcessFrame 能根据真实间隔判断是否继承方向状态。
+            // 不重置 _directionState：需要保留到惯性阶段结束或下次新手势判断。
         }
 
         public void StopInertia()

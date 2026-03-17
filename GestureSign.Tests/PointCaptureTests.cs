@@ -1053,8 +1053,11 @@ namespace GestureSign.Tests
                 }, 2);
 
                 Assert.AreEqual(1, capture.PublishedTrainingDefinitionsForTest.Count);
-                Assert.AreEqual(RecordedGestureType.Click, capture.PublishedTrainingDefinitionsForTest[0].Type);
+                // Click 已统一为 Tap + PrimaryButtonDown 修饰符
+                Assert.AreEqual(RecordedGestureType.Tap, capture.PublishedTrainingDefinitionsForTest[0].Type);
                 Assert.AreEqual(2, capture.PublishedTrainingDefinitionsForTest[0].FingerCount);
+                Assert.IsTrue(capture.PublishedTrainingDefinitionsForTest[0].TapGesture?.Modifiers.HasFlag(GestureSign.Common.Gestures.GestureModifiers.PrimaryButtonDown) == true,
+                    "Click gesture should be converted to Tap with PrimaryButtonDown modifier");
             }
             finally
             {

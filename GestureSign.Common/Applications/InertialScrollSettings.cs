@@ -84,6 +84,18 @@ namespace GestureSign.Common.Applications
         /// Momentum timer tick interval (ms). Not intended for end-user tuning.
         /// </summary>
         public double MomentumTickMs { get; set; } = 8.0;
+
+        /// <summary>
+        /// 触发惯性的最大末帧静止时长 (ms)。
+        /// 手指抬起前静止超过此时长则不触发惯性，认为用户有意停止。
+        /// </summary>
+        public int MomentumTriggerMaxIdleMs { get; set; } = 120;
+
+        /// <summary>
+        /// 手指落下时判断为"静止"的速度阈值 (px/s)。
+        /// 低于此阈值认为手指静止落下，惯性立即停止；高于此阈值且同向则继承惯性速度。
+        /// </summary>
+        public double MomentumStopThreshold { get; set; } = 500.0;
     }
 
     public enum ScrollDirection

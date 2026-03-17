@@ -37,6 +37,8 @@ namespace GestureSign.Common.Applications
         /// </summary>
         public double DeltaY { get; set; }
 
+        public VelocityVector() { Timestamp = DateTime.Now; }
+
         /// <summary>
         /// 创建速度向量
         /// </summary>
