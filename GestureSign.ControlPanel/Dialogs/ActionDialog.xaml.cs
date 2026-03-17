@@ -23,6 +23,7 @@ namespace GestureSign.ControlPanel.Dialogs
 
         private readonly IAction _sourceAction;
         private IApplication _sourceApplication;
+        private bool _modifiersInitialized;
 
         #endregion
 
@@ -366,11 +367,9 @@ namespace GestureSign.ControlPanel.Dialogs
             }
 
             // 修饰符面板：Tap/TipTap/轨迹均显示
+            // 首次加载时从手势数据初始化，之后保留用户手动设置的勾选状态不重置
             bool showModifiers;
             GestureModifiers initialModifiers = GestureModifiers.Default;
-            // 修饰符面板已可见时，说明用户可能已手动调整过勾选状态，
-            // 保留当前 UI 值而不用录制结果覆盖（录制结果的修饰符已由 GetUIModifiers 回调同步）
-            bool preserveCurrentModifiers = ModifiersPanel.Visibility == Visibility.Visible;
 
             if (CurrentRecordedDefinition != null)
             {
@@ -378,18 +377,15 @@ namespace GestureSign.ControlPanel.Dialogs
                 {
                     case RecordedGestureType.Tap:
                         showModifiers = true;
-                        if (!preserveCurrentModifiers)
-                            initialModifiers = CurrentRecordedDefinition.TapGesture?.Modifiers ?? GestureModifiers.Default;
+                        initialModifiers = CurrentRecordedDefinition.TapGesture?.Modifiers ?? GestureModifiers.Default;
                         break;
                     case RecordedGestureType.TipTap:
                         showModifiers = true;
-                        if (!preserveCurrentModifiers)
-                            initialModifiers = CurrentRecordedDefinition.TipTapGesture?.Modifiers ?? GestureModifiers.Default;
+                        initialModifiers = CurrentRecordedDefinition.TipTapGesture?.Modifiers ?? GestureModifiers.Default;
                         break;
                     case RecordedGestureType.Trajectory:
                         showModifiers = true;
-                        if (!preserveCurrentModifiers)
-                            initialModifiers = CurrentGesture?.Modifiers ?? GestureModifiers.Default;
+                        initialModifiers = CurrentGesture?.Modifiers ?? GestureModifiers.Default;
                         break;
                     default:
                         showModifiers = false;
@@ -410,8 +406,11 @@ namespace GestureSign.ControlPanel.Dialogs
             var modifiersVisibility = showModifiers ? Visibility.Visible : Visibility.Collapsed;
             ModifiersLabel.Visibility = modifiersVisibility;
             ModifiersPanel.Visibility = modifiersVisibility;
-            if (!preserveCurrentModifiers)
+            if (!_modifiersInitialized)
+            {
                 InitModifiersCheckBoxes(initialModifiers);
+                _modifiersInitialized = true;
+            }
         }
 
         private FingerMatchStrategy GetSelectedMatchStrategy()

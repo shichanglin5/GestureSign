@@ -33,7 +33,7 @@ namespace GestureSign.Daemon.Triggers
             bool result = NativeMethods.InjectTouchInput(2, contacts);
             if (!result)
             {
-                Logging.LogDebug($"[PinchZoom] Start failed at ({_center.X},{_center.Y}) offset={_currentOffset} error={Marshal.GetLastWin32Error()}");
+                // Logging.LogDebug($"[PinchZoom] Start failed at ({_center.X},{_center.Y}) offset={_currentOffset} error={Marshal.GetLastWin32Error()}");
                 _active = false;
             }
         }
