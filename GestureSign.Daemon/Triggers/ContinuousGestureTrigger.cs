@@ -112,7 +112,7 @@ namespace GestureSign.Daemon.Triggers
                     var window = ApplicationManager.Instance.CaptureWindow;
                     var settings = _activeScrollSettings ?? new InertialScrollSettings();
                     var inertialVelocity = GetAveragedVelocity(_lastVelocity.Value);
-                    Logging.LogDebug($"[CGT] CaptureEnded: frames={_scrollFrameCount} sinceLastFrame={msSinceLastFrame}ms avgVel=({inertialVelocity.VelocityX:F1},{inertialVelocity.VelocityY:F1}) mag={inertialVelocity.Magnitude:F1} minVel={settings.MomentumMinVelocity}");
+                    // Logging.LogTrace($"[CGT] CaptureEnded: frames={_scrollFrameCount} sinceLastFrame={msSinceLastFrame}ms avgVel=({inertialVelocity.VelocityX:F1},{inertialVelocity.VelocityY:F1}) mag={inertialVelocity.Magnitude:F1} minVel={settings.MomentumMinVelocity}");
                     lastExecutor.StartInertiaIfNeeded(inertialVelocity, window, settings, _lastSourceDevice, _lastTouchPoint);
                 }
             }
@@ -170,9 +170,9 @@ namespace GestureSign.Daemon.Triggers
                 if (_lastPoints == null)
                 {
                     _activeModifiers = PointCapture.Instance.GetCurrentModifiers();
-                    // 首帧强制刷新前台窗口识别，避免窗口切换后 _recognizedApplication 仍为旧值
-                    // （触控板两指先后落下时，CaptureStarted 以 FingerCount=1 触发会跳过刷新）
-                    ApplicationManager.Instance.GetForegroundApplications();
+                    // 首帧按完整路径刷新目标窗口（含鼠标位置检测和优先级窗口匹配），
+                    // 避免 CaptureStarted 以 FingerCount=1 触发时跳过刷新导致读到旧值
+                    ApplicationManager.Instance.GetForegroundApplications(_lastSourceDevice);
                 }
                 InitializeActiveContinuousConfig(gestureFingerCount);
             }

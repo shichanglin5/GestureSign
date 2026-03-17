@@ -622,6 +622,17 @@ namespace GestureSign.Common.Applications
             return CaptureWindow;
         }
 
+        /// <summary>
+        /// 按完整的目标窗口识别逻辑刷新 CaptureWindow 和 _recognizedApplication。
+        /// 包含鼠标位置检测和优先级窗口匹配。
+        /// </summary>
+        public SystemWindow GetForegroundApplications(Devices sourceDevice)
+        {
+            CaptureWindow = GetCaptureWindowByTargetMode(sourceDevice, System.Windows.Forms.Cursor.Position);
+            _recognizedApplication = GetApplicationFromWindow(CaptureWindow);
+            return CaptureWindow;
+        }
+
         public IApplication AddApplication<TApp>(TApp app, string executablefilePath) where TApp : IApplication
         {
             var versionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(executablefilePath);
