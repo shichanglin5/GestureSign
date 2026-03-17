@@ -83,7 +83,7 @@ namespace GestureSign.Common.Log
         /// </summary>
         /// <param name="redirectToStd">If true, outputs to console; otherwise outputs to file</param>
         /// <returns>True if successful, false otherwise</returns>
-        public static bool OpenLogFile(bool redirectToStd = false)
+        public static bool OpenLogFile(bool redirectToStd = false, bool manageLogFile = true)
         {
             bool result;
             try
@@ -99,7 +99,8 @@ namespace GestureSign.Common.Log
                 {
                     // File mode (default behavior) with async logging
                     _logFilePath = Path.Combine(AppConfig.LocalApplicationDataPath, "GestureSign.log");
-                    CheckLogSize(_logFilePath);
+                    if (manageLogFile)
+                        CheckLogSize(_logFilePath);
                     _logWriter = new StreamWriterWithTimestamp(new FileStream(_logFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true };
 
                     // Start async logging task
@@ -118,7 +119,10 @@ namespace GestureSign.Common.Log
             }
             catch (Exception e)
             {
-                LogAndNotice(e);
+                // 日志文件被其他进程占用时（如 Daemon 已在运行），不弹窗通知用户，
+                // 仅输出到 Debug，降级为无文件日志模式
+                System.Diagnostics.Debug.WriteLine($"[Logging] Failed to open log file: {e.Message}");
+                _logWriter = null;
                 result = false;
             }
             return result;
@@ -273,10 +277,20 @@ namespace GestureSign.Common.Log
 
         private static void CheckLogSize(string logPath)
         {
-            if (File.Exists(logPath))
+            try
             {
-                if (new FileInfo(logPath).Length > 102400)
-                    File.Delete(logPath);
+                if (File.Exists(logPath))
+                {
+                    if (new FileInfo(logPath).Length > 102400)
+                        File.Delete(logPath);
+                }
+            }
+            catch (IOException)
+            {
+                // 文件被其他进程占用（如 Daemon），跳过清理
+            }
+            catch (UnauthorizedAccessException)
+            {
             }
         }
     }

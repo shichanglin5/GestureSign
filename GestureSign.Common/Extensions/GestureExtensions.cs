@@ -22,7 +22,11 @@ namespace GestureSign.Common.Extensions
                 if (!string.IsNullOrEmpty(matchName))
                 {
                     if (relatedApplications != null && newGesture.Name != matchName)
-                        relatedApplications.RenameGestures(newGesture.Name, matchName);
+                    {
+                        var matchGesture = gestureManager.Gestures.FirstOrDefault(g => g.Name == matchName);
+                        string matchId = matchGesture?.Id;
+                        relatedApplications.RebindGestures(newGesture.Id, matchId, newGesture.Name, matchName);
+                    }
                 }
                 else
                 {
@@ -30,7 +34,7 @@ namespace GestureSign.Common.Extensions
                     {
                         string newName = gestureManager.GetNewGestureName();
                         if (relatedApplications != null)
-                            relatedApplications.RenameGestures(newGesture.Name, newName);
+                            relatedApplications.RebindGestures(newGesture.Id, newGesture.Id, newGesture.Name, newName);
                         newGesture.Name = newName;
                     }
                     gestureManager.AddGesture(newGesture);

@@ -151,6 +151,10 @@ QQ交流群：576981420
     <TouchScreen>触摸屏</TouchScreen>
     <TouchPad>触摸板</TouchPad>
     <Pen>触控笔</Pen>
+    <GestureMatchStrategy>手势匹配策略</GestureMatchStrategy>
+    <MatchStrategyInherit>继承全局设置</MatchStrategyInherit>
+    <MatchStrategyAllFingers>所有手指匹配</MatchStrategyAllFingers>
+    <MatchStrategyFeatureFinger>特征手指匹配</MatchStrategyFeatureFinger>
     <Messages>
       <ConditionError>条件错误</ConditionError>
     </Messages>
@@ -175,6 +179,8 @@ QQ交流群：576981420
     <DirectionVertical>仅垂直</DirectionVertical>
     <DirectionHorizontal>仅水平</DirectionHorizontal>
     <NoiseRatio>方向噪声比例</NoiseRatio>
+    <LockExitMinorDistance>解锁次轴距离</LockExitMinorDistance>
+    <RelockRatioMultiplier>重新锁轴倍率</RelockRatioMultiplier>
     <PixelsPerScroll>像素/滚动单位</PixelsPerScroll>
     <AccelerationFactor>加速因子</AccelerationFactor>
     <ReverseDirection>反转垂直方向</ReverseDirection>
@@ -268,11 +274,14 @@ QQ交流群：576981420
   <Gesture>
     <Header>手势</Header>
     <GestureFile>手势文件</GestureFile>
+      <MergeCompleteTitle>合并完成</MergeCompleteTitle>
+      <MergeComplete>已将 {0} 个手势合并到“{1}”。</MergeComplete>
     <View>查看</View>
     <LargeIcons>大图标</LargeIcons>
     <Details>详细信息</Details>
     <ImportGesture>导入手势文件</ImportGesture>
     <GestureGroupHeader>{0}指手势 ({1}个)</GestureGroupHeader>
+    <Name>名称</Name>
     <Applications>程序</Applications>
     <MouseActions>
       <None>未设置</None>
@@ -280,7 +289,23 @@ QQ交流群：576981420
       <WheelBackward>向后滚动</WheelBackward>
       <Left>左键</Left>
       <Right>右键</Right>
+    <GlobalGestureEditWarning>该手势已被 {0} 处动作引用。修改后将影响所有引用此手势的地方，是否继续？</GlobalGestureEditWarning>
+    <GlobalGestureEditWarningTitle>修改全局手势</GlobalGestureEditWarningTitle>
       <Middle>中键</Middle>
+  <ContactGestures>
+    <ClickNameFormat>{0}指按压</ClickNameFormat>
+    <TapNameFormat>{0}指轻点</TapNameFormat>
+    <TipTapNameFormat>TipTap {0}指</TipTapNameFormat>
+    <TipTapDetailedNameFormat>TipTap {0}（{1} 个固定指）</TipTapDetailedNameFormat>
+    <ClickTypeFormat>{0} 指按压</ClickTypeFormat>
+    <TapTypeFormat>{0} 指轻点</TapTypeFormat>
+    <TrajectoryTypeFormat>轨迹手势，{0} 指</TrajectoryTypeFormat>
+    <UnknownType>无法识别</UnknownType>
+    <DirectionAny>任意</DirectionAny>
+    <DirectionLeft>左</DirectionLeft>
+    <DirectionRight>右</DirectionRight>
+    <DirectionMiddle>中</DirectionMiddle>
+  </ContactGestures>
       <XButton1>X1键</XButton1>
       <XButton2>X2键</XButton2>
     </MouseActions>
@@ -336,9 +361,15 @@ QQ交流群：576981420
   </WindowDetails>
   <GestureDefinition>
     <Edit>重画手势</Edit>
-    <ExistingGesture>已保存有相似的手势，是否使用该手势？</ExistingGesture>
+    <ExistingGesture>匹配到已有手势: {0}</ExistingGesture>
+    <ExistingGestureNoName>匹配到已有手势</ExistingGestureNoName>
+    <NewGestureCreated>已新建手势</NewGestureCreated>
+    <OverwriteExisting>覆盖已有手势</OverwriteExisting>
     <DrawGesture>请画出手势</DrawGesture>
     <Redraw>重画</Redraw>
+    <Stop>停止</Stop>
+    <Recording>录制中，显示最后一次执行的手势</Recording>
+    <CopyDiagnosticData>复制诊断数据</CopyDiagnosticData>
   </GestureDefinition>
   <Ignored>
     <Header>忽略</Header>
@@ -358,10 +389,20 @@ QQ交流群：576981420
     <SystemColor>使用系统主题色</SystemColor>
     <MinimumPointDistance>最小点距 {0:F0} px</MinimumPointDistance>
     <MinimumFingerCountForVisualFeedback>显示手势轨迹的最小手指数 {0:F0}</MinimumFingerCountForVisualFeedback>
-    <TapDistanceThreshold>点击距离阈值 {0:F0} px (区分点击和滑动的总移动距离)</TapDistanceThreshold>
+    <DrawFeatureFingerOnly>仅绘制特征手指轨迹</DrawFeatureFingerOnly>
+    <TapSensitivityTitle>Tap / TipTap 参数</TapSensitivityTitle>
+    <TapDistanceThreshold>点击距离阈值 {0:F0} px (手指离起始点的最大偏移距离)</TapDistanceThreshold>
+    <GestureMatchStrategy>手势匹配策略</GestureMatchStrategy>
+    <GestureMatchStrategyAllFingers>所有手指匹配</GestureMatchStrategyAllFingers>
+    <GestureMatchStrategyFeatureFinger>特征手指匹配</GestureMatchStrategyFeatureFinger>
     <FeatureFingerIndex>特征手指：第 {0} 根手指</FeatureFingerIndex>
     <GestureMatchProbability>手势匹配阈值 {0:F0}% (越低越容易匹配)</GestureMatchProbability>
-    <MultiFingerDelay>多指点击延迟 {0:F0}ms (等待所有手指按下的时间)</MultiFingerDelay>
+    <TapMaxDuration>点击最大持续时间 {0:F0}ms (点击手势允许的最长时间)</TapMaxDuration>
+    <ClickMaxPressDuration>Click 最大按压时长 {0:F0}ms</ClickMaxPressDuration>
+    <ClickMaxMovement>Click 最大位移 {0:F0}px (按压期间允许的手指偏移)</ClickMaxMovement>
+    <TipTapMaxTapDuration>TipTap 点击超时 {0:F0}ms</TipTapMaxTapDuration>
+    <TipTapFixMinHold>TipTap 固定指保持时间 {0:F0}ms</TipTapFixMinHold>
+    <FingerMovementJitterThreshold>手指移动抖动阈值 {0:F0}px</FingerMovementJitterThreshold>
     <Backup>备份所有设置</Backup>
     <Restore>导入设置</Restore>
     <BackupFile>GestureSign备份文件</BackupFile>
@@ -402,6 +443,7 @@ QQ交流群：576981420
     <BlockWindowsGestures>
       <Header>阻止Windows默认手势</Header>
     </BlockWindowsGestures>
+    <MultiFingerDelay>多指延迟 {0:F0}ms (注入第一个触摸前等待更多手指的延迟)</MultiFingerDelay>
     <ShowTrayIconSwitch>
       <Header>任务栏图标</Header>
       <OnLabel>显示</OnLabel>
@@ -464,4 +506,30 @@ QQ交流群：576981420
     <Title>选择预置规则</Title>
     <SelectPreset>选择要引用的预置规则：</SelectPreset>
   </SelectPresetDialog>
+  <SimilarityTest>
+    <NotRecorded>尚未录制</NotRecorded>
+    <ClickRecordHint>点击"录制"后执行测试手势。</ClickRecordHint>
+    <RecordingHint>录制中，执行一次要测试的手势。</RecordingHint>
+    <RecordComplete>录制完成，可以点击"匹配"查看结果。</RecordComplete>
+    <BestMatch>最佳匹配：{0}，{1:F1}% 。阈值内命中 {2} 个手势。</BestMatch>
+    <NoMatchBelowThreshold>当前阈值下没有命中项。最高相似度：{0}，{1:F1}% 。</NoMatchBelowThreshold>
+    <NoComparableGestures>没有可比较的手势。</NoComparableGestures>
+    <RecordFirst>请先录制一个要测试的轨迹手势。</RecordFirst>
+    <DaemonConnectionFailed>无法连接到 Daemon，录制未开始。</DaemonConnectionFailed>
+    <TrajectoryOnlyWarning>当前窗口仅支持轨迹手势相似度匹配，请重新录制轨迹手势。</TrajectoryOnlyWarning>
+    <GestureNotFound>未找到手势"{0}"的最新定义。</GestureNotFound>
+    <Record>录制</Record>
+    <Stop>停止</Stop>
+    <Match>匹配</Match>
+    <Trajectory>轨迹</Trajectory>
+    <TrajectoryComparison>轨迹比较</TrajectoryComparison>
+    <TemplateTapInfo>模板Tap={0}，输入Tap={1}，匹配={2}</TemplateTapInfo>
+    <FingerCountFormat>{0} 指</FingerCountFormat>
+    <Matched>命中</Matched>
+    <NotMatched>未命中</NotMatched>
+  </SimilarityTest>
+  <ContinuousGestureAction>
+    <TwoFingerScroll>两指滑动</TwoFingerScroll>
+    <TwoFingerZoom>两指缩放</TwoFingerZoom>
+  </ContinuousGestureAction>
 </Language>

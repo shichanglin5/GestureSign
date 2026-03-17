@@ -10,4 +10,18 @@
     <ControlPanel>Control Panel</ControlPanel>
     <Exit>Exit</Exit>
   </TrayMenu>
+  <ContactGestures>
+    <ClickNameFormat>{0}-finger click</ClickNameFormat>
+    <TapNameFormat>{0}-finger tap</TapNameFormat>
+    <TipTapNameFormat>TipTap {0}-finger</TipTapNameFormat>
+    <TipTapDetailedNameFormat>TipTap {0} ({1} fixed)</TipTapDetailedNameFormat>
+    <ClickTypeFormat>{0} finger click</ClickTypeFormat>
+    <TapTypeFormat>{0} finger tap</TapTypeFormat>
+    <TrajectoryTypeFormat>Trajectory gesture, {0} fingers</TrajectoryTypeFormat>
+    <UnknownType>Unrecognized</UnknownType>
+    <DirectionAny>Any</DirectionAny>
+    <DirectionLeft>Left</DirectionLeft>
+    <DirectionRight>Right</DirectionRight>
+    <DirectionMiddle>Middle</DirectionMiddle>
+  </ContactGestures>
 </Language>

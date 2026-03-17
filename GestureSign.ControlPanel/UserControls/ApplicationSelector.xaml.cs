@@ -117,11 +117,23 @@ namespace GestureSign.ControlPanel.UserControls
             }
             var brush = (SolidColorBrush)Application.Current.Resources["MahApps.Brushes.Highlight"];
             var color = brush.Color;
-            GestureMap = gestures.ToDictionary(g => g.Name, g => new GestureItem()
+            var gestureMap = new Dictionary<string, GestureItem>(System.StringComparer.Ordinal);
+            foreach (var gesture in gestures)
             {
-                Gesture = g,
-                GestureImage = GestureImage.CreateImage(g.PointPatterns, new Size(56, 56), color),
-            });
+                var gestureItem = new GestureItem()
+                {
+                    Gesture = gesture,
+                    GestureImage = GestureImage.CreateImage(gesture.PointPatterns, new Size(56, 56), color),
+                };
+
+                if (!string.IsNullOrEmpty(gesture.Id) && !gestureMap.ContainsKey(gesture.Id))
+                    gestureMap[gesture.Id] = gestureItem;
+
+                if (!string.IsNullOrEmpty(gesture.Name) && !gestureMap.ContainsKey(gesture.Name))
+                    gestureMap[gesture.Name] = gestureItem;
+            }
+
+            GestureMap = gestureMap;
             UserAppList = newUserAppList;
             IgnoredAppList = newIgnoredApp;
         }
@@ -202,3 +214,5 @@ namespace GestureSign.ControlPanel.UserControls
         }
     }
 }
+
+

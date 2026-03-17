@@ -37,6 +37,8 @@ namespace GestureSign.Common.Applications
 
         public string Name { get; set; }
 
+        public string GestureId { get; set; }
+
         public string GestureName { get; set; }
 
         [DefaultValue("")]
@@ -100,9 +102,10 @@ namespace GestureSign.Common.Applications
             action.CollectionChanged = null;
             action.PropertyChanged = null;
 
-            action.Name = Name == null ? null : string.Copy(Name);
-            action.GestureName = GestureName == null ? null : string.Copy(GestureName);
-            action.Condition = Condition == null ? null : string.Copy(Condition);
+            action.Name = Name;
+            action.GestureId = GestureId;
+            action.GestureName = GestureName;
+            action.Condition = Condition;
             action._commands = new List<ICommand>(_commands);
             action.Hotkey = Hotkey == null ? null : new Hotkey() { KeyCode = Hotkey.KeyCode, ModifierKeys = Hotkey.ModifierKeys };
             action.ContinuousGesture = ContinuousGesture == null ? null : new ContinuousGesture(ContinuousGesture.ContactCount, ContinuousGesture.Gesture);
@@ -142,7 +145,7 @@ namespace GestureSign.Common.Applications
 
         public bool IsEmpty()
         {
-            return _commands?.Count == 0;
+            return _commands == null || _commands.Count == 0;
         }
 
         #endregion

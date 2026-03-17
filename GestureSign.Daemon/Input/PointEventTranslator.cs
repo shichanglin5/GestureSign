@@ -5,6 +5,13 @@ using GestureSign.Common.Input;
 
 namespace GestureSign.Daemon.Input
 {
+    internal enum TouchPadPointEventKind
+    {
+        Move,
+        Down,
+        Up,
+    }
+
     public class PointEventTranslator
     {
         /// <summary>
@@ -39,7 +46,10 @@ namespace GestureSign.Daemon.Input
 
             PointUp?.Invoke(this, args);
 
-            SourceDevice = Devices.None;
+            if (ShouldResetSourceDeviceAfterPointUp(args))
+            {
+                SourceDevice = Devices.None;
+            }
         }
 
         public event EventHandler<InputPointsEventArgs> PointMove;
@@ -53,6 +63,28 @@ namespace GestureSign.Daemon.Input
         #endregion
 
         #region Private Methods
+
+        internal static bool ShouldResetSourceDeviceAfterPointUp(InputPointsEventArgs args)
+        {
+            if (args?.InputPointList == null || args.InputPointList.Count == 0)
+                return true;
+
+            return args.InputPointList.All(point => point.State == 0);
+        }
+
+        internal static TouchPadPointEventKind ClassifyTouchPadEvent(int previousActiveCount, int currentActiveCount)
+        {
+            if (currentActiveCount <= 0)
+                return TouchPadPointEventKind.Up;
+
+            if (currentActiveCount > previousActiveCount)
+                return TouchPadPointEventKind.Down;
+
+            if (currentActiveCount < previousActiveCount)
+                return TouchPadPointEventKind.Up;
+
+            return TouchPadPointEventKind.Move;
+        }
 
         /// <summary>
         /// Filters out invalid contacts based on device type
@@ -80,11 +112,31 @@ namespace GestureSign.Daemon.Input
             {
                 int releaseCount = e.RawData.Count(rtd => rtd.State == 0);
                 int activeCount = e.RawData.Count - releaseCount;
+                var validContacts = FilterValidContacts(e.RawData, e.SourceDevice);
+
+                if (e.SourceDevice == Devices.TouchPad)
+                {
+                    switch (ClassifyTouchPadEvent(_lastPointsCount, validContacts.Count))
+                    {
+                        case TouchPadPointEventKind.Down:
+                            OnPointDown(new InputPointsEventArgs(validContacts, e.SourceDevice, e.OriginalContactCount));
+                            _lastPointsCount = validContacts.Count;
+                            return;
+
+                        case TouchPadPointEventKind.Up:
+                            OnPointUp(new InputPointsEventArgs(e.RawData, e.SourceDevice, e.OriginalContactCount));
+                            _lastPointsCount = validContacts.Count;
+                            return;
+
+                        default:
+                            OnPointMove(new InputPointsEventArgs(validContacts, e.SourceDevice, e.OriginalContactCount));
+                            _lastPointsCount = validContacts.Count;
+                            return;
+                    }
+                }
 
                 if (e.RawData.Count == _lastPointsCount)
                 {
-                    var validContacts = FilterValidContacts(e.RawData, e.SourceDevice);
-
                     // If no valid contacts, all fingers lifted - trigger PointUp
                     if (validContacts.Count == 0)
                     {
@@ -106,14 +158,6 @@ namespace GestureSign.Daemon.Input
                 }
                 else if (e.RawData.Count > _lastPointsCount)
                 {
-                    if (PointCapture.Instance.InputPoints.Any(p => p.Count > 10))
-                    {
-                        OnPointMove(new InputPointsEventArgs(e.RawData, e.SourceDevice, e.OriginalContactCount));
-                        return;
-                    }
-
-                    var validContacts = FilterValidContacts(e.RawData, e.SourceDevice);
-
                     if (validContacts.Count == 0)
                         return;  // No valid contacts, skip this event
 

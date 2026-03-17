@@ -552,6 +552,8 @@
                                                                 <Binding Source="{StaticResource GestureItemProvider}"
                                                                          Path="InstanceGestureMap"
                                                                          Mode="OneWay" />
+                                                                <Binding  Path="Name.GestureId"
+                                                                          Mode="OneWay" />
                                                                 <Binding  Path="Name.GestureName"
                                                                           Mode="OneWay" />
                                                             </MultiBinding>

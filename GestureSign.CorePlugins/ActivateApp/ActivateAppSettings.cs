@@ -14,6 +14,14 @@ namespace GestureSign.CorePlugins.ActivateApp
         #region Public Properties
 
         /// <summary>
+        /// Ordered candidate list for fallback activation.
+        /// When configured, candidates are tried in order until one matches a window
+        /// or explicitly launches an application.
+        /// </summary>
+        [JsonProperty("sortedList")]
+        public List<ActivateAppSettings> SortedList { get; set; }
+
+        /// <summary>
         /// Window matching rule (includes Name, ApplicationPath, Conditions)
         /// </summary>
         public WindowRule WindowRule { get; set; }
@@ -112,6 +120,26 @@ namespace GestureSign.CorePlugins.ActivateApp
             }
 
             return parts.Count > 0 ? string.Join("|", parts) : string.Empty;
+        }
+
+        /// <summary>
+        /// Get ordered execution candidates.
+        /// Falls back to the current settings when no sorted list is configured.
+        /// </summary>
+        [JsonIgnore]
+        public IReadOnlyList<ActivateAppSettings> ExecutionCandidates
+        {
+            get
+            {
+                if (SortedList != null)
+                {
+                    var candidates = SortedList.Where(candidate => candidate != null).ToList();
+                    if (candidates.Count > 0)
+                        return candidates;
+                }
+
+                return new[] { this };
+            }
         }
 
         #endregion

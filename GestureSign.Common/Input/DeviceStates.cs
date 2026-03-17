@@ -8,7 +8,8 @@ namespace GestureSign.Common.Input
         None = 0,
         Tip = 1 << 0,
         InRange = 1 << 1,
-        RightClickButton = 1 << 2,
+        PrimaryButton = 1 << 2,
+        RightClickButton = 1 << 5,
         Invert = 1 << 3,
         Eraser = 1 << 4,
     }

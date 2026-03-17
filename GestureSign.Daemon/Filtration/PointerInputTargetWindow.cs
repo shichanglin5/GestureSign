@@ -19,6 +19,8 @@ namespace GestureSign.Daemon.Filtration
         private bool _isInitialized = false;
         private bool _tempDisable;
         private int _lastFrameID;
+        // 已注入 DOWN 且尚未 UP 的手指最后位置（injectedId → lastPosition），用于生成合成 CANCELED|UP 事件
+        private Dictionary<int, POINT> _injectedFingerPositions = new Dictionary<int, POINT>(10);
 
         // 延迟注入相关
         private List<POINTER_TOUCH_INFO> _pendingDownEvents;
@@ -250,14 +252,36 @@ namespace GestureSign.Daemon.Filtration
             int upFlagCount = 0;
 
             // BLOCKED 帧中，将所有已映射但未标记为 BLOCKED 的手指标记为 BLOCKED
+            // 对已注入过 DOWN 的手指，补发 CANCELED|UP 避免幽灵触摸
             if (!shouldInject && _pointerIdList.Count > 0)
             {
+                var cancelEvents = new List<POINTER_TOUCH_INFO>();
                 foreach (var kvp in _pointerIdList)
                 {
                     if (!_blockedPointerIds.Contains(kvp.Key))
                     {
+                        // 检查是否已注入过 DOWN，需要补发 CANCELED|UP
+                        if (_injectedFingerPositions.TryGetValue(kvp.Value, out POINT lastPos))
+                        {
+                            cancelEvents.Add(new POINTER_TOUCH_INFO
+                            {
+                                TouchFlags = TOUCH_FLAGS.NONE,
+                                PointerInfo = new POINTER_INFO
+                                {
+                                    pointerType = POINTER_INPUT_TYPE.TOUCH,
+                                    PointerID = kvp.Value,
+                                    PointerFlags = POINTER_FLAGS.CANCELED | POINTER_FLAGS.UP,
+                                    PtPixelLocation = lastPos,
+                                }
+                            });
+                            _injectedFingerPositions.Remove(kvp.Value);
+                        }
                         _blockedPointerIds.Add(kvp.Key);
                     }
+                }
+                if (cancelEvents.Count > 0)
+                {
+                    NativeMethods.InjectTouchInput(cancelEvents.Count, cancelEvents.ToArray());
                 }
             }
 
@@ -330,6 +354,16 @@ namespace GestureSign.Daemon.Filtration
                 }
                 else continue;
 
+                // 维护已注入手指位置，用于 CANCELED|UP 补发
+                if (pointerInfo.PointerFlags.HasFlag(POINTER_FLAGS.DOWN) || pointerInfo.PointerFlags.HasFlag(POINTER_FLAGS.UPDATE))
+                {
+                    _injectedFingerPositions[pointerInfo.PointerID] = pointerInfo.PtPixelLocation;
+                }
+                else if (pointerInfo.PointerFlags.HasFlag(POINTER_FLAGS.UP))
+                {
+                    _injectedFingerPositions.Remove(pointerInfo.PointerID);
+                }
+
                 POINTER_TOUCH_INFO pti = new POINTER_TOUCH_INFO()
                 {
                     TouchFlags = TOUCH_FLAGS.NONE,
@@ -342,6 +376,7 @@ namespace GestureSign.Daemon.Filtration
             {
                 _pointerIdList.Clear();
                 _blockedPointerIds.Clear();
+                _injectedFingerPositions.Clear();
                 ResetIdPool();
                 if (_tempDisable)
                 {

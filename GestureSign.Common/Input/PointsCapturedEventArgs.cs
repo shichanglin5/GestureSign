@@ -19,12 +19,14 @@ namespace GestureSign.Common.Input
                 this.Points.Add(new List<Point>(1));
                 this.Points[i].Add(capturePoint[i]);
             }
+            this.AllPoints = this.Points;
         }
 
         public PointsCapturedEventArgs(List<List<Point>> points, List<Point> capturePoint)
         {
             this.Points = points;
             this.FirstCapturedPoints = capturePoint;
+            this.AllPoints = points;
         }
 
         #endregion
@@ -32,10 +34,17 @@ namespace GestureSign.Common.Input
         #region Public Properties
 
         public List<List<Point>> Points { get; set; }
+        public List<List<Point>> AllPoints { get; set; }
+        public GestureAnalysis Analysis { get; set; }
+        public GestureSessionSnapshot Session { get; set; }
         public List<Point> FirstCapturedPoints { get; set; }
         public bool Cancel { get; set; }
         public int BlockTouchInputThreshold { get; set; }
         public int FingerCount { get; set; }
+        /// <summary>
+        /// 当前实际活跃的手指数（手指抬起后会减少），用于连续手势判断
+        /// </summary>
+        public int ActiveFingerCount { get; set; }
 
         #endregion
     }

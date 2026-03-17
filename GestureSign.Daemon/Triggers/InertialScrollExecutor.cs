@@ -86,11 +86,15 @@ namespace GestureSign.Daemon.Triggers
         // V2 方向状态机：窗口比例判定 + 滞回
         private enum DirectionState { Undecided, LockX, LockY, Free2D }
         private DirectionState _directionState = DirectionState.Undecided;
+        private enum PrimaryAxis { None, X, Y }
+        private PrimaryAxis _lastPrimaryAxis = PrimaryAxis.None;
+        private int _lastPrimarySign;
 
         // 窗口缓冲：存储最近 windowMs 内的原始位移绝对值
         private const int WindowMs = 60;
         private const int MaxWindowSamples = 16;
         private const double StartDistancePx = 8.0;
+        private const double DirectionReversalDeltaPx = 3.0;
         private readonly Queue<(DateTime timestamp, double absRawDeltaX, double absRawDeltaY)> _windowBuffer = new();
 
         // Undecided 阶段缓冲：存储已变换 delta，状态确定后回补
@@ -124,6 +128,7 @@ namespace GestureSign.Daemon.Triggers
                     _directionState = DirectionState.Undecided;
                     _windowBuffer.Clear();
                     _undecidedBuffer.Clear();
+                    ResetPrimaryDirectionTracking();
                 }
                 _lastGestureTime = velocity.Timestamp;
 
@@ -161,7 +166,7 @@ namespace GestureSign.Daemon.Triggers
                         return; // delta 已缓冲，不输出滚动
                 }
 
-                ExecuteScroll(deltaX, deltaY, settings);
+                ExecuteResolvedScroll(deltaX, deltaY, settings);
             }
         }
 
@@ -176,6 +181,7 @@ namespace GestureSign.Daemon.Triggers
             _isWinUIApp = false;
             _isTouchScreen = false;
             _lastSettings = null;
+            ResetPrimaryDirectionTracking();
             if (_inertiaTimer != null)
             {
                 _inertiaTimer.Dispose();
@@ -188,6 +194,7 @@ namespace GestureSign.Daemon.Triggers
             _accumulatedX = 0;
             _accumulatedY = 0;
             _lastGestureTime = DateTime.MinValue;
+            ResetPrimaryDirectionTracking();
             // 注意：不重置 _directionState，需要保留到惯性阶段结束。
             // 在 ProcessFrame 的新手势检测（timeSinceLastGesture > NewGestureThresholdMs）中重置。
         }
@@ -459,6 +466,8 @@ namespace GestureSign.Daemon.Triggers
             double noiseRatio = Math.Max(0.01, Math.Min(0.99, settings.NoiseRatio));
             double ratEnter = noiseRatio;
             double ratExit = Math.Min(0.6, noiseRatio + 0.10);
+            double lockExitMinorDistance = Math.Max(0.0, settings.LockExitMinorDistancePx);
+            double relockRatioMultiplier = Math.Max(0.1, Math.Min(1.5, settings.RelockRatioMultiplier));
 
             // 3. 状态机切换
             var prevState = _directionState;
@@ -476,12 +485,13 @@ namespace GestureSign.Daemon.Triggers
 
                 case DirectionState.LockX:
                 case DirectionState.LockY:
-                    if (ratio > ratExit)
+                    if (ratio > ratExit && minor >= lockExitMinorDistance)
                         _directionState = DirectionState.Free2D;
                     break;
 
                 case DirectionState.Free2D:
-                    // 第一版不回切，保持 Free2D 直到手势结束
+                    if (ratio < ratEnter * relockRatioMultiplier)
+                        _directionState = sumX > sumY ? DirectionState.LockX : DirectionState.LockY;
                     break;
             }
 
@@ -496,7 +506,7 @@ namespace GestureSign.Daemon.Triggers
                 {
                     var (bufDeltaX, bufDeltaY) = _undecidedBuffer.Dequeue();
                     ApplyDirectionSuppression(ref bufDeltaX, ref bufDeltaY);
-                    ExecuteScroll(bufDeltaX, bufDeltaY, settings);
+                    ExecuteResolvedScroll(bufDeltaX, bufDeltaY, settings);
                 }
 
                 // 当帧已在回补中处理，通知调用者跳过本帧的 ExecuteScroll
@@ -519,6 +529,48 @@ namespace GestureSign.Daemon.Triggers
 
             // 6. 已确定方向：应用抑制
             ApplyDirectionSuppression(ref deltaX, ref deltaY);
+        }
+
+        private void ExecuteResolvedScroll(double deltaX, double deltaY, InertialScrollSettings settings)
+        {
+            HandleDirectionReversal(deltaX, deltaY);
+            ExecuteScroll(deltaX, deltaY, settings);
+        }
+
+        private void HandleDirectionReversal(double deltaX, double deltaY)
+        {
+            var (axis, sign, magnitude) = GetPrimaryDirection(deltaX, deltaY);
+            if (axis == PrimaryAxis.None || sign == 0 || magnitude < DirectionReversalDeltaPx)
+                return;
+
+            if (_lastPrimaryAxis == axis && _lastPrimarySign != 0 && sign != _lastPrimarySign)
+            {
+                _accumulatedX = 0;
+                _accumulatedY = 0;
+                StopInertiaInternal();
+            }
+
+            _lastPrimaryAxis = axis;
+            _lastPrimarySign = sign;
+        }
+
+        private static (PrimaryAxis axis, int sign, double magnitude) GetPrimaryDirection(double deltaX, double deltaY)
+        {
+            double absX = Math.Abs(deltaX);
+            double absY = Math.Abs(deltaY);
+            if (absX < 0.001 && absY < 0.001)
+                return (PrimaryAxis.None, 0, 0);
+
+            if (absY >= absX)
+                return (PrimaryAxis.Y, Math.Sign(deltaY), absY);
+
+            return (PrimaryAxis.X, Math.Sign(deltaX), absX);
+        }
+
+        private void ResetPrimaryDirectionTracking()
+        {
+            _lastPrimaryAxis = PrimaryAxis.None;
+            _lastPrimarySign = 0;
         }
 
         /// <summary>

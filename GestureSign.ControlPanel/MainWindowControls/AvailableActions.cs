@@ -1195,15 +1195,158 @@ namespace GestureSign.ControlPanel.MainWindowControls
             ContinuousGesturePanel.Visibility = Visibility.Visible;
             ContinuousGestureItemsControl.Items.Clear();
 
-            // 非全局应用显示继承配置按钮
-            InheritConfigButton.Visibility = app is GlobalApp ? Visibility.Collapsed : Visibility.Visible;
+            AddContinuousGestureButton.Visibility = Visibility.Collapsed;
+            InheritConfigButton.Visibility = Visibility.Collapsed;
 
-            var settings = app.ContinuousGestures;
-            if (settings == null) return;
+            var settings = app.TwoFingerGestures ?? new TwoFingerGestureSettings();
+            AddTwoFingerGestureRow(app, settings, true);
+            AddTwoFingerGestureRow(app, settings, false);
+        }
 
-            foreach (var config in settings.Configs)
+        private void AddTwoFingerGestureRow(IApplication app, TwoFingerGestureSettings settings, bool isScroll)
+        {
+            var effectiveState = GetDisplayedTwoFingerState(app, settings, isScroll);
+
+            var row = new Border
             {
-                AddContinuousGestureRow(config);
+                BorderBrush = (Brush)FindResource("MahApps.Brushes.Accent3"),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(5, 4, 5, 4),
+            };
+
+            var grid = new Grid { Height = 28 };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var title = new TextBlock
+            {
+                Text = isScroll ? LocalizationProvider.Instance.GetTextValue("ContinuousGestureAction.TwoFingerScroll") : LocalizationProvider.Instance.GetTextValue("ContinuousGestureAction.TwoFingerZoom"),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 13,
+                Margin = new Thickness(4, 0, 8, 0),
+            };
+            Grid.SetColumn(title, 0);
+            grid.Children.Add(title);
+
+            var stateCombo = new ComboBox
+            {
+                Width = 100,
+                Tag = new Tuple<IApplication, bool>(app, isScroll),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
+                FontSize = 12,
+            };
+
+            if (app is GlobalApp)
+            {
+                stateCombo.Items.Add(InheritSwitch.Enabled);
+                stateCombo.Items.Add(InheritSwitch.Disabled);
+                stateCombo.SelectedItem = effectiveState;
+            }
+            else
+            {
+                stateCombo.Items.Add(InheritSwitch.Inherit);
+                stateCombo.Items.Add(InheritSwitch.Enabled);
+                stateCombo.Items.Add(InheritSwitch.Disabled);
+                stateCombo.SelectedItem = effectiveState;
+            }
+
+            stateCombo.SelectionChanged += TwoFingerStateCombo_SelectionChanged;
+            Grid.SetColumn(stateCombo, 1);
+            grid.Children.Add(stateCombo);
+
+            var configButton = new Button
+            {
+                Content = LocalizationProvider.Instance.GetTextValue("ContinuousGesture.Configure"),
+                Tag = new Tuple<IApplication, bool>(app, isScroll),
+                Padding = new Thickness(8, 2, 8, 2),
+                Margin = new Thickness(0, 0, 4, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            configButton.Click += TwoFingerConfigButton_Click;
+            Grid.SetColumn(configButton, 2);
+            grid.Children.Add(configButton);
+
+            row.Child = grid;
+            row.Opacity = effectiveState == InheritSwitch.Disabled ? 0.5 : 1.0;
+            ContinuousGestureItemsControl.Items.Add(row);
+        }
+
+        private static InheritSwitch GetDisplayedTwoFingerState(IApplication app, TwoFingerGestureSettings settings, bool isScroll)
+        {
+            var state = isScroll ? settings.Scroll : settings.Zoom;
+            if (app is GlobalApp && state == InheritSwitch.Inherit)
+                return InheritSwitch.Disabled;
+
+            return state;
+        }
+
+        private void TwoFingerStateCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is not ComboBox combo || combo.Tag is not Tuple<IApplication, bool> tuple || combo.SelectedItem == null)
+                return;
+
+            var app = tuple.Item1;
+            bool isScroll = tuple.Item2;
+            var settings = app.TwoFingerGestures ??= new TwoFingerGestureSettings();
+            var value = (InheritSwitch)combo.SelectedItem;
+
+            if (app is GlobalApp && value == InheritSwitch.Inherit)
+                value = InheritSwitch.Disabled;
+
+            if (isScroll)
+                settings.Scroll = value;
+            else
+                settings.Zoom = value;
+
+            ApplicationManager.Instance.SaveApplications();
+            RefreshContinuousGesturePanel(app);
+        }
+
+        private void TwoFingerConfigButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button button || button.Tag is not Tuple<IApplication, bool> tuple)
+                return;
+
+            var app = tuple.Item1;
+            bool isScroll = tuple.Item2;
+            var settings = app.TwoFingerGestures ??= new TwoFingerGestureSettings();
+
+            var config = new ContinuousGestureConfig
+            {
+                ContactCount = 2,
+                IsEnabled = true,
+                EnableZoom = !isScroll,
+                ScrollMode = isScroll && settings.Scroll != InheritSwitch.Disabled
+                    ? ContinuousScrollMode.InertialScroll
+                    : ContinuousScrollMode.None,
+                ScrollSettings = settings.ScrollSettings,
+                ZoomSpeed = settings.ZoomSettings?.ZoomSpeed ?? 1.0,
+                ZoomSensitivity = settings.ZoomSettings?.ZoomSensitivity ?? 1.0,
+            };
+
+            var dialog = new Dialogs.ContinuousGestureConfigDialog(config);
+            if (dialog.ShowDialog() == true)
+            {
+                if (isScroll && app is GlobalApp && settings.Scroll == InheritSwitch.Inherit)
+                    settings.Scroll = InheritSwitch.Enabled;
+                if (!isScroll && app is GlobalApp && settings.Zoom == InheritSwitch.Inherit)
+                    settings.Zoom = InheritSwitch.Enabled;
+
+                if (isScroll)
+                {
+                    settings.ScrollSettings = config.ScrollSettings ?? settings.ScrollSettings;
+                }
+                else
+                {
+                    settings.ZoomSettings ??= new TwoFingerZoomSettings();
+                    settings.ZoomSettings.ZoomSpeed = config.ZoomSpeed;
+                    settings.ZoomSettings.ZoomSensitivity = config.ZoomSensitivity;
+                }
+
+                ApplicationManager.Instance.SaveApplications();
+                RefreshContinuousGesturePanel(app);
             }
         }
 

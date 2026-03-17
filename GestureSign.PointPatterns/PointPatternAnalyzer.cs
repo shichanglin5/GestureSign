@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Drawing;
 
 namespace GestureSign.PointPatterns
@@ -54,8 +53,8 @@ namespace GestureSign.PointPatterns
             // Enumerate each point patterns
             foreach (var pointPatternSet in PointPatternSet)
             {
-                // Calculate probability of each point pattern 
-                comparisonResults.Add(GetPointPatternMatchResult(pointPatternSet, targetPattern));
+                // Calculate probability of each point pattern
+                comparisonResults.Add(GetPointPatternMatchBreakdown(pointPatternSet, targetPattern).ToMatchResult());
             }
 
             // Return comparison results ordered by highest probability
@@ -64,11 +63,20 @@ namespace GestureSign.PointPatterns
 
         public PointPatternMatchResult GetPointPatternMatchResult(PointsPatternSet compareTo, PointsPatternSet points)
         {
-            PointPatternMatchResult comparisonResults = new PointPatternMatchResult();
+            return GetPointPatternMatchBreakdown(compareTo, points).ToMatchResult();
+        }
+
+        public PointPatternScoreBreakdown GetPointPatternMatchBreakdown(PointsPatternSet compareTo, PointsPatternSet points)
+        {
+            PointPatternScoreBreakdown comparisonResults = new PointPatternScoreBreakdown();
 
             // Check if either pattern is a tap/click gesture (very small movement)
             bool compareToIsTap = IsTapGesture(compareTo.Points);
             bool pointsIsTap = IsTapGesture(points.Points);
+
+            comparisonResults.Name = compareTo.Name;
+            comparisonResults.CompareToIsTap = compareToIsTap;
+            comparisonResults.PointsIsTap = pointsIsTap;
 
             if (compareToIsTap || pointsIsTap)
             {
@@ -76,11 +84,15 @@ namespace GestureSign.PointPatterns
                 if (compareToIsTap && pointsIsTap)
                 {
                     comparisonResults.Probability = 100d;
+                    comparisonResults.AngularProbability = 100d;
+                    comparisonResults.IsTapMatch = true;
                     // System.Diagnostics.Debug.WriteLine($"[PointPatternAnalyzer] Both are tap gestures → 100%");
                 }
                 else
                 {
                     comparisonResults.Probability = 0d;
+                    comparisonResults.AngularProbability = 0d;
+                    comparisonResults.IsTapMatch = false;
                     // System.Diagnostics.Debug.WriteLine($"[PointPatternAnalyzer] Tap/swipe mismatch: saved={compareToIsTap}, input={pointsIsTap} → 0%");
                 }
             }
@@ -94,11 +106,74 @@ namespace GestureSign.PointPatterns
                     aDeltas[i] = PointPatternMath.GetAngularDelta(aCompareToAngles[i], aCompareAngles[i]);
 
                 // Create new PointPatternMatchResult object to hold results from comparison
-                comparisonResults.Probability = PointPatternMath.GetProbabilityFromAngularDelta(aDeltas.Average());
+                double averageAngularDelta = aDeltas.Average();
+                double angularProbability = PointPatternMath.GetProbabilityFromAngularDelta(averageAngularDelta);
+                var structuralPenalty = GetStructuralPenaltyBreakdown(aCompareToAngles, aCompareAngles);
+                comparisonResults.AngularProbability = angularProbability;
+                comparisonResults.AverageAngularDeltaDegrees = PointPatternMath.GetDegreeFromRadian(averageAngularDelta);
+                comparisonResults.StructuralPenalty = structuralPenalty.TotalPenalty;
+                comparisonResults.SignedTurnPenalty = structuralPenalty.SignedTurnPenalty;
+                comparisonResults.AbsoluteTurnPenalty = structuralPenalty.AbsoluteTurnPenalty;
+                comparisonResults.SignedTurnDeltaDegrees = structuralPenalty.SignedTurnDeltaDegrees;
+                comparisonResults.AbsoluteTurnDeltaDegrees = structuralPenalty.AbsoluteTurnDeltaDegrees;
+                comparisonResults.Probability = Math.Max(0d, angularProbability - structuralPenalty.TotalPenalty);
             }
-            comparisonResults.Name = compareTo.Name;
             // Return results of the comparison
             return comparisonResults;
+        }
+
+        private static StructuralPenaltyBreakdown GetStructuralPenaltyBreakdown(double[] compareToAngles, double[] compareAngles)
+        {
+            if (compareToAngles == null || compareAngles == null || compareToAngles.Length < 2 || compareAngles.Length < 2)
+                return new StructuralPenaltyBreakdown(0d, 0d, 0d, 0d, 0d);
+
+            double signedTurnDelta = Math.Abs(GetSignedTurnSum(compareToAngles) - GetSignedTurnSum(compareAngles));
+            double absoluteTurnDelta = Math.Abs(GetAbsoluteTurnSum(compareToAngles) - GetAbsoluteTurnSum(compareAngles));
+
+            double signedTurnDeltaDegrees = PointPatternMath.GetDegreeFromRadian(signedTurnDelta);
+            double absoluteTurnDeltaDegrees = PointPatternMath.GetDegreeFromRadian(absoluteTurnDelta);
+            double signedTurnPenalty = Math.Min(5d, signedTurnDeltaDegrees / 36d);
+            double absoluteTurnPenalty = Math.Min(5d, absoluteTurnDeltaDegrees / 54d);
+
+            return new StructuralPenaltyBreakdown(
+                signedTurnPenalty + absoluteTurnPenalty,
+                signedTurnPenalty,
+                absoluteTurnPenalty,
+                signedTurnDeltaDegrees,
+                absoluteTurnDeltaDegrees);
+        }
+
+        private static double GetSignedTurnSum(double[] angles)
+        {
+            double total = 0d;
+            for (int index = 1; index < angles.Length; index++)
+            {
+                total += NormalizeSignedAngle(angles[index] - angles[index - 1]);
+            }
+
+            return total;
+        }
+
+        private static double GetAbsoluteTurnSum(double[] angles)
+        {
+            double total = 0d;
+            for (int index = 1; index < angles.Length; index++)
+            {
+                total += Math.Abs(NormalizeSignedAngle(angles[index] - angles[index - 1]));
+            }
+
+            return total;
+        }
+
+        private static double NormalizeSignedAngle(double angle)
+        {
+            while (angle > Math.PI)
+                angle -= Math.PI * 2;
+
+            while (angle < -Math.PI)
+                angle += Math.PI * 2;
+
+            return angle;
         }
 
         private bool IsTapGesture(Point[] points)
@@ -110,18 +185,42 @@ namespace GestureSign.PointPatterns
             if (points.Length == 1)
                 return true;
 
-            // Calculate total path length
-            double totalDistance = 0;
+            // Calculate max displacement from the start point
+            // Using displacement instead of cumulative distance avoids false negatives
+            // from finger jitter (e.g., 0 → 1 → -1 → 0 has displacement 1, not cumulative 2)
+            Point start = points[0];
+            double maxDisplacement = 0;
             for (int i = 1; i < points.Length; i++)
             {
-                totalDistance += PointPatternMath.GetDistance(points[i - 1], points[i]);
+                double displacement = PointPatternMath.GetDistance(start, points[i]);
+                if (displacement > maxDisplacement)
+                    maxDisplacement = displacement;
             }
 
-            // If total movement is less than TapThreshold, treat as tap
-            bool isTap = totalDistance < TapThreshold;
-
-            // System.Diagnostics.Debug.WriteLine($"[PointPatternAnalyzer] IsTapGesture: {points.Length} points, distance={totalDistance:F1}px, threshold={TapThreshold}px → {isTap}");
+            bool isTap = maxDisplacement < TapThreshold;
             return isTap;
+        }
+
+        private readonly struct StructuralPenaltyBreakdown
+        {
+            public StructuralPenaltyBreakdown(double totalPenalty, double signedTurnPenalty, double absoluteTurnPenalty, double signedTurnDeltaDegrees, double absoluteTurnDeltaDegrees)
+            {
+                TotalPenalty = totalPenalty;
+                SignedTurnPenalty = signedTurnPenalty;
+                AbsoluteTurnPenalty = absoluteTurnPenalty;
+                SignedTurnDeltaDegrees = signedTurnDeltaDegrees;
+                AbsoluteTurnDeltaDegrees = absoluteTurnDeltaDegrees;
+            }
+
+            public double TotalPenalty { get; }
+
+            public double SignedTurnPenalty { get; }
+
+            public double AbsoluteTurnPenalty { get; }
+
+            public double SignedTurnDeltaDegrees { get; }
+
+            public double AbsoluteTurnDeltaDegrees { get; }
         }
 
         #endregion

@@ -135,8 +135,6 @@ namespace GestureSign.Daemon.Surface
 
         public void EndDrawing()
         {
-            GestureSign.Common.Log.Logging.LogTrace($"[SurfaceForm] EndDrawing called - _isTrainingMode before reset={_isTrainingMode}, _lastTextRect={_lastTextRect}");
-
             if (_penWidth <= 0 || _lastStroke == null)
             {
                 _shouldDraw = true; // 重置标志
@@ -154,7 +152,6 @@ namespace GestureSign.Daemon.Surface
             _lastTextRect = Rectangle.Empty;
             _lastTextRectScreen = Rectangle.Empty;
 
-            GestureSign.Common.Log.Logging.LogTrace($"[SurfaceForm] EndDrawing - _isTrainingMode reset to {_isTrainingMode}");
         }
 
         /// <summary>
@@ -206,8 +203,17 @@ namespace GestureSign.Daemon.Surface
                 TopMost = true;
                 Show();
             }
-            if (_lastStroke == null) { _lastStroke = new int[points.Count]; }
-            if (_lastStroke.Length != points.Count) return;
+            if (_lastStroke == null || _lastStroke.Length != points.Count)
+            {
+                // 手指数变化时重建 _lastStroke，保留已有轨迹的进度
+                var newLastStroke = new int[points.Count];
+                if (_lastStroke != null)
+                {
+                    int copyLen = Math.Min(_lastStroke.Length, newLastStroke.Length);
+                    Array.Copy(_lastStroke, newLastStroke, copyLen);
+                }
+                _lastStroke = newLastStroke;
+            }
             try
             {
                 // Calculate total distance if in training mode
@@ -225,7 +231,6 @@ namespace GestureSign.Daemon.Surface
 
                 _dirtyGraphicsPath.Reset();
                 var surfaceGraphics = _bitmap.BeginDraw();
-                var translatedPointList = new List<Point[]>(_lastStroke.Length);
 
                 for (int i = 0; i < _lastStroke.Length; i++)
                 {
@@ -239,17 +244,20 @@ namespace GestureSign.Daemon.Surface
                     if (newPoints.Count < 2) continue;
 
                     var translatedPoints = newPoints.Select(TranslatePoint).ToArray();
-                    // Draw new line segments to main drawing surface
+                    // 每条轨迹用独立子路径，避免不同手指的轨迹首尾相连
+                    _graphicsPath.StartFigure();
                     _graphicsPath.AddLines(translatedPoints);
 
+                    _dirtyGraphicsPath.StartFigure();
                     _dirtyGraphicsPath.AddLines(translatedPoints);
-                    translatedPointList.Add(translatedPoints);
                 }
-                _dirtyGraphicsPath.Widen(_dirtyMarkerPen);
-                surfaceGraphics.SetClip(_dirtyGraphicsPath);
-
-                foreach (var pp in translatedPointList)
-                    surfaceGraphics.DrawLines(_drawingPen, pp);
+                if (_dirtyGraphicsPath.PointCount > 0)
+                {
+                    _dirtyGraphicsPath.Widen(_dirtyMarkerPen);
+                    surfaceGraphics.SetClip(_dirtyGraphicsPath);
+                    surfaceGraphics.Clear(Color.Transparent);
+                    surfaceGraphics.DrawPath(_drawingPen, _graphicsPath);
+                }
 
                 _bitmap.EndDraw();
 

@@ -157,13 +157,14 @@ namespace GestureSign.ControlPanel.Dialogs
             }
             // Add settings to settings panel
             SettingsContent.Content = pluginGui;
-
-            SettingsContent.Height = pluginGui.Height;
+            SettingsContent.Height = double.NaN;
+            SettingsContent.MinHeight = 0;
+            SettingsContent.MaxHeight = double.PositiveInfinity;
             SettingsContent.Visibility = Visibility.Visible;
         }
         private void HideSettings()
         {
-            SettingsContent.Height = 0;
+            SettingsContent.Height = double.NaN;
             SettingsContent.Visibility = Visibility.Collapsed;
         }
 

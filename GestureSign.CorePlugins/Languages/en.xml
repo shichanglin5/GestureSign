@@ -252,12 +252,20 @@
       <ActivationMethod.SafeMode>Safe Mode (for Chrome/WeChat)</ActivationMethod.SafeMode>
       <ApplicationPath>Application Path</ApplicationPath>
       <ApplicationArguments>Arguments</ApplicationArguments>
+      <WindowCandidates>Window Candidates</WindowCandidates>
+      <WindowCandidatesTip>Try candidates in order. If an earlier candidate has no match and auto launch is disabled, the next candidate will be tried.</WindowCandidatesTip>
+        <CandidateSettingsTip>The options below apply only to the currently selected candidate, so each window can use its own behavior.</CandidateSettingsTip>
       <WindowRule>Window Rule</WindowRule>
       <EditWindowRule>Edit Window Rule</EditWindowRule>
       <NoWindowRuleConfigured>No window rule configured</NoWindowRuleConfigured>
+      <NoWindowCandidateConfigured>No window candidate configured</NoWindowCandidateConfigured>
       <DragCrosshairToSelect>Drag crosshair to select window</DragCrosshairToSelect>
       <CacheExpiration>Cache Expiration (seconds)</CacheExpiration>
       <CacheExpirationTip>Set to 0 to disable caching</CacheExpirationTip>
+      <MoveUp>Move Up</MoveUp>
+      <MoveDown>Move Down</MoveDown>
+      <AutoLaunchEnabled>Auto Launch</AutoLaunchEnabled>
+      <AutoLaunchDisabled>Match Only</AutoLaunchDisabled>
       <ReferencePreset>Reference Preset</ReferencePreset>
       <SelectPreset>Select Preset</SelectPreset>
       <SelectPresetPrompt>Select a preset window rule:</SelectPresetPrompt>

@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -47,6 +47,12 @@ namespace GestureSign.Common.Applications
 
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public virtual ContinuousGestureSettings ContinuousGestures { get; set; } = new ContinuousGestureSettings();
+
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public virtual TwoFingerGestureSettings TwoFingerGestures { get; set; } = new TwoFingerGestureSettings();
+
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public virtual ContactGestureSettings ContactGestures { get; set; } = new ContactGestureSettings();
 
         [JsonProperty(ItemTypeNameHandling = TypeNameHandling.None)]
         public virtual IEnumerable<IAction> Actions
@@ -159,3 +165,5 @@ namespace GestureSign.Common.Applications
         #endregion
     }
 }
+
+

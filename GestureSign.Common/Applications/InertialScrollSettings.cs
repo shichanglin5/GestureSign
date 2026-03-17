@@ -39,6 +39,18 @@ namespace GestureSign.Common.Applications
         public double NoiseRatio { get; set; } = 0.25;
 
         /// <summary>
+        /// 锁轴状态退回双轴前，次轴位移至少要达到的绝对距离。
+        /// 用于过滤明显单轴滚动中的轻微横向/纵向抖动。
+        /// </summary>
+        public double LockExitMinorDistancePx { get; set; } = 6.0;
+
+        /// <summary>
+        /// 已进入双轴状态后，重新锁回主轴时使用的比例倍率。
+        /// 值越小越容易重新锁轴。
+        /// </summary>
+        public double RelockRatioMultiplier { get; set; } = 0.8;
+
+        /// <summary>
         /// 是否启用 WinUI/UWP 应用检测
         /// </summary>
         public bool EnableWinUIDetection { get; set; } = true;

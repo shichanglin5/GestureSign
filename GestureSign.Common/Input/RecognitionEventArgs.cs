@@ -23,10 +23,17 @@ namespace GestureSign.Common.Input
             this.GestureName = gestureName;
         }
 
+        public RecognitionEventArgs(string gestureId, string gestureName, List<List<Point>> points, List<Point> capturePoints, List<int> contactIdentifiers)
+            : this(gestureName, points, capturePoints, contactIdentifiers)
+        {
+            GestureId = gestureId;
+        }
+
         #endregion
 
         #region Public Instance Properties
 
+        public string GestureId { get; set; }
         public string GestureName { get; set; }
         public List<List<Point>> Points { get; set; }
         public List<Point> FirstCapturedPoints { get; set; }

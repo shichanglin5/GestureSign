@@ -1,5 +1,7 @@
 ﻿using GestureSign.Common.Input;
 using GestureSign.Common.Log;
+using GestureSign.Common.Applications;
+using GestureSign.Common.Gestures;
 using ManagedWinapi.Hooks;
 using Microsoft.Win32;
 using System;
@@ -147,7 +149,7 @@ namespace GestureSign.Common.Configuration
         {
             get
             {
-                return (int)GetValue(nameof(TapDistanceThreshold), 40);
+                return (int)GetValue(nameof(TapDistanceThreshold), 50);
             }
             set
             {
@@ -326,6 +328,18 @@ namespace GestureSign.Common.Configuration
             }
         }
 
+        public static bool DrawFeatureFingerOnly
+        {
+            get
+            {
+                return GetValue(nameof(DrawFeatureFingerOnly), false);
+            }
+            set
+            {
+                SetValue(nameof(DrawFeatureFingerOnly), value);
+            }
+        }
+
         public static bool BlockWindowsGestures
         {
             get
@@ -350,15 +364,103 @@ namespace GestureSign.Common.Configuration
             }
         }
 
+        public static FingerMatchStrategy TrajectoryMatchStrategy
+        {
+            get
+            {
+                var raw = (int)GetValue(nameof(TrajectoryMatchStrategy), (int)FingerMatchStrategy.AllFingers);
+                return Enum.IsDefined(typeof(FingerMatchStrategy), raw)
+                    ? (FingerMatchStrategy)raw
+                    : FingerMatchStrategy.AllFingers;
+            }
+            set
+            {
+                SetValue(nameof(TrajectoryMatchStrategy), (int)value);
+            }
+        }
+
+
         public static int MultiFingerDelay
         {
             get
             {
-                return (int)GetValue(nameof(MultiFingerDelay), 50);
+                return (int)GetValue(nameof(MultiFingerDelay), 100);
             }
             set
             {
                 SetValue(nameof(MultiFingerDelay), value);
+            }
+        }
+
+        public static int TapMaxDurationMs
+        {
+            get
+            {
+                return (int)GetValue(nameof(TapMaxDurationMs), 300);
+            }
+            set
+            {
+                SetValue(nameof(TapMaxDurationMs), value);
+            }
+        }
+
+        public static int ClickMaxPressDurationMs
+        {
+            get
+            {
+                return (int)GetValue(nameof(ClickMaxPressDurationMs), 600);
+            }
+            set
+            {
+                SetValue(nameof(ClickMaxPressDurationMs), value);
+            }
+        }
+
+        public static int ClickMaxMovementPx
+        {
+            get
+            {
+                return (int)GetValue(nameof(ClickMaxMovementPx), 50);
+            }
+            set
+            {
+                SetValue(nameof(ClickMaxMovementPx), value);
+            }
+        }
+
+        public static int TipTapMaxTapDurationMs
+        {
+            get
+            {
+                return (int)GetValue(nameof(TipTapMaxTapDurationMs), 150);
+            }
+            set
+            {
+                SetValue(nameof(TipTapMaxTapDurationMs), value);
+            }
+        }
+
+        public static int TipTapFixMinHoldMs
+        {
+            get
+            {
+                return (int)GetValue(nameof(TipTapFixMinHoldMs), 50);
+            }
+            set
+            {
+                SetValue(nameof(TipTapFixMinHoldMs), value);
+            }
+        }
+
+        public static double FingerMovementJitterThresholdPx
+        {
+            get
+            {
+                return (double)GetValue(nameof(FingerMovementJitterThresholdPx), 3.0);
+            }
+            set
+            {
+                SetValue(nameof(FingerMovementJitterThresholdPx), value);
             }
         }
 
@@ -388,18 +490,27 @@ namespace GestureSign.Common.Configuration
 
         /// <summary>
         /// 全局默认窗口激活方式。
-        /// 1 = AttachThreadInput（默认，更可靠），2 = SafeMode（不合并输入队列，适用于 Chromium/Qt）
+        /// 1 = AttachThreadInput（兼容模式，适用于少数顽固窗口），
+        /// 2 = SafeMode（默认；ActivateApp 会优先走安全路径，并按目标窗口记忆是否需要升级到兼容模式）
         /// </summary>
         public static int DefaultActivationMethod
         {
             get
             {
-                return GetValue(nameof(DefaultActivationMethod), 1);
+                return GetValue(nameof(DefaultActivationMethod), 2);
             }
             set
             {
                 SetValue(nameof(DefaultActivationMethod), value);
             }
+        }
+
+        public static int NormalizeDefaultActivationMethod(int value)
+        {
+            return value == (int)ActivationMethod.AttachThreadInput ||
+                   value == (int)ActivationMethod.SafeMode
+                ? value
+                : (int)ActivationMethod.SafeMode;
         }
 
         public static bool ReFetchTargetWindowOnExecution
@@ -463,7 +574,7 @@ namespace GestureSign.Common.Configuration
             try
             {
                 FileManager.WaitFile(ConfigPath);
-                // Save the configuration file.    
+                // Save the configuration file.
                 var config = Config;
                 config.AppSettings.SectionInformation.ForceSave = true;
                 config.Save(ConfigurationSaveMode.Modified);
@@ -477,7 +588,7 @@ namespace GestureSign.Common.Configuration
             {
                 Logging.LogAndNotice(e);
             }
-            // Force a reload of the changed section.    
+            // Force a reload of the changed section.
             ConfigurationManager.RefreshSection("appSettings");
             ConfigChanged?.Invoke(new object(), EventArgs.Empty);
         }

@@ -32,12 +32,12 @@ namespace GestureSign.PointPatterns
             get { return _Probability; }
             set
             {
-                //if (value > 100 || value < 0)
-                //    throw new OverflowException("Proability must be between zero (0) and one hundred (100)");
-
                 _Probability = value;
             }
         }
+
+        public double AngularProbability { get; set; }
+        public double StructuralPenalty { get; set; }
 
         #endregion
     }

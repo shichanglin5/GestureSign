@@ -1,0 +1,201 @@
+<controls:MetroWindow x:Class="GestureSign.ControlPanel.Dialogs.GestureSimilarityTestDialog"
+                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:controls="http://metro.mahapps.com/winfx/xaml/controls"
+                      Title="相似度匹配测试"
+                      BorderBrush="{StaticResource MahApps.Brushes.Accent}"
+                      BorderThickness="1"
+                      Width="920"
+                      Height="560"
+                      MinWidth="820"
+                      MinHeight="500"
+                      FlowDirection="{StaticResource DefaultFlowDirection}"
+                      ShowIconOnTitleBar="False"
+                      WindowStartupLocation="CenterOwner"
+                      Closed="MetroWindow_Closed">
+    <Grid Margin="20">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="320" />
+            <ColumnDefinition Width="20" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="180" />
+                <RowDefinition Height="16" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="16" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="16" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="录制测试手势"
+                       FontSize="20"
+                       FontWeight="SemiBold" />
+
+            <Border Grid.Row="2"
+                    CornerRadius="10"
+                    BorderThickness="1"
+                    BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
+                    Background="{DynamicResource MahApps.Brushes.Accent4}">
+                <Grid Margin="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Image Source="{Binding RecordedGestureImage}"
+                           Stretch="Uniform"
+                           StretchDirection="DownOnly" />
+                    <TextBlock Grid.Row="1"
+                               Margin="0,10,0,0"
+                               Text="{Binding RecordedGestureTypeText}"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource MahApps.Brushes.Accent}" />
+                </Grid>
+            </Border>
+
+            <StackPanel Grid.Row="4"
+                        Orientation="Horizontal">
+                <Button x:Name="RecordButton"
+                        Content="录制"
+                        Width="120"
+                        Height="36"
+                        Click="RecordButton_Click" />
+                <Button x:Name="MatchButton"
+                        Content="匹配"
+                        Width="120"
+                        Height="36"
+                        Margin="12,0,0,0"
+                        Click="MatchButton_Click" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="6">
+                <DockPanel LastChildFill="False">
+                    <TextBlock Text="相似度阈值"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding MatchThresholdText}"
+                               Margin="12,0,0,0"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource MahApps.Brushes.Accent}"
+                               DockPanel.Dock="Right" />
+                </DockPanel>
+                <Slider Minimum="0"
+                        Maximum="100"
+                        TickFrequency="1"
+                        IsSnapToTickEnabled="True"
+                        Value="{Binding MatchThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+
+            <TextBlock Grid.Row="8"
+                       Text="{Binding StatusText}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MahApps.Brushes.Accent}" />
+        </Grid>
+
+        <Grid Grid.Column="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="已选手势匹配结果"
+                       FontSize="20"
+                       FontWeight="SemiBold" />
+
+            <ListView Grid.Row="2"
+                      ItemsSource="{Binding Candidates}"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      ScrollViewer.CanContentScroll="False"
+                      ScrollViewer.PanningMode="Both"
+                      BorderThickness="1"
+                      BorderBrush="{DynamicResource MahApps.Brushes.Gray4}">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Width="90">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="PreviewBorder"
+                                            Margin="4"
+                                            Padding="4"
+                                            Cursor="Hand"
+                                            CornerRadius="6"
+                                            BorderThickness="1"
+                                            BorderBrush="Transparent"
+                                            Background="Transparent"
+                                            ToolTip="双击打开手势编辑窗口"
+                                            MouseLeftButtonDown="GesturePreview_MouseLeftButtonDown">
+                                        <Grid>
+                                            <Image Height="40"
+                                                   Stretch="Uniform"
+                                                   Source="{Binding GestureImage}" />
+                                            <Border x:Name="HoverHint"
+                                                    VerticalAlignment="Bottom"
+                                                    Margin="0,0,0,-2"
+                                                    Padding="4,2"
+                                                    CornerRadius="4"
+                                                    Background="#CC1F1F1F"
+                                                    Opacity="0">
+                                                <TextBlock Text="可双击编辑"
+                                                           FontSize="10"
+                                                           Foreground="White"
+                                                           HorizontalAlignment="Center" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <Trigger SourceName="PreviewBorder"
+                                                 Property="IsMouseOver"
+                                                 Value="True">
+                                            <Setter TargetName="PreviewBorder"
+                                                    Property="Background"
+                                                    Value="{DynamicResource MahApps.Brushes.Accent4}" />
+                                            <Setter TargetName="PreviewBorder"
+                                                    Property="BorderBrush"
+                                                    Value="{DynamicResource MahApps.Brushes.Accent}" />
+                                            <Setter TargetName="HoverHint"
+                                                    Property="Opacity"
+                                                    Value="1" />
+                                        </Trigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="名称"
+                                        Width="220"
+                                        DisplayMemberBinding="{Binding Name}" />
+                        <GridViewColumn Header="手指数"
+                                        Width="80"
+                                        DisplayMemberBinding="{Binding FingerCountText}" />
+                        <GridViewColumn Header="相似度"
+                                        Width="100"
+                                        DisplayMemberBinding="{Binding ScoreText}" />
+                        <GridViewColumn Header="最弱轨迹"
+                                        Width="100"
+                                        DisplayMemberBinding="{Binding MinimumScoreText}" />
+                        <GridViewColumn Header="结果"
+                                        Width="120"
+                                        DisplayMemberBinding="{Binding MatchStateText}" />
+                        <GridViewColumn Header="详情"
+                                        Width="90">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="detail"
+                                            Padding="10,2"
+                                            Tag="{Binding}"
+                                            Click="DetailButton_Click" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </Grid>
+    </Grid>
+</controls:MetroWindow>

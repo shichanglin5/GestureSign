@@ -8,8 +8,9 @@
                       xmlns:ui="clr-namespace:GestureSign.Common.UI"
                       mc:Ignorable="d"
                       Title="{localization:LocalisedText WindowRuleDialog.Title}"
-                      Width="450"
-                      Height="400"
+                      Width="560"
+                      Height="560"
+                      MaxHeight="760"
                       BorderBrush="{DynamicResource MahApps.Brushes.Accent}"
                       BorderThickness="1"
                       ResizeMode="NoResize"
@@ -20,55 +21,65 @@
     </controls:MetroWindow.Resources>
     <Grid Margin="15">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Rule Name (optional, controlled by ShowRuleName) -->
-        <StackPanel x:Name="RuleNamePanel"
-                    Grid.Row="0"
-                    Margin="0,0,0,10"
-                    Visibility="{Binding ShowRuleName, RelativeSource={RelativeSource AncestorType=controls:MetroWindow}, Converter={StaticResource BoolToVisibilityConverter}}">
-            <TextBlock Text="{localization:LocalisedText WindowRuleDialog.RuleName}"
-                       FontWeight="Bold"
-                       Margin="0,0,0,5" />
-            <TextBox x:Name="RuleNameTextBox"
-                     Height="26"
-                     controls:TextBoxHelper.Watermark="{localization:LocalisedText WindowRuleDialog.RuleNameWatermark}"
-                     VerticalContentAlignment="Center" />
-        </StackPanel>
+        <ScrollViewer Grid.Row="0"
+                      VerticalScrollBarVisibility="Auto">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-        <!-- Match Conditions Label -->
-        <TextBlock Grid.Row="1"
-                   Text="{localization:LocalisedText WindowRuleDialog.MatchConditions}"
-                   FontWeight="Bold"
-                   Margin="0,0,0,5" />
+                <!-- Rule Name (optional, controlled by ShowRuleName) -->
+                <StackPanel x:Name="RuleNamePanel"
+                            Grid.Row="0"
+                            Margin="0,0,0,10"
+                            Visibility="{Binding ShowRuleName, RelativeSource={RelativeSource AncestorType=controls:MetroWindow}, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="{localization:LocalisedText WindowRuleDialog.RuleName}"
+                               FontWeight="Bold"
+                               Margin="0,0,0,5" />
+                    <TextBox x:Name="RuleNameTextBox"
+                             Height="26"
+                             controls:TextBoxHelper.Watermark="{localization:LocalisedText WindowRuleDialog.RuleNameWatermark}"
+                             VerticalContentAlignment="Center" />
+                </StackPanel>
 
-        <!-- Match Conditions List -->
-        <ui:MatchConditionList x:Name="ConditionList"
-                               Grid.Row="2"
-                               ShowCheckBox="True" />
+                <!-- Match Conditions Label -->
+                <TextBlock Grid.Row="1"
+                           Text="{localization:LocalisedText WindowRuleDialog.MatchConditions}"
+                           FontWeight="Bold"
+                           Margin="0,0,0,5" />
 
-        <!-- Crosshair -->
-        <StackPanel Grid.Row="3"
-                    Orientation="Horizontal"
-                    Margin="0,10,0,10">
-            <ui:Crosshair x:Name="RuleCrosshair"
-                          Height="36"
-                          Width="36"
-                          CrosshairDragged="RuleCrosshair_Dragged"
-                          ToolTip="{localization:LocalisedText CorePlugins.ActivateApp.DragToCapture}" />
-            <TextBlock Text="{localization:LocalisedText ApplicationDialog.DragCrosshair}"
-                       VerticalAlignment="Center"
-                       Margin="10,0,0,0"
-                       Foreground="{DynamicResource MahApps.Brushes.Gray3}" />
-        </StackPanel>
+                <!-- Match Conditions List -->
+                <ui:MatchConditionList x:Name="ConditionList"
+                                       Grid.Row="2"
+                                       ShowCheckBox="True" />
+
+                <!-- Crosshair -->
+                <StackPanel Grid.Row="3"
+                            Orientation="Horizontal"
+                            Margin="0,10,0,10">
+                    <ui:Crosshair x:Name="RuleCrosshair"
+                                  Height="36"
+                                  Width="36"
+                                  CrosshairDragged="RuleCrosshair_Dragged"
+                                  ToolTip="{localization:LocalisedText CorePlugins.ActivateApp.DragToCapture}" />
+                    <TextBlock Text="{localization:LocalisedText ApplicationDialog.DragCrosshair}"
+                               VerticalAlignment="Center"
+                               Margin="10,0,0,0"
+                               Foreground="{DynamicResource MahApps.Brushes.Gray3}" />
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
 
         <!-- Buttons -->
-        <Grid Grid.Row="4">
+        <Grid Grid.Row="1"
+              Margin="0,10,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />

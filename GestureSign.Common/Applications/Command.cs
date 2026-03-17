@@ -5,6 +5,7 @@ using Newtonsoft.Json.Converters;
 
 namespace GestureSign.Common.Applications
 {
+    [Serializable]
     public class Command : ICommand, ICloneable, INotifyPropertyChanged
     {
         #region Private Fields
@@ -46,6 +47,7 @@ namespace GestureSign.Common.Applications
 
         #region INotifyPropertyChanged Implementation
 
+        [field: NonSerialized]
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)

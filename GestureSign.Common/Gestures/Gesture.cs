@@ -20,11 +20,15 @@ namespace GestureSign.Common.Gestures
 
         #region IPointPattern Instance Properties
 
+        public string Id { get; set; }
+
         public string Name { get; set; }
 
         public PointPattern[] PointPatterns { get; set; }
 
         public int FingerCount { get; set; }
+
+        public FingerMatchStrategy MatchStrategy { get; set; } = FingerMatchStrategy.Inherit;
 
         #endregion
     }

@@ -25,6 +25,7 @@ namespace GestureSign.Common.Applications
         IEnumerable<IApplication> _recognizedApplication;
         private Timer _timer;
         private Point _lastTouchPadGestureMousePosition;
+        private readonly object _applicationsLock = new object();
         #endregion
 
         #region Public Instance Properties
@@ -36,10 +37,14 @@ namespace GestureSign.Common.Applications
         {
             get
             {
-                if (LoadingTask.IsCompleted)
-                    return _applications != null ? _applications : _applications = new List<IApplication>();
-                else
+                if (!LoadingTask.IsCompleted)
                     return new List<IApplication>();
+
+                lock (_applicationsLock)
+                {
+                    _applications ??= new List<IApplication>();
+                    return new List<IApplication>(_applications);
+                }
             }
         }
 
@@ -58,6 +63,14 @@ namespace GestureSign.Common.Applications
         {
             // Load applications from disk, if file couldn't be loaded, create an empty applications list
             LoadingTask = LoadApplications();
+        }
+
+        private void SetApplicationsSnapshot(List<IApplication> applications)
+        {
+            lock (_applicationsLock)
+            {
+                _applications = applications ?? new List<IApplication>();
+            }
         }
 
         #endregion
@@ -109,9 +122,6 @@ namespace GestureSign.Common.Applications
             int actualFingerCount = e.FingerCount > 0 ? e.FingerCount : e.Points.Count;
             bool fingersLessThanLimit = actualFingerCount < maxLimitNumber;
             e.Cancel = isTouchDevice && fingersLessThanLimit;
-
-            Log.Logging.LogTrace($"[ApplicationManager] Cancel calculation: isTouchDevice={isTouchDevice}, FingerCount={e.FingerCount}, actualFingerCount={actualFingerCount}, maxLimitNumber={maxLimitNumber}, fingersLessThanLimit={fingersLessThanLimit}, Cancel={e.Cancel}");
-
             e.BlockTouchInputThreshold = maxThreshold;
         }
 
@@ -144,38 +154,66 @@ namespace GestureSign.Common.Applications
 
         public void AddApplication(IApplication application)
         {
-            Applications.Add(application);
+            lock (_applicationsLock)
+            {
+                var snapshot = _applications != null ? new List<IApplication>(_applications) : new List<IApplication>();
+                snapshot.Add(application);
+                _applications = snapshot;
+            }
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, application));
         }
 
         public void AddApplicationRange(List<IApplication> applications)
         {
-            Applications.AddRange(applications);
+            lock (_applicationsLock)
+            {
+                var snapshot = _applications != null ? new List<IApplication>(_applications) : new List<IApplication>();
+                snapshot.AddRange(applications);
+                _applications = snapshot;
+            }
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, applications));
         }
 
         public void RemoveApplication(IApplication application)
         {
-            Applications.Remove(application);
+            lock (_applicationsLock)
+            {
+                var snapshot = _applications != null ? new List<IApplication>(_applications) : new List<IApplication>();
+                snapshot.Remove(application);
+                _applications = snapshot;
+            }
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, application));
         }
 
         public void ReplaceApplication(IApplication oldApplication, IApplication newApplication)
         {
-            Applications.Remove(oldApplication);
-            Applications.Add(newApplication);
+            lock (_applicationsLock)
+            {
+                var snapshot = _applications != null ? new List<IApplication>(_applications) : new List<IApplication>();
+                snapshot.Remove(oldApplication);
+                snapshot.Add(newApplication);
+                _applications = snapshot;
+            }
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, newApplication, oldApplication));
         }
 
         public void RemoveAllApplication()
         {
-            Applications.Clear();
+            lock (_applicationsLock)
+            {
+                _applications = new List<IApplication>();
+            }
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
 
         public void RemoveIgnoredApplications(string applicationName)
         {
-            Applications.RemoveAll(app => app is IgnoredApp && app.Name == applicationName);
+            lock (_applicationsLock)
+            {
+                var snapshot = _applications != null ? new List<IApplication>(_applications) : new List<IApplication>();
+                snapshot.RemoveAll(app => app is IgnoredApp && app.Name == applicationName);
+                _applications = snapshot;
+            }
         }
 
         /// <summary>
@@ -185,14 +223,21 @@ namespace GestureSign.Common.Applications
         /// <param name="newIndex">新位置索引</param>
         public void MoveApplication(int oldIndex, int newIndex)
         {
-            if (oldIndex < 0 || oldIndex >= Applications.Count ||
-                newIndex < 0 || newIndex >= Applications.Count ||
-                oldIndex == newIndex)
-                return;
+            IApplication app;
+            lock (_applicationsLock)
+            {
+                var apps = _applications != null ? new List<IApplication>(_applications) : new List<IApplication>();
+                if (oldIndex < 0 || oldIndex >= apps.Count ||
+                    newIndex < 0 || newIndex >= apps.Count ||
+                    oldIndex == newIndex)
+                    return;
 
-            var app = Applications[oldIndex];
-            Applications.RemoveAt(oldIndex);
-            Applications.Insert(newIndex, app);
+                app = apps[oldIndex];
+                apps.RemoveAt(oldIndex);
+                apps.Insert(newIndex, app);
+                _applications = apps;
+            }
+
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
                 NotifyCollectionChangedAction.Move, app, newIndex, oldIndex));
         }
@@ -227,7 +272,7 @@ namespace GestureSign.Common.Applications
                         if (!LoadBackup())
                             if (!LoadLegacy())
                                 if (!LoadDefaults())
-                                    _applications = new List<IApplication>();
+                                    SetApplicationsSnapshot(new List<IApplication>());
 
                     OnLoadApplicationsCompleted?.Invoke(this, EventArgs.Empty);
                 };
@@ -238,23 +283,23 @@ namespace GestureSign.Common.Applications
                 WindowPresetManager.Instance.LoadPresets();
 
                 // Load application list from file
-                _applications =
-                    FileManager.LoadObject<List<IApplication>>(
-                        Path.Combine(AppConfig.ApplicationDataPath, Constants.ActionFileName), true, true);
-                return _applications != null;
+                var apps = FileManager.LoadObject<List<IApplication>>(
+                    Path.Combine(AppConfig.ApplicationDataPath, Constants.ActionFileName), true, true);
+                if (apps != null)
+                    SetApplicationsSnapshot(apps);
+                return apps != null;
             }).ContinueWith(antecendent => loadCompleted(antecendent.Result));
         }
 
         private bool LoadDefaults()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Defaults", Constants.ActionFileName);
+            var applications = FileManager.LoadObject<List<IApplication>>(path, false, true);
+            if (applications == null)
+                return false;
 
-            _applications = FileManager.LoadObject<List<IApplication>>(path, false, true);
-            // Ensure we got an object back
-            if (_applications == null)
-                return false; // No object, failed
-
-            return true; // Success
+            SetApplicationsSnapshot(applications);
+            return true;
         }
 
         private bool LoadBackup()
@@ -265,8 +310,12 @@ namespace GestureSign.Common.Applications
                 var actionfiles = directory.EnumerateFiles("*" + Constants.ActionExtension).OrderByDescending(f => f.LastWriteTime);
                 foreach (var file in actionfiles)
                 {
-                    _applications = FileManager.LoadObject<List<IApplication>>(file.FullName, false, true);
-                    if (_applications != null) return true;
+                    var applications = FileManager.LoadObject<List<IApplication>>(file.FullName, false, true);
+                    if (applications == null)
+                        continue;
+
+                    SetApplicationsSnapshot(applications);
+                    return true;
                 }
             }
             return false;
@@ -304,7 +353,12 @@ namespace GestureSign.Common.Applications
 
         public IEnumerable<IAction> GetRecognizedDefinedAction(string GestureName)
         {
-            return GetDefinedAction(GestureName, _recognizedApplication, true);
+            return GetDefinedAction(null, GestureName, _recognizedApplication, true);
+        }
+
+        public IEnumerable<IAction> GetRecognizedDefinedAction(string gestureId, string gestureName)
+        {
+            return GetDefinedAction(gestureId, gestureName, _recognizedApplication, true);
         }
 
         public List<IAction> GetRecognizedDefinedAction(Func<IAction, bool> predicate)
@@ -323,6 +377,11 @@ namespace GestureSign.Common.Applications
 
         public IEnumerable<IAction> GetDefinedAction(string gestureName, IEnumerable<IApplication> application, bool useGlobal)
         {
+            return GetDefinedAction(null, gestureName, application, useGlobal);
+        }
+
+        public IEnumerable<IAction> GetDefinedAction(string gestureId, string gestureName, IEnumerable<IApplication> application, bool useGlobal)
+        {
             if (application == null)
             {
                 return Enumerable.Empty<IAction>();
@@ -331,7 +390,7 @@ namespace GestureSign.Common.Applications
             var appActions = application
                 .Where(app => !(app is IgnoredApp) && app.Actions != null)
                 .SelectMany(app => app.Actions
-                    .Where(a => a.IsEnabled && a.GestureName == gestureName && a.Commands != null && a.Commands.Any(com => com != null && com.IsEnabled))
+                    .Where(a => a.IsEnabled && ((gestureId != null && a.GestureId == gestureId) || a.GestureName == gestureName) && a.Commands != null && a.Commands.Any(com => com != null && com.IsEnabled))
                     .Select(a => new { App = app, Action = a }))
                 .ToList();
 
@@ -340,7 +399,7 @@ namespace GestureSign.Common.Applications
             // If there is was no action found on given application, try to get an action for global application
             if (!finalAction.Any() && useGlobal)
             {
-                finalAction = GetGlobalApplication().Actions.Where(a => a.IsEnabled && a.GestureName == gestureName);
+                finalAction = GetGlobalApplication().Actions.Where(a => a.IsEnabled && ((gestureId != null && a.GestureId == gestureId) || a.GestureName == gestureName));
             }
 
             // Return whatever the result was
@@ -372,17 +431,235 @@ namespace GestureSign.Common.Applications
             return Applications.Where(a => a is IgnoredApp).OrderBy(a => a.Name).Cast<IgnoredApp>();
         }
 
+        public IEnumerable<ICommand> GetRecognizedTapCommands(int fingerCount)
+        {
+            return GetRecognizedTapCommands(null, fingerCount);
+        }
+
+        public IEnumerable<ICommand> GetRecognizedTapCommands(string gestureId, int fingerCount)
+        {
+            if (_recognizedApplication != null)
+            {
+                var appCommands = _recognizedApplication
+                    .Where(app => !(app is IgnoredApp) && app.ContactGestures != null && app.ContactGestures.Enabled)
+                    .SelectMany(app => app.ContactGestures.Taps
+                        .Where(t => t.IsEnabled
+                            && t.FingerCount == fingerCount
+                            && (gestureId == null || (!string.IsNullOrEmpty(t.Id) && string.Equals(t.Id, gestureId, StringComparison.Ordinal)))
+                            && t.Commands != null)
+                        .SelectMany(t => t.Commands))
+                    .Where(c => c != null && c.IsEnabled)
+                    .ToList();
+
+                if (appCommands.Count > 0)
+                    return appCommands;
+            }
+
+            var globalCommands = GetGlobalApplication()?.ContactGestures?.Taps?
+                .Where(t => t.IsEnabled
+                    && t.FingerCount == fingerCount
+                    && (gestureId == null || (!string.IsNullOrEmpty(t.Id) && string.Equals(t.Id, gestureId, StringComparison.Ordinal)))
+                    && t.Commands != null)
+                .SelectMany(t => t.Commands)
+                .Where(c => c != null && c.IsEnabled)
+                .ToList();
+
+            return globalCommands ?? Enumerable.Empty<ICommand>();
+        }
+
+        public IEnumerable<ICommand> GetRecognizedClickCommands(string gestureId, int fingerCount)
+        {
+            if (_recognizedApplication != null)
+            {
+                var appCommands = _recognizedApplication
+                    .Where(app => !(app is IgnoredApp) && app.ContactGestures != null && app.ContactGestures.Enabled)
+                    .SelectMany(app => app.ContactGestures.Clicks
+                        .Where(click => click.IsEnabled
+                            && click.FingerCount == fingerCount
+                            && !string.IsNullOrEmpty(click.Id)
+                            && string.Equals(click.Id, gestureId, StringComparison.Ordinal)
+                            && click.Commands != null)
+                        .SelectMany(click => click.Commands))
+                    .Where(command => command != null && command.IsEnabled)
+                    .ToList();
+
+                if (appCommands.Count > 0)
+                    return appCommands;
+            }
+
+            var globalCommands = GetGlobalApplication()?.ContactGestures?.Clicks?
+                .Where(click => click.IsEnabled
+                    && click.FingerCount == fingerCount
+                    && !string.IsNullOrEmpty(click.Id)
+                    && string.Equals(click.Id, gestureId, StringComparison.Ordinal)
+                    && click.Commands != null)
+                .SelectMany(click => click.Commands)
+                .Where(command => command != null && command.IsEnabled)
+                .ToList();
+
+            return globalCommands ?? Enumerable.Empty<ICommand>();
+        }
+
+        public IEnumerable<ICommand> GetRecognizedTipTapCommands(string gestureId, int fingerCount)
+        {
+            if (_recognizedApplication != null)
+            {
+                var appCommands = _recognizedApplication
+                    .Where(app => !(app is IgnoredApp) && app.ContactGestures != null && app.ContactGestures.Enabled)
+                    .SelectMany(app => (app.ContactGestures.TipTaps ?? new List<TipTapGestureConfig>())
+                        .Where(t => t.IsEnabled &&
+                                    t.FingerCount == fingerCount &&
+                                    !string.IsNullOrEmpty(t.Id) &&
+                                    string.Equals(t.Id, gestureId, StringComparison.Ordinal) &&
+                                    t.Commands != null)
+                        .SelectMany(t => t.Commands))
+                    .Where(c => c != null && c.IsEnabled)
+                    .ToList();
+
+                if (appCommands.Count > 0)
+                    return appCommands;
+            }
+
+            var globalCommands = GetGlobalApplication()?.ContactGestures?.TipTaps?
+                .Where(t => t.IsEnabled &&
+                            t.FingerCount == fingerCount &&
+                            !string.IsNullOrEmpty(t.Id) &&
+                            string.Equals(t.Id, gestureId, StringComparison.Ordinal) &&
+                            t.Commands != null)
+                .SelectMany(t => t.Commands)
+                .Where(c => c != null && c.IsEnabled)
+                .ToList();
+
+            return globalCommands ?? Enumerable.Empty<ICommand>();
+        }
+
+        public IEnumerable<TapGestureConfig> GetRecognizedTapDefinitions(int fingerCount)
+        {
+            if (_recognizedApplication != null)
+            {
+                var appConfigs = _recognizedApplication
+                    .Where(app => !(app is IgnoredApp) && app.ContactGestures != null && app.ContactGestures.Enabled)
+                    .SelectMany(app => app.ContactGestures.Taps
+                        .Where(t => t.IsEnabled && t.FingerCount == fingerCount))
+                    .ToList();
+
+                if (appConfigs.Count > 0)
+                    return appConfigs;
+            }
+
+            var globalConfigs = GetGlobalApplication()?.ContactGestures?.Taps?
+                .Where(t => t.IsEnabled && t.FingerCount == fingerCount)
+                .ToList();
+
+            return globalConfigs ?? Enumerable.Empty<TapGestureConfig>();
+        }
+
+        public IEnumerable<ClickGestureConfig> GetRecognizedClickDefinitions(int fingerCount)
+        {
+            if (_recognizedApplication != null)
+            {
+                var appConfigs = _recognizedApplication
+                    .Where(app => !(app is IgnoredApp) && app.ContactGestures != null && app.ContactGestures.Enabled)
+                    .SelectMany(app => app.ContactGestures.Clicks
+                        .Where(click => click.IsEnabled && click.FingerCount == fingerCount))
+                    .ToList();
+
+                if (appConfigs.Count > 0)
+                    return appConfigs;
+            }
+
+            var globalConfigs = GetGlobalApplication()?.ContactGestures?.Clicks?
+                .Where(click => click.IsEnabled && click.FingerCount == fingerCount)
+                .ToList();
+
+            return globalConfigs ?? Enumerable.Empty<ClickGestureConfig>();
+        }
+
+        public IEnumerable<TipTapGestureConfig> GetRecognizedTipTapConfigs(int fingerCount)
+        {
+            if (_recognizedApplication != null)
+            {
+                var appConfigs = _recognizedApplication
+                    .Where(app => !(app is IgnoredApp) && app.ContactGestures != null && app.ContactGestures.Enabled)
+                    .SelectMany(app => app.ContactGestures.TipTaps
+                        .Where(t => t.IsEnabled && t.FingerCount == fingerCount))
+                    .ToList();
+
+                if (appConfigs.Count > 0)
+                    return appConfigs;
+            }
+
+            var globalConfigs = GetGlobalApplication()?.ContactGestures?.TipTaps?
+                .Where(t => t.IsEnabled && t.FingerCount == fingerCount)
+                .ToList();
+
+            return globalConfigs ?? Enumerable.Empty<TipTapGestureConfig>();
+        }
+
+        public IEnumerable<TipTapGestureConfig> GetRecognizedTipTapConfigsByFixCount(int fixFingerCount)
+        {
+            if (_recognizedApplication != null)
+            {
+                var appConfigs = _recognizedApplication
+                    .Where(app => !(app is IgnoredApp) && app.ContactGestures != null && app.ContactGestures.Enabled)
+                    .SelectMany(app => app.ContactGestures.TipTaps
+                        .Where(t => t.IsEnabled && t.FixFingerCount == fixFingerCount))
+                    .ToList();
+
+                if (appConfigs.Count > 0)
+                    return appConfigs;
+            }
+
+            var globalConfigs = GetGlobalApplication()?.ContactGestures?.TipTaps?
+                .Where(t => t.IsEnabled && t.FixFingerCount == fixFingerCount)
+                .ToList();
+
+            return globalConfigs ?? Enumerable.Empty<TipTapGestureConfig>();
+        }
+        public IEnumerable<TapGestureConfig> GetGlobalTapDefinitions(int fingerCount)
+        {
+            return GetGlobalApplication()?.ContactGestures?.Taps?
+                .Where(t => t.IsEnabled && t.FingerCount == fingerCount)
+                .ToList() ?? Enumerable.Empty<TapGestureConfig>();
+        }
+
+        public IEnumerable<ClickGestureConfig> GetGlobalClickDefinitions(int fingerCount)
+        {
+            return GetGlobalApplication()?.ContactGestures?.Clicks?
+                .Where(click => click.IsEnabled && click.FingerCount == fingerCount)
+                .ToList() ?? Enumerable.Empty<ClickGestureConfig>();
+        }
+
+        public IEnumerable<TipTapGestureConfig> GetGlobalTipTapDefinitions(int fingerCount)
+        {
+            return GetGlobalApplication()?.ContactGestures?.TipTaps?
+                .Where(t => t.IsEnabled && t.FingerCount == fingerCount)
+                .ToList() ?? Enumerable.Empty<TipTapGestureConfig>();
+        }
+
+        public IEnumerable<TipTapGestureConfig> GetGlobalTipTapDefinitionsByFixCount(int fixFingerCount)
+        {
+            return GetGlobalApplication()?.ContactGestures?.TipTaps?
+                .Where(t => t.IsEnabled && t.FixFingerCount == fixFingerCount)
+                .ToList() ?? Enumerable.Empty<TipTapGestureConfig>();
+        }
+
         public IApplication GetGlobalApplication()
         {
-            var apps = Applications;
-            GlobalApp globalApp = apps.FirstOrDefault(a => a is GlobalApp) as GlobalApp;
-            if (globalApp == null)
+            lock (_applicationsLock)
             {
-                globalApp = new GlobalApp() { Group = String.Empty };
-                apps.Add(globalApp);
+                _applications ??= new List<IApplication>();
+                GlobalApp globalApp = _applications.FirstOrDefault(a => a is GlobalApp) as GlobalApp;
+                if (globalApp == null)
+                {
+                    var snapshot = new List<IApplication>(_applications);
+                    globalApp = new GlobalApp() { Group = string.Empty };
+                    snapshot.Add(globalApp);
+                    _applications = snapshot;
+                }
+
                 return globalApp;
             }
-            else return globalApp;
         }
 
         public IApplication[] FindMatchApplications<TApplication>(List<IWindowRule> matchRules, string excludedApplication = null) where TApplication : IApplication
@@ -706,7 +983,7 @@ namespace GestureSign.Common.Applications
         {
             var legacyApps = FileManager.LoadObject<List<LegacyApplicationBase>>(Path.Combine(AppConfig.ApplicationDataPath, "Actions.act"), true, true);
             if (legacyApps == null) return false;
-            _applications = new List<IApplication>();
+            var applications = new List<IApplication>();
             foreach (var app in legacyApps)
             {
                 var legacyUserApp = app as UserApplication;
@@ -721,7 +998,7 @@ namespace GestureSign.Common.Applications
                         MatchRules = ConvertLegacyMatchRules(legacyUserApp.MatchUsing, legacyUserApp.MatchString, legacyUserApp.IsRegEx, legacyUserApp.Name),
                         Name = legacyUserApp.Name
                     };
-                    _applications.Add(newApp);
+                    applications.Add(newApp);
                     continue;
                 }
 
@@ -733,7 +1010,7 @@ namespace GestureSign.Common.Applications
                     var newApp = new IgnoredApp(newName,
                         ConvertLegacyMatchRules(legacyIgnoredApp.MatchUsing, legacyIgnoredApp.MatchString, legacyIgnoredApp.IsRegEx, newName),
                         legacyIgnoredApp.IsEnabled);
-                    _applications.Add(newApp);
+                    applications.Add(newApp);
                     continue;
                 }
 
@@ -744,10 +1021,12 @@ namespace GestureSign.Common.Applications
                     {
                         Actions = ConvertLegacyActions(legacyGlobalApp.Actions)
                     };
-                    _applications.Add(newApp);
+                    applications.Add(newApp);
                     continue;
                 }
             }
+
+            SetApplicationsSnapshot(applications);
 
             return true;
         }
@@ -873,3 +1152,6 @@ namespace GestureSign.Common.Applications
         #endregion
     }
 }
+
+
+

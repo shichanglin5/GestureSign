@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Drawing;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
+using GestureSign.Common.Applications;
 using GestureSign.Common.Configuration;
 using GestureSign.PointPatterns;
 using GestureSign.Common.Input;
@@ -16,10 +19,6 @@ namespace GestureSign.Common.Gestures
     {
         #region Private Variables
 
-        private const int GestureStackTimeout = 800;
-
-        private int _gestureLevel = 0;
-
         // Create thread-safe lazy singleton instance
         private static readonly Lazy<GestureManager> _instance = new Lazy<GestureManager>(() => new GestureManager());
 
@@ -29,23 +28,39 @@ namespace GestureSign.Common.Gestures
         // Create PointPatternAnalyzer to process gestures when received
         PointPatternAnalyzer gestureAnalyzer = null;
 
-        private bool _isGestureStackTimeout;
-        private int? _lastGestureTime;
-        private List<IGesture> _gestureMatchResult;
+        private string _matchedGestureId;
+        private GestureIndexSnapshot _gestureIndexSnapshot;
+        private bool _gestureIdsRepairedOnLoad;
+        private readonly object _gesturesLock = new object();
+
+        private sealed class GestureIndexSnapshot
+        {
+            public Dictionary<(int FingerCount, int TrajectoryCount), List<IGesture>> GestureIndex { get; init; }
+            public Dictionary<(int FingerCount, int TrajectoryCount, int TrajectoryIndex), PointsPatternSet[]> PatternSetCache { get; init; }
+        }
+
+        private sealed class GestureIdRepair
+        {
+            public string OldId { get; init; }
+            public string NewId { get; init; }
+            public string GestureName { get; init; }
+        }
 
         #endregion
 
         #region Public Instance Properties
 
+        public string GestureId { get; set; }
         public string GestureName { get; set; }
         public IGesture[] Gestures
         {
             get
             {
-                if (_Gestures == null)
-                    _Gestures = new List<IGesture>();
-
-                return _Gestures.ToArray();
+                lock (_gesturesLock)
+                {
+                    _Gestures ??= new List<IGesture>();
+                    return _Gestures.ToArray();
+                }
             }
         }
 
@@ -64,6 +79,25 @@ namespace GestureSign.Common.Gestures
             gestureAnalyzer.TapThreshold = Configuration.AppConfig.TapDistanceThreshold;
         }
 
+        private void SetGesturesSnapshot(List<IGesture> gestures)
+        {
+            lock (_gesturesLock)
+            {
+                var snapshot = gestures ?? new List<IGesture>();
+                _Gestures = snapshot;
+                RebuildGestureIndex(snapshot);
+            }
+        }
+
+        private List<IGesture> GetGesturesListSnapshot()
+        {
+            lock (_gesturesLock)
+            {
+                _Gestures ??= new List<IGesture>();
+                return new List<IGesture>(_Gestures);
+            }
+        }
+
         #endregion
 
         #region Public Type Properties
@@ -77,47 +111,11 @@ namespace GestureSign.Common.Gestures
 
         #region Events
 
-        protected void PointCapture_CaptureStarted(object sender, PointsCapturedEventArgs e)
-        {
-            if (_lastGestureTime != null && Environment.TickCount - _lastGestureTime.Value > GestureStackTimeout)
-                _isGestureStackTimeout = true;
-        }
-
         protected void PointCapture_BeforePointsCaptured(object sender, PointsCapturedEventArgs e)
         {
-            var pointCapture = (IPointCapture)sender;
-            if (_isGestureStackTimeout)
-            {
-                _lastGestureTime = null;
-                _isGestureStackTimeout = false;
-
-                _gestureLevel = 0;
-                _gestureMatchResult = null;
-            }
-
-            if (pointCapture.Mode == CaptureMode.Training)
-            {
-                _gestureLevel = 0;
-                _gestureMatchResult = null;
-            }
-
-            var sourceGesture = _gestureLevel == 0 ? _Gestures : _gestureMatchResult;
             var capturedPoints = e.Points.Select(l => l.ToArray()).ToArray();
-            GestureName = GetGestureSetNameMatch(capturedPoints, e.FingerCount, sourceGesture, _gestureLevel, out _gestureMatchResult);
-
-            if (pointCapture.Mode != CaptureMode.Training)
-            {
-                if (_gestureMatchResult != null && _gestureMatchResult.Count != 0)
-                {
-                    _gestureLevel++;
-                    _lastGestureTime = Environment.TickCount;
-                }
-                else
-                {
-                    _gestureLevel = 0;
-                    _gestureMatchResult = null;
-                }
-            }
+            GestureName = GetGestureSetNameMatch(capturedPoints, e.FingerCount, GetGesturesListSnapshot());
+            GestureId = _matchedGestureId;
         }
 
         #endregion
@@ -134,9 +132,10 @@ namespace GestureSign.Common.Gestures
         private bool LoadDefaults()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Defaults", Constants.GesturesFileName);
-            _Gestures = LoadGesturesFromFile(path);
+            var gestures = LoadGesturesFromFile(path);
+            SetGesturesSnapshot(gestures);
 
-            return _Gestures != null;
+            return gestures != null;
         }
 
         private bool LoadBackup()
@@ -150,7 +149,7 @@ namespace GestureSign.Common.Gestures
                     var gestures = LoadGesturesFromFile(file.FullName);
                     if (gestures != null)
                     {
-                        _Gestures = gestures;
+                        SetGesturesSnapshot(gestures);
                         return true;
                     }
                 }
@@ -177,24 +176,84 @@ namespace GestureSign.Common.Gestures
             if (pointCapture != null)
             {
                 pointCapture.BeforePointsCaptured += PointCapture_BeforePointsCaptured;
-                pointCapture.CaptureStarted += PointCapture_CaptureStarted; ;
             }
+        }
+
+        private void RebuildGestureIndex(IReadOnlyList<IGesture> gestures)
+        {
+            var gestureIndex = new Dictionary<(int FingerCount, int TrajectoryCount), List<IGesture>>();
+            var patternSetCache = new Dictionary<(int FingerCount, int TrajectoryCount, int TrajectoryIndex), PointsPatternSet[]>();
+
+            foreach (var gesture in gestures)
+            {
+                if (gesture?.PointPatterns == null || gesture.PointPatterns.Length == 0)
+                    continue;
+
+                var pattern = gesture.PointPatterns[0];
+                int trajectoryCount = pattern?.Points?.Length ?? 0;
+                if (trajectoryCount == 0)
+                    continue;
+
+                var key = (gesture.FingerCount, trajectoryCount);
+                if (!gestureIndex.TryGetValue(key, out var list))
+                {
+                    list = new List<IGesture>();
+                    gestureIndex[key] = list;
+                }
+
+                list.Add(gesture);
+            }
+
+            foreach (var kvp in gestureIndex)
+            {
+                var key = kvp.Key;
+                var indexedGestures = kvp.Value;
+                for (int trajectoryIndex = 0; trajectoryIndex < key.TrajectoryCount; trajectoryIndex++)
+                {
+                    var patternSet = new PointsPatternSet[indexedGestures.Count];
+                    for (int gestureArrayIndex = 0; gestureArrayIndex < indexedGestures.Count; gestureArrayIndex++)
+                    {
+                        patternSet[gestureArrayIndex] = new PointsPatternSet(
+                            indexedGestures[gestureArrayIndex].Name,
+                            indexedGestures[gestureArrayIndex].PointPatterns[0].Points[trajectoryIndex]);
+                    }
+
+                    patternSetCache[(key.FingerCount, key.TrajectoryCount, trajectoryIndex)] = patternSet;
+                }
+            }
+
+            _gestureIndexSnapshot = new GestureIndexSnapshot
+            {
+                GestureIndex = gestureIndex,
+                PatternSetCache = patternSetCache,
+            };
         }
 
         public void AddGesture(IGesture Gesture)
         {
-            _Gestures.Add(Gesture);
+            var snapshot = Gestures.ToList();
+            snapshot.Add(Gesture);
+            SetGesturesSnapshot(snapshot);
         }
 
         public Task LoadGestures()
         {
+            var repairedBindings = new List<GestureIdRepair>();
+
             Action<bool> loadCompleted =
                    result =>
                    {
                        if (!result)
                            if (!LoadBackup())
-                               if (!LoadDefaults())
-                                   _Gestures = new List<IGesture>();
+                                if (!LoadDefaults())
+                                    SetGesturesSnapshot(new List<IGesture>());
+
+                       if (_gestureIdsRepairedOnLoad)
+                       {
+                           RepairApplicationGestureBindings(repairedBindings);
+                           SaveGestures();
+                           _gestureIdsRepairedOnLoad = false;
+                       }
                        OnLoadGesturesCompleted?.Invoke(this, EventArgs.Empty);
                    };
 
@@ -216,16 +275,23 @@ namespace GestureSign.Common.Gestures
                                 if (gesture.Points != null)
                                     gesture.PointPatterns = new[] { new PointPattern(gesture.Points) };
                             }
-                            _Gestures = legacyGestures.Cast<IGesture>().ToList();
+                            var normalizedLegacy = legacyGestures.Cast<IGesture>().ToList();
+                            var repairedLegacy = NormalizeGestureIds(normalizedLegacy);
+                            repairedBindings.AddRange(repairedLegacy);
+                            _gestureIdsRepairedOnLoad |= repairedLegacy.Count > 0;
+                            SetGesturesSnapshot(normalizedLegacy);
                         }
                         else
                         {
-                            _Gestures = gestures;
+                            var repaired = NormalizeGestureIds(gestures);
+                            repairedBindings.AddRange(repaired);
+                            _gestureIdsRepairedOnLoad |= repaired.Count > 0;
+                            SetGesturesSnapshot(gestures);
                         }
                     }
 
 
-                    return _Gestures != null;
+                    return gestures != null;
                 }
                 catch
                 {
@@ -236,11 +302,119 @@ namespace GestureSign.Common.Gestures
             return startLoading.ContinueWith(antecendent => loadCompleted(antecendent.Result));
         }
 
+        private List<GestureIdRepair> NormalizeGestureIds(List<IGesture> gestures)
+        {
+            var repairs = new List<GestureIdRepair>();
+            if (gestures == null || gestures.Count == 0)
+                return repairs;
+
+            var usedIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var gesture in gestures)
+            {
+                if (gesture == null)
+                    continue;
+
+                bool needsRepair = string.IsNullOrWhiteSpace(gesture.Id) || usedIds.Contains(gesture.Id);
+                if (needsRepair)
+                {
+                    string oldId = gesture.Id;
+                    gesture.Id = GetNewGestureId(gesture.PointPatterns);
+                    while (usedIds.Contains(gesture.Id))
+                    {
+                        gesture.Id += "_1";
+                    }
+
+                    repairs.Add(new GestureIdRepair
+                    {
+                        OldId = oldId,
+                        NewId = gesture.Id,
+                        GestureName = gesture.Name,
+                    });
+                    Log.Logging.LogWarning($"[LoadGesturesFromFile] Duplicate/empty gesture id repaired: {oldId} -> {gesture.Id} ({gesture.Name})");
+                }
+
+                usedIds.Add(gesture.Id);
+            }
+
+            return repairs;
+        }
+
+        private void RepairApplicationGestureBindings(IReadOnlyCollection<GestureIdRepair> repairs)
+        {
+            if (repairs == null || repairs.Count == 0)
+                return;
+
+            try
+            {
+                var applicationManager = ApplicationManager.Instance;
+                ExecuteAfterTaskCompletion(applicationManager.LoadingTask, () => RepairApplicationGestureBindingsCore(applicationManager, repairs));
+            }
+            catch (Exception ex)
+            {
+                Log.Logging.LogException(ex);
+            }
+        }
+
+        private static void ExecuteAfterTaskCompletion(Task dependency, System.Action action)
+        {
+            if (action == null)
+                return;
+
+            if (dependency == null || dependency.IsCompleted)
+            {
+                action();
+                return;
+            }
+
+            dependency.ContinueWith(
+                _ => action(),
+                TaskScheduler.Default);
+        }
+
+        private static void RepairApplicationGestureBindingsCore(ApplicationManager applicationManager, IReadOnlyCollection<GestureIdRepair> repairs)
+        {
+            int repairedActionCount = 0;
+            foreach (var app in applicationManager.Applications)
+            {
+                if (app?.Actions == null)
+                    continue;
+
+                foreach (var action in app.Actions)
+                {
+                    if (action == null)
+                        continue;
+
+                    var repair = repairs.FirstOrDefault(r =>
+                        !string.IsNullOrWhiteSpace(r.NewId) &&
+                        ((!string.IsNullOrWhiteSpace(r.OldId) &&
+                          string.Equals(action.GestureId, r.OldId, StringComparison.Ordinal) &&
+                          string.Equals(action.GestureName, r.GestureName, StringComparison.Ordinal)) ||
+                         (string.IsNullOrWhiteSpace(action.GestureId) &&
+                          string.Equals(action.GestureName, r.GestureName, StringComparison.Ordinal))));
+
+                    if (repair == null || string.Equals(action.GestureId, repair.NewId, StringComparison.Ordinal))
+                        continue;
+
+                    action.GestureId = repair.NewId;
+                    action.GestureName = repair.GestureName;
+                    repairedActionCount++;
+                }
+            }
+
+            if (repairedActionCount > 0)
+            {
+                applicationManager.SaveApplications();
+                Log.Logging.LogWarning($"[LoadGestures] Rebound {repairedActionCount} action gesture binding(s) after repairing gesture ids.");
+            }
+        }
+
         public bool SaveGestures()
         {
             try
             {
-                bool flag = Configuration.FileManager.SaveObject(Gestures, Path.Combine(AppConfig.ApplicationDataPath, Constants.GesturesFileName));
+                var snapshot = Gestures;
+
+                bool flag = Configuration.FileManager.SaveObject(snapshot, Path.Combine(AppConfig.ApplicationDataPath, Constants.GesturesFileName));
 
                 if (flag)
                 {
@@ -264,8 +438,6 @@ namespace GestureSign.Common.Gestures
             }
 
             List<IGesture> gestureList = new List<IGesture>();
-            int totalGesturesInFile = 0;
-            int skippedLegacyGestures = 0;
 
             try
             {
@@ -282,12 +454,12 @@ namespace GestureSign.Common.Gestures
                 {
                     if (reader.TokenType == JsonToken.StartObject)
                     {
-                        totalGesturesInFile++;
                         Gesture gesture = new Gesture();
                         List<PointPattern> pointPatternList = new List<PointPattern>();
+                        string gestureId = null;
                         string gestureName = null;
                         int fingerCount = 0;
-                        int totalPointPatternsInGesture = 0;
+                        var matchStrategy = FingerMatchStrategy.Inherit;
 
                         while (reader.Read())
                         {
@@ -299,21 +471,22 @@ namespace GestureSign.Common.Gestures
                                     pp.FingerCount = fingerCount;
                                 }
 
+                                gesture.Id = string.IsNullOrWhiteSpace(gestureId)
+                                    ? GetDeterministicGestureId(gestureName, pointPatternList.ToArray(), fingerCount)
+                                    : gestureId;
                                 gesture.Name = gestureName;
                                 gesture.FingerCount = fingerCount;
+                                gesture.MatchStrategy = matchStrategy;
                                 gesture.PointPatterns = pointPatternList.ToArray();
 
                                 // Only add gesture if it has valid patterns
                                 if (gesture.Name != null && gesture.PointPatterns != null && gesture.PointPatterns.Length > 0)
                                 {
-                                    gestureList.Add(gesture);
-                                }
-                                else
-                                {
-                                    if (totalPointPatternsInGesture > 0)
+                                    if (gestureList.Any(g => g.Id == gesture.Id))
                                     {
-                                        skippedLegacyGestures++;
+                                        Log.Logging.LogWarning($"[LoadGesturesFromFile] Duplicate gesture id detected: {gesture.Id} ({gesture.Name})");
                                     }
+                                    gestureList.Add(gesture);
                                 }
                                 break;
                             }
@@ -321,13 +494,24 @@ namespace GestureSign.Common.Gestures
                             if (reader.TokenType != JsonToken.PropertyName) continue;
 
                             string propertyName = (string)reader.Value;
-                            if (propertyName == "Name")
+                            if (propertyName == "Id")
+                            {
+                                gestureId = reader.ReadAsString();
+                            }
+                            else if (propertyName == "Name")
                             {
                                 gestureName = reader.ReadAsString();
                             }
                             else if (propertyName == "FingerCount")
                             {
                                 fingerCount = reader.ReadAsInt32() ?? 0;
+                            }
+                            else if (propertyName == "MatchStrategy")
+                            {
+                                int rawStrategy = reader.ReadAsInt32() ?? (int)FingerMatchStrategy.Inherit;
+                                matchStrategy = Enum.IsDefined(typeof(FingerMatchStrategy), rawStrategy)
+                                    ? (FingerMatchStrategy)rawStrategy
+                                    : FingerMatchStrategy.Inherit;
                             }
                             else if (propertyName == "PointPatterns")
                             {
@@ -338,7 +522,6 @@ namespace GestureSign.Common.Gestures
                                 {
                                     if (reader.TokenType == JsonToken.StartObject)
                                     {
-                                        totalPointPatternsInGesture++;
                                         // Read PointPattern object
                                         List<Point[]> strokeList = null;
 
@@ -378,14 +561,9 @@ namespace GestureSign.Common.Gestures
                                             }
                                         }
 
-                                        // Only add if we have exactly 1 trajectory (skip legacy 2-trajectory format)
-                                        if (strokeList != null && strokeList.Count == 1)
+                                        if (strokeList != null && strokeList.Count > 0)
                                         {
                                             pointPatternList.Add(new PointPattern(strokeList.ToArray(), 0));
-                                        }
-                                        else if (strokeList != null && strokeList.Count > 1)
-                                        {
-                                            Log.Logging.LogTrace($"[LoadGesturesFromFile] Filtering out PointPattern with {strokeList.Count} trajectories (legacy 2-trajectory format)");
                                         }
                                     }
                                 }
@@ -403,63 +581,134 @@ namespace GestureSign.Common.Gestures
             }
 
 
-            // Log details of loaded gestures
-            foreach (var gesture in gestureList)
-            {
-                int totalPoints = 0;
-                foreach (var pp in gesture.PointPatterns)
-                {
-                    if (pp.Points != null)
-                    {
-                        totalPoints += pp.Points.Length;
-                    }
-                }
-            }
-
             return gestureList;
         }
 
-        public string GetGestureSetNameMatch(Point[][] points, int fingerCount, List<IGesture> sourceGestures, int sourceGestureLevel, out List<IGesture> matching)//PointF[]
+        public string GetGestureSetNameMatch(Point[][] points, int fingerCount, List<IGesture> sourceGestures)
         {
             if (points.Length == 0 || sourceGestures == null || sourceGestures.Count == 0)
             {
-                matching = null;
+                _matchedGestureId = null;
                 return null;
             }
 
-            // Pre-filter gestures inline to avoid allocating intermediate lists
-            // Reuse list instance instead of creating new one
-            List<IGesture> gestures = new List<IGesture>(sourceGestures.Count);
             int trajectoryCount = points.Length;
+            int lookupFingerCount = GetLookupFingerCount(fingerCount, trajectoryCount);
+            List<IGesture> gestures;
 
-            for (int i = 0; i < sourceGestures.Count; i++)
+            var indexSnapshot = _gestureIndexSnapshot;
+            if (indexSnapshot?.GestureIndex != null && indexSnapshot.GestureIndex.TryGetValue((lookupFingerCount, trajectoryCount), out var indexedGestures))
             {
-                IGesture g = sourceGestures[i];
-                if (g.PointPatterns != null &&
-                    g.PointPatterns.Length > sourceGestureLevel &&
-                    g.PointPatterns[sourceGestureLevel].Points != null &&
-                    g.PointPatterns[sourceGestureLevel].Points.Length == trajectoryCount &&
-                    g.FingerCount == fingerCount)
+                gestures = new List<IGesture>(indexedGestures.Count);
+                gestures.AddRange(indexedGestures);
+            }
+            else
+            {
+                gestures = new List<IGesture>(sourceGestures.Count);
+
+                for (int i = 0; i < sourceGestures.Count; i++)
                 {
-                    gestures.Add(g);
+                    IGesture g = sourceGestures[i];
+                    if (g.PointPatterns != null &&
+                        g.PointPatterns.Length > 0 &&
+                        g.PointPatterns[0].Points != null &&
+                        g.PointPatterns[0].Points.Length == trajectoryCount &&
+                        g.FingerCount == lookupFingerCount)
+                    {
+                        gestures.Add(g);
+                    }
                 }
             }
 
             if (gestures.Count == 0)
             {
-                matching = null;
+                _matchedGestureId = null;
+                Logging.LogInfo($"[GestureMatch] No gesture registered for fingerCount={lookupFingerCount}, trajectoryCount={trajectoryCount} (inputFingerCount={fingerCount}, total loaded gestures={sourceGestures.Count})");
                 return null;
+            }
+
+            var globalMatchStrategy = NormalizeGlobalMatchStrategy(Configuration.AppConfig.TrajectoryMatchStrategy);
+            var primaryGestures = gestures.Where(g => ResolveEffectiveMatchStrategy(g, globalMatchStrategy) == globalMatchStrategy).ToList();
+            var secondaryGestures = gestures.Where(g => ResolveEffectiveMatchStrategy(g, globalMatchStrategy) != globalMatchStrategy).ToList();
+
+            string matched = TryGetGestureSetNameMatchByStrategy(points, fingerCount, primaryGestures, globalMatchStrategy, indexSnapshot);
+            if (!string.IsNullOrEmpty(matched))
+                return matched;
+
+            if (secondaryGestures.Count > 0)
+            {
+                var secondaryStrategy = globalMatchStrategy == FingerMatchStrategy.FeatureFinger
+                    ? FingerMatchStrategy.AllFingers
+                    : FingerMatchStrategy.FeatureFinger;
+                matched = TryGetGestureSetNameMatchByStrategy(points, fingerCount, secondaryGestures, secondaryStrategy, indexSnapshot);
+                if (!string.IsNullOrEmpty(matched))
+                    return matched;
+            }
+
+            _matchedGestureId = null;
+            return null;
+        }
+
+        internal static int GetLookupFingerCount(int fingerCount, int trajectoryCount)
+        {
+            if (trajectoryCount <= 0)
+                return fingerCount;
+
+            if (fingerCount <= 0)
+                return trajectoryCount;
+
+            // Ignore transient peak finger spikes (e.g. 5 -> 4 trajectories) for trajectory matching lookup.
+            return fingerCount > trajectoryCount ? trajectoryCount : fingerCount;
+        }
+
+        private string TryGetGestureSetNameMatchByStrategy(
+            Point[][] points,
+            int fingerCount,
+            List<IGesture> gestures,
+            FingerMatchStrategy strategy,
+            GestureIndexSnapshot indexSnapshot)
+        {
+            if (gestures == null || gestures.Count == 0)
+                return null;
+
+            if (strategy == FingerMatchStrategy.FeatureFinger)
+                return GetGestureSetNameMatchByFeatureFinger(points, fingerCount, gestures);
+
+            return GetGestureSetNameMatchByAllFingers(points, fingerCount, gestures, indexSnapshot);
+        }
+
+        private string GetGestureSetNameMatchByAllFingers(
+            Point[][] points,
+            int fingerCount,
+            List<IGesture> gestures,
+            GestureIndexSnapshot indexSnapshot)
+        {
+            int trajectoryCount = points.Length;
+
+            if (trajectoryCount >= 3)
+            {
+                return GetGestureSetNameMatchWithTrajectoryAssignment(points, fingerCount, gestures);
             }
 
             // Perform pattern matching for each trajectory
             List<PointPatternMatchResult>[] comparisonResults = new List<PointPatternMatchResult>[trajectoryCount];
             for (int i = 0; i < trajectoryCount; i++)
             {
-                // Build point pattern set for this trajectory - cache to avoid rebuilding
-                var patternSet = new PointsPatternSet[gestures.Count];
-                for (int j = 0; j < gestures.Count; j++)
+                PointsPatternSet[] patternSet;
+                int cacheFingerCount = gestures.Count > 0 ? gestures[0].FingerCount : fingerCount;
+                if (indexSnapshot?.PatternSetCache != null &&
+                    indexSnapshot.PatternSetCache.TryGetValue((cacheFingerCount, trajectoryCount, i), out var cachedPatternSet) &&
+                    cachedPatternSet.Length == gestures.Count)
                 {
-                    patternSet[j] = new PointsPatternSet(gestures[j].Name, gestures[j].PointPatterns[sourceGestureLevel].Points[i]);
+                    patternSet = cachedPatternSet;
+                }
+                else
+                {
+                    patternSet = new PointsPatternSet[gestures.Count];
+                    for (int j = 0; j < gestures.Count; j++)
+                    {
+                        patternSet[j] = new PointsPatternSet(gestures[j].Name, gestures[j].PointPatterns[0].Points[i]);
+                    }
                 }
 
                 gestureAnalyzer.PointPatternSet = patternSet;
@@ -468,7 +717,6 @@ namespace GestureSign.Common.Gestures
             }
 
             // Filter gestures that meet probability threshold across ALL trajectories
-            // Using HashSet for O(1) removal instead of repeated LINQ Where().ToList()
             double threshold = Configuration.AppConfig.GestureMatchProbability;
             HashSet<int> validIndices = new HashSet<int>(Enumerable.Range(0, gestures.Count));
 
@@ -480,76 +728,278 @@ namespace GestureSign.Common.Gestures
                 // Early exit if no gestures pass threshold
                 if (validIndices.Count == 0)
                 {
-                    // Logging.LogInfo($"[GestureMatch] No gesture passed threshold={threshold}% at trajectory {trajectoryIdx}");
-                    matching = null;
+                    _matchedGestureId = null;
+                    if (matchResults.Count > 0)
+                    {
+                        var topMatch = matchResults.OrderByDescending(r => r.Probability).First();
+                        Logging.LogInfo($"[GestureMatch] No gesture passed threshold={threshold}% at trajectory {trajectoryIdx}, best={topMatch.Probability:F1}% (angular={topMatch.AngularProbability:F1}%, penalty={topMatch.StructuralPenalty:F1}%) name={topMatch.Name}");
+                    }
                     return null;
                 }
             }
 
-            // Separate gestures into multi-level matches and final matches
-            List<IGesture> matchingResult = new List<IGesture>(validIndices.Count);
-            List<KeyValuePair<string, double>> recognizedResult = new List<KeyValuePair<string, double>>(validIndices.Count);
+            // Calculate total probability for each matching gesture
+            string bestMatch = null;
+            double bestProbability = double.MinValue;
 
             foreach (int gestureIdx in validIndices)
             {
                 IGesture gesture = gestures[gestureIdx];
-                if (gesture.PointPatterns.Length > sourceGestureLevel + 1)
+                double totalProbability = 0;
+                for (int i = 0; i < trajectoryCount; i++)
                 {
-                    // Multi-level gesture - needs more input
-                    matchingResult.Add(gesture);
+                    totalProbability += comparisonResults[i][gestureIdx].Probability;
                 }
-                else
+
+                if (totalProbability > bestProbability)
                 {
-                    // Final level - calculate total probability
-                    double totalProbability = 0;
-                    for (int i = 0; i < trajectoryCount; i++)
-                    {
-                        totalProbability += comparisonResults[i][gestureIdx].Probability;
-                    }
-
-                    recognizedResult.Add(new KeyValuePair<string, double>(gesture.Name, totalProbability));
+                    bestMatch = gesture.Name;
+                    bestProbability = totalProbability;
+                    _matchedGestureId = gesture.Id;
                 }
-            }
-
-            matching = matchingResult.Count == 0 ? null : matchingResult;
-
-            if (recognizedResult.Count == 0)
-                return null;
-
-            // Find best match
-            string bestMatch = recognizedResult[0].Key;
-            double bestProbability = recognizedResult[0].Value;
-
-            for (int i = 1; i < recognizedResult.Count; i++)
-            {
-                if (recognizedResult[i].Value > bestProbability)
-                {
-                    bestMatch = recognizedResult[i].Key;
-                    bestProbability = recognizedResult[i].Value;
-                }
-            }
-
-            // Log all candidates and probabilities for debugging
-            if (recognizedResult.Count > 1)
-            {
-                var candidates = string.Join(", ", recognizedResult.Select(r => $"{r.Key}={r.Value / trajectoryCount:F1}%"));
             }
 
             return bestMatch;
         }
 
+        private static FingerMatchStrategy ResolveEffectiveMatchStrategy(IGesture gesture, FingerMatchStrategy globalMatchStrategy)
+        {
+            var gestureStrategy = gesture?.MatchStrategy ?? FingerMatchStrategy.Inherit;
+            if (gestureStrategy == FingerMatchStrategy.AllFingers ||
+                gestureStrategy == FingerMatchStrategy.FeatureFinger)
+            {
+                return gestureStrategy;
+            }
+
+            return NormalizeGlobalMatchStrategy(globalMatchStrategy);
+        }
+
+        private static FingerMatchStrategy NormalizeGlobalMatchStrategy(FingerMatchStrategy strategy)
+        {
+            return strategy == FingerMatchStrategy.FeatureFinger
+                ? FingerMatchStrategy.FeatureFinger
+                : FingerMatchStrategy.AllFingers;
+        }
+
+        private string GetGestureSetNameMatchByFeatureFinger(Point[][] points, int fingerCount, List<IGesture> gestures)
+        {
+            int trajectoryCount = points.Length;
+            int featureTrajectoryIndex = GetFeatureFingerTrajectoryIndex(trajectoryCount, Configuration.AppConfig.FeatureFingerIndex);
+            double threshold = Configuration.AppConfig.GestureMatchProbability;
+            const double secondaryViewFallbackDeficit = 3.0;
+
+            var patternSet = new PointsPatternSet[gestures.Count];
+            for (int gestureIdx = 0; gestureIdx < gestures.Count; gestureIdx++)
+            {
+                var gesture = gestures[gestureIdx];
+                patternSet[gestureIdx] = new PointsPatternSet(gesture.Name, gesture.PointPatterns[0].Points[featureTrajectoryIndex]);
+            }
+
+            gestureAnalyzer.PointPatternSet = patternSet;
+            var matchResults = gestureAnalyzer.GetPointPatternMatchResults(points[featureTrajectoryIndex]).ToList();
+
+            string bestMatch = null;
+            double bestProbability = double.MinValue;
+            PointPatternMatchResult topResult = null;
+
+            for (int gestureIdx = 0; gestureIdx < matchResults.Count; gestureIdx++)
+            {
+                var result = matchResults[gestureIdx];
+                if (result.Probability <= threshold)
+                {
+                    if (topResult == null || result.Probability > topResult.Probability)
+                        topResult = result;
+                    continue;
+                }
+
+                if (result.Probability > bestProbability)
+                {
+                    bestProbability = result.Probability;
+                    bestMatch = gestures[gestureIdx].Name;
+                    _matchedGestureId = gestures[gestureIdx].Id;
+                }
+            }
+
+            if (bestMatch == null)
+            {
+                _matchedGestureId = null;
+                if (topResult != null)
+                {
+                    Logging.LogInfo($"[GestureMatch] No gesture passed threshold={threshold}% at feature trajectory {featureTrajectoryIndex}, best={topResult.Probability:F1}% (angular={topResult.AngularProbability:F1}%, penalty={topResult.StructuralPenalty:F1}%) name={topResult.Name}");
+
+                    // Same threshold, different view: when feature lane is a near miss, retry using all-fingers.
+                    if (trajectoryCount >= 3 && threshold - topResult.Probability <= secondaryViewFallbackDeficit)
+                    {
+                        string fallbackMatch = GetGestureSetNameMatchWithTrajectoryAssignment(points, fingerCount, gestures);
+                        if (!string.IsNullOrEmpty(fallbackMatch))
+                        {
+                            Logging.LogInfo($"[GestureMatch] Feature view near-threshold miss recovered by all-fingers view: featureBest={topResult.Probability:F1}%, threshold={threshold}%");
+                            return fallbackMatch;
+                        }
+                    }
+                }
+            }
+
+            return bestMatch;
+        }
+
+        public static int GetFeatureFingerTrajectoryIndex(int trajectoryCount, int configuredFeatureFingerIndex)
+        {
+            if (trajectoryCount <= 1)
+                return 0;
+
+            if (trajectoryCount == 2)
+                return 0;
+
+            // 2 指默认取首轨迹，3+ 指默认取第二轨迹；若配置有效则优先使用配置值。
+            int fallback = 1;
+            int candidate = configuredFeatureFingerIndex >= 0 ? configuredFeatureFingerIndex : fallback;
+            return Math.Min(candidate, trajectoryCount - 1);
+        }
+
+        private string GetGestureSetNameMatchWithTrajectoryAssignment(Point[][] points, int fingerCount, List<IGesture> gestures)
+        {
+            double threshold = Configuration.AppConfig.GestureMatchProbability;
+            string bestMatch = null;
+            string bestFailureName = null;
+            PointPatternMatchResult bestFailureResult = null;
+            int bestFailureTrajectoryIndex = -1;
+            double bestProbability = double.MinValue;
+            double bestFailureProbability = double.MinValue;
+
+            for (int gestureIdx = 0; gestureIdx < gestures.Count; gestureIdx++)
+            {
+                IGesture gesture = gestures[gestureIdx];
+                var assignment = GetBestTrajectoryAssignment(points, gesture);
+                if (assignment.AssignedResults == null || assignment.AssignedResults.Length == 0)
+                    continue;
+
+                bool valid = true;
+                for (int inputIdx = 0; inputIdx < assignment.AssignedResults.Length; inputIdx++)
+                {
+                    if (assignment.AssignedResults[inputIdx].Probability <= threshold)
+                    {
+                        valid = false;
+                        if (assignment.AssignedResults[inputIdx].Probability > bestFailureProbability)
+                        {
+                            bestFailureProbability = assignment.AssignedResults[inputIdx].Probability;
+                            bestFailureResult = assignment.AssignedResults[inputIdx];
+                            bestFailureTrajectoryIndex = inputIdx;
+                            bestFailureName = gesture.Name;
+                        }
+
+                        break;
+                    }
+                }
+
+                if (!valid)
+                    continue;
+
+                if (assignment.TotalProbability > bestProbability)
+                {
+                    bestProbability = assignment.TotalProbability;
+                    bestMatch = gesture.Name;
+                    _matchedGestureId = gesture.Id;
+                }
+            }
+
+            if (bestMatch == null)
+            {
+                _matchedGestureId = null;
+                if (bestFailureResult != null)
+                {
+                    Logging.LogInfo($"[GestureMatch] No gesture passed threshold={threshold}% at trajectory {bestFailureTrajectoryIndex}, best={bestFailureResult.Probability:F1}% (angular={bestFailureResult.AngularProbability:F1}%, penalty={bestFailureResult.StructuralPenalty:F1}%) name={bestFailureName ?? bestFailureResult.Name}");
+                }
+            }
+
+            return bestMatch;
+        }
+
+        private (PointPatternMatchResult[] AssignedResults, double TotalProbability) GetBestTrajectoryAssignment(Point[][] inputPoints, IGesture gesture)
+        {
+            int trajectoryCount = inputPoints.Length;
+            var matrix = new PointPatternMatchResult[trajectoryCount][];
+
+            var patternSet = new PointsPatternSet[trajectoryCount];
+            for (int patternIdx = 0; patternIdx < trajectoryCount; patternIdx++)
+            {
+                patternSet[patternIdx] = new PointsPatternSet(gesture.Name, gesture.PointPatterns[0].Points[patternIdx]);
+            }
+
+            gestureAnalyzer.PointPatternSet = patternSet;
+
+            for (int inputIdx = 0; inputIdx < trajectoryCount; inputIdx++)
+            {
+                matrix[inputIdx] = gestureAnalyzer.GetPointPatternMatchResults(inputPoints[inputIdx]);
+            }
+
+            int[] assignment = FindBestTrajectoryAssignment(matrix);
+            if (assignment == null)
+                return (Array.Empty<PointPatternMatchResult>(), 0);
+
+            var assignedResults = new PointPatternMatchResult[trajectoryCount];
+            double totalProbability = 0;
+
+            for (int inputIdx = 0; inputIdx < trajectoryCount; inputIdx++)
+            {
+                int patternIdx = assignment[inputIdx];
+                var result = matrix[inputIdx][patternIdx];
+                assignedResults[inputIdx] = result;
+                totalProbability += result.Probability;
+            }
+
+            return (assignedResults, totalProbability);
+        }
+
+        public static int[] FindBestTrajectoryAssignment(PointPatternMatchResult[][] matrix)
+        {
+            if (matrix == null || matrix.Length == 0)
+                return null;
+
+            int size = matrix.Length;
+            if (matrix.Any(row => row == null || row.Length != size))
+                return null;
+
+            var current = new int[size];
+            var best = new int[size];
+            var used = new bool[size];
+            double bestTotal = double.MinValue;
+
+            void Dfs(int rowIndex, double total)
+            {
+                if (rowIndex == size)
+                {
+                    if (total > bestTotal)
+                    {
+                        bestTotal = total;
+                        Array.Copy(current, best, size);
+                    }
+
+                    return;
+                }
+
+                for (int colIndex = 0; colIndex < size; colIndex++)
+                {
+                    if (used[colIndex])
+                        continue;
+
+                    used[colIndex] = true;
+                    current[rowIndex] = colIndex;
+                    Dfs(rowIndex + 1, total + matrix[rowIndex][colIndex].Probability);
+                    used[colIndex] = false;
+                }
+            }
+
+            Dfs(0, 0);
+            return bestTotal == double.MinValue ? null : best;
+        }
+
         public string GetMostSimilarGestureName(PointPattern[] pointPattern)
         {
-            string matchName = null;
-            List<IGesture> matchGestures = null;
-            for (int i = 0; i < pointPattern.Length;)
-            {
-                matchName = GetGestureSetNameMatch(pointPattern[i].Points, pointPattern[i].FingerCount, matchGestures ?? _Gestures, i, out matchGestures);
+            if (pointPattern == null || pointPattern.Length == 0)
+                return null;
 
-                if (++i < pointPattern.Length && matchGestures == null)
-                    return null;
-            }
-            return matchName;
+            return GetGestureSetNameMatch(pointPattern[0].Points, pointPattern[0].FingerCount, GetGesturesListSnapshot());
         }
 
         public string GetMostSimilarGestureName(IGesture gesture)
@@ -562,14 +1012,32 @@ namespace GestureSign.Common.Gestures
             return Gestures.OrderBy(g => g.Name).GroupBy(g => g.Name).Select(g => g.Key).ToArray();
         }
 
+        public IEnumerable<GestureDefinitionRef> GetGestureDefinitions()
+        {
+            return Gestures.Select(g => new GestureDefinitionRef
+            {
+                Id = g.Id,
+                Name = g.Name,
+                Kind = GestureDefinitionKind.Trajectory,
+                FingerCount = g.FingerCount,
+            });
+        }
         public bool GestureExists(string gestureName)
         {
-            return _Gestures.Exists(g => String.Equals(g.Name, gestureName, StringComparison.Ordinal));
+            if (string.IsNullOrEmpty(gestureName))
+                return false;
+
+            return Gestures.Any(g => string.Equals(g.Name, gestureName, StringComparison.Ordinal));
         }
 
         public IGesture GetNewestGestureSample(string gestureName)
         {
             return String.IsNullOrEmpty(gestureName) ? null : Gestures.LastOrDefault(g => String.Equals(g.Name, gestureName, StringComparison.Ordinal));
+        }
+
+        public IGesture GetGestureById(string gestureId)
+        {
+            return string.IsNullOrEmpty(gestureId) ? null : Gestures.LastOrDefault(g => string.Equals(g.Id, gestureId, StringComparison.Ordinal));
         }
 
         public IGesture GetNewestGestureSample()
@@ -579,7 +1047,17 @@ namespace GestureSign.Common.Gestures
 
         public void DeleteGesture(string gestureName)
         {
-            _Gestures.RemoveAll(g => g.Name.Trim() == gestureName.Trim());
+            var snapshot = Gestures.ToList();
+            snapshot.RemoveAll(g => g.Name.Trim() == gestureName.Trim());
+            SetGesturesSnapshot(snapshot);
+        }
+
+        public void DeleteGestureById(string gestureId)
+        {
+            if (string.IsNullOrEmpty(gestureId)) return;
+            var snapshot = Gestures.ToList();
+            snapshot.RemoveAll(g => g.Id == gestureId);
+            SetGesturesSnapshot(snapshot);
         }
 
         public string GetNewGestureName()
@@ -595,6 +1073,9 @@ namespace GestureSign.Common.Gestures
 
         public string GetNewGestureId(PointPattern[] pointPatterns)
         {
+            if (pointPatterns == null || pointPatterns.Length == 0)
+                return Guid.NewGuid().ToString("N");
+
             string features = "";
             foreach (var pattern in pointPatterns)
             {
@@ -602,12 +1083,31 @@ namespace GestureSign.Common.Gestures
             }
             int num = 0;
             string newId = features;
-            while (GestureExists(newId))
+            var gestures = Gestures;
+            while (gestures.Any(g => string.Equals(g.Id, newId, StringComparison.Ordinal)))
             {
                 newId = features + num;
                 num++;
             };
             return newId;
+        }
+
+        private static string GetDeterministicGestureId(string gestureName, PointPattern[] pointPatterns, int fingerCount)
+        {
+            if (pointPatterns != null && pointPatterns.Length > 0)
+            {
+                string features = "";
+                foreach (var pattern in pointPatterns)
+                {
+                    features += GetPatternFeatures(pattern.Points);
+                }
+
+                return features;
+            }
+
+            string seed = $"{gestureName}|{fingerCount}";
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(seed));
+            return $"legacy_{Convert.ToHexString(hash, 0, 4)}";
         }
 
         public static string GetPatternFeatures(Point[][] pattern)
@@ -643,3 +1143,9 @@ namespace GestureSign.Common.Gestures
         #endregion
     }
 }
+
+
+
+
+
+

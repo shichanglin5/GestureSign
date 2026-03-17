@@ -88,6 +88,7 @@ namespace GestureSign.ControlPanel.Common
                     element is System.Windows.Controls.Primitives.ToggleButton ||
                     element is TextBox ||
                     element is ComboBox ||
+                    element is ComboBoxItem ||
                     element is Slider)
                 {
                     return true;
@@ -100,7 +101,7 @@ namespace GestureSign.ControlPanel.Common
         static void target_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             var target = sender as ScrollViewer;
-            if (target == null) return;
+            if (target == null || !target.IsMouseCaptured) return;
 
             if (Math.Abs(e.GetPosition(target).Y - _downPoint.Y) > 20)
             {

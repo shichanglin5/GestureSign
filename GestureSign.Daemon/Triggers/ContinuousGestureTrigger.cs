@@ -1,4 +1,4 @@
-using GestureSign.Common.Applications;
+﻿﻿﻿using GestureSign.Common.Applications;
 using GestureSign.Common.Input;
 using GestureSign.Common.Log;
 using GestureSign.Common.Plugins;
@@ -20,33 +20,46 @@ namespace GestureSign.Daemon.Triggers
         private List<Point> _lastPoints;
         private VelocityVector? _lastVelocity;
 
-        // 速度计算专用变量（与手势触发分离）
+        // 速度计算专用变量，与手势触发逻辑分离。
         private Stopwatch _velocityStopwatch = new Stopwatch();
         private List<Point> _velocityLastPoints;
         private readonly Queue<VelocityVector> _velocityHistory = new Queue<VelocityVector>();
         private const int VelocityHistorySize = 3;
         private int _scrollFrameCount;
+        private ContinuousGestureConfig _activeConfig;
+        private InertialScrollSettings _activeScrollSettings;
+        private bool _activeEnableScroll;
+        private bool _activeEnableZoom;
+        private PrimaryAxis _lastScrollAxis = PrimaryAxis.None;
+        private int _lastScrollSign;
 
 
-        // 两指缩放相关变量
+        // 双指缩放相关变量。
         private double _lastFingerDistance;
         private bool _isZooming;
         private readonly PinchZoomInjector _pinchZoomInjector = new PinchZoomInjector();
         private int _lastFingerCount;
-        private int _prevFingerCount; // 上一帧的手指数，用于检测手指数变化
+        private int _prevFingerCount; // 上一帧的手指数，用于检测手指数变化。
 
-        // 缩放进入/退出的连续帧计数
-        private int _zoomDetectFrames;       // 连续检测到缩放特征的帧数
-        private int _scrollDetectFrames;     // 缩放模式下连续检测到滚动特征的帧数
-        private const int ZoomEnterFrames = 3;  // 需要连续多少帧才进入缩放
-        private const int ZoomExitFrames = 3;   // 缩放模式下连续多少帧滚动特征才退出
+        // 缩放进入/退出的连续帧计数。
+        private int _zoomDetectFrames;       // 连续检测到缩放特征的帧数。
+        private int _scrollDetectFrames;     // 缩放模式下连续检测到滚动特征的帧数。
+        private const int ZoomEnterFrames = 3;  // 需要连续多少帧才能进入缩放。
+        private const int ZoomExitFrames = 3;   // 缩放模式下连续多少帧滚动特征才退出。
 
-        // InertialScroll 内置执行器（按手指数缓存）
+        // InertialScroll 内置执行器，按手指数缓存。
         private readonly Dictionary<int, InertialScrollExecutor> _scrollExecutors = new();
 
-        // 触控屏滚动目标：缓存设备类型和触摸点，传递给 InertialScrollExecutor
+        // 触控屏滚动目标：缓存设备类型和触摸点，传递给 InertialScrollExecutor。
         private Devices _lastSourceDevice;
         private Point _lastTouchPoint;
+
+        private enum PrimaryAxis
+        {
+            None,
+            X,
+            Y,
+        }
 
         public ContinuousGestureTrigger()
         {
@@ -54,6 +67,13 @@ namespace GestureSign.Daemon.Triggers
 
             PointCapture.Instance.PointCaptured += PointCapture_PointCaptured;
             PointCapture.Instance.CaptureEnded += PointCapture_CaptureEnded;
+        }
+
+        internal static bool ShouldHandleTwoFingerContinuous(int fingerCount, int activeFingerCount)
+        {
+            int resolvedFingerCount = fingerCount > 0 ? fingerCount : activeFingerCount;
+            int resolvedActiveFingerCount = activeFingerCount > 0 ? activeFingerCount : resolvedFingerCount;
+            return resolvedActiveFingerCount == 2;
         }
 
         private void PointCapture_CaptureEnded(object sender, System.EventArgs e)
@@ -84,11 +104,10 @@ namespace GestureSign.Daemon.Triggers
                 msSinceLastFrame < 80 &&
                 _scrollExecutors.TryGetValue(_lastFingerCount, out var lastExecutor))
             {
-                var config = GetEffectiveConfig(_lastFingerCount);
-                if (config != null && config.ScrollMode == ContinuousScrollMode.InertialScroll)
+                if (_activeEnableScroll)
                 {
                     var window = ApplicationManager.Instance.CaptureWindow;
-                    var settings = config.ScrollSettings ?? new InertialScrollSettings();
+                    var settings = _activeScrollSettings ?? new InertialScrollSettings();
                     var inertialVelocity = GetAveragedVelocity(_lastVelocity.Value);
                     // Logging.LogDebug($"[CGT] CaptureEnded: frames={_scrollFrameCount} sinceLastFrame={msSinceLastFrame}ms avgVel=({inertialVelocity.VelocityX:F1},{inertialVelocity.VelocityY:F1}) mag={inertialVelocity.Magnitude:F1} minVel={settings.MomentumMinVelocity}");
                     lastExecutor.StartInertiaIfNeeded(inertialVelocity, window, settings, _lastSourceDevice, _lastTouchPoint);
@@ -102,23 +121,35 @@ namespace GestureSign.Daemon.Triggers
             _velocityHistory.Clear();
             _scrollFrameCount = 0;
             _lastVelocity = null;
+            ResetActiveContinuousConfig();
+            ResetVelocityDirectionTracking();
         }
 
         private void PointCapture_PointCaptured(object sender, PointsCapturedEventArgs e)
         {
             int fingerCount = e.FingerCount > 0 ? e.FingerCount : e.Points.Count;
+            int activeFingerCount = e.ActiveFingerCount > 0 ? e.ActiveFingerCount : fingerCount;
+            int gestureFingerCount = activeFingerCount;
 
             var state = PointCapture.Instance.State;
-            if ((state != CaptureState.Capturing && state != CaptureState.CapturingInvalid) || fingerCount < 2)
+            if ((state != CaptureState.Capturing && state != CaptureState.CapturingInvalid) ||
+                !ShouldHandleTwoFingerContinuous(fingerCount, activeFingerCount))
             {
                 return;
             }
-            bool fingerCountChanged = fingerCount != _prevFingerCount;
-            _prevFingerCount = fingerCount;
-            _lastFingerCount = fingerCount;
+
+            // 实际活跃手指数不足时停止连续手势
+            if (gestureFingerCount < 2)
+            {
+                return;
+            }
+
+            bool fingerCountChanged = gestureFingerCount != _prevFingerCount;
+            _prevFingerCount = gestureFingerCount;
+            _lastFingerCount = gestureFingerCount;
             _lastSourceDevice = PointCapture.Instance.SourceDevice;
 
-            // 从全量轨迹中提取每个触点的最新位置（稳定，数量 = 活跃触点数）
+            // 浠庡叏閲忚建杩逛腑鎻愬彇姣忎釜瑙︾偣鐨勬渶鏂颁綅缃紙绋冲畾锛屾暟閲?= 娲昏穬瑙︾偣鏁帮級
             var latestPoints = GetLatestPoints(e.Points);
             if (latestPoints.Count == 0) return;
 
@@ -130,17 +161,20 @@ namespace GestureSign.Daemon.Triggers
                 _lastTouchPoint = new Point(cx / latestPoints.Count, cy / latestPoints.Count);
             }
 
-            // 按 Application 级别查找当前手指数的连续手势配置
-            var config = GetEffectiveConfig(fingerCount);
+            if (_lastPoints == null || fingerCountChanged)
+            {
+                InitializeActiveContinuousConfig(gestureFingerCount);
+            }
+
+            var config = _activeConfig;
             if (config == null) return;
 
-            bool enableZoom = config.EnableZoom && fingerCount == 2;
-            bool enableScroll = config.ScrollMode == ContinuousScrollMode.InertialScroll ||
-                                config.ScrollMode == ContinuousScrollMode.Custom;
+            bool enableZoom = _activeEnableZoom;
+            bool enableScroll = _activeEnableScroll;
 
             if (!enableScroll && !enableZoom) return;
 
-            // 仅首帧输出配置日志，避免每帧重复
+            // 仅惯性输出配置日志，避免每帧重复
             // if (_lastPoints == null)
             //     Logging.LogDebug($"[CGT] config: fingers={fingerCount} zoom={enableZoom} scrollMode={config.ScrollMode}");
 
@@ -167,6 +201,7 @@ namespace GestureSign.Daemon.Triggers
                 _scrollDetectFrames = 0;
                 _velocityLastPoints = latestPoints;
                 _velocityStopwatch.Restart();
+                ResetVelocityDirectionTracking();
                 if (e.FirstCapturedPoints.Count >= 2)
                     _lastFingerDistance = PointPatternMath.GetDistance(e.FirstCapturedPoints[0], e.FirstCapturedPoints[1]);
                 return;
@@ -179,6 +214,7 @@ namespace GestureSign.Daemon.Triggers
             // 暂停后松开的问题已通过 msSinceLastFrame 阈值判定解决
             if (velocity.Magnitude > 0)
             {
+                TrackVelocityDirectionChange(velocity);
                 _velocityHistory.Enqueue(velocity);
                 while (_velocityHistory.Count > VelocityHistorySize)
                     _velocityHistory.Dequeue();
@@ -332,86 +368,21 @@ namespace GestureSign.Daemon.Triggers
             if (config.ScrollMode == ContinuousScrollMode.InertialScroll)
             {
                 // InertialScroll 模式：内置执行，不经过 Action/Plugin 链路
-                if (!_scrollExecutors.TryGetValue(fingerCount, out var executor))
+                if (!_scrollExecutors.TryGetValue(gestureFingerCount, out var executor))
                 {
                     executor = new InertialScrollExecutor();
-                    _scrollExecutors[fingerCount] = executor;
+                    _scrollExecutors[gestureFingerCount] = executor;
                 }
 
                 var window = ApplicationManager.Instance.CaptureWindow;
-                var settings = config.ScrollSettings ?? new InertialScrollSettings();
+                var settings = _activeScrollSettings ?? new InertialScrollSettings();
                 _scrollFrameCount++;
                 executor.ProcessFrame(velocity, window, settings, _lastSourceDevice, _lastTouchPoint);
 
                 _lastPoints = latestPoints;
             }
-            else if (config.ScrollMode == ContinuousScrollMode.Custom)
-            {
-                // Custom 模式：根据方向查找命令并执行
-                ExecuteCustomMode(config, velocity, deltaX, deltaY, e, latestPoints);
-            }
+
         }
-
-        private void ExecuteCustomMode(ContinuousGestureConfig config, VelocityVector velocity,
-            int deltaX, int deltaY, PointsCapturedEventArgs e, List<Point> latestPoints)
-        {
-            if (config.DirectionCommands == null || config.DirectionCommands.Count == 0)
-                return;
-
-            int deltaXAbs = Math.Abs(deltaX);
-            int deltaYAbs = Math.Abs(deltaY);
-            bool isHorizontal = deltaXAbs > deltaYAbs;
-
-            if (isHorizontal)
-            {
-                var rate = GetRateOfFire(deltaXAbs);
-                if (rate >= 1)
-                {
-                    var direction = deltaX > 0 ? Gestures.Right : Gestures.Left;
-                    for (int i = 1; i < rate; i++)
-                    {
-                        ExecuteDirectionCommands(config, direction, e, velocity);
-                    }
-                    _stopwatch.Restart();
-                    _lastPoints = latestPoints;
-                }
-            }
-            else
-            {
-                var rate = GetRateOfFire(deltaYAbs);
-                if (rate >= 1)
-                {
-                    var direction = deltaY > 0 ? Gestures.Down : Gestures.Up;
-                    for (int i = 1; i < rate; i++)
-                    {
-                        ExecuteDirectionCommands(config, direction, e, velocity);
-                    }
-                    _stopwatch.Restart();
-                    _lastPoints = latestPoints;
-                }
-            }
-        }
-
-        private void ExecuteDirectionCommands(ContinuousGestureConfig config, Gestures direction,
-            PointsCapturedEventArgs e, VelocityVector velocity)
-        {
-            if (config.DirectionCommands == null ||
-                !config.DirectionCommands.TryGetValue(direction, out var commands) ||
-                commands == null || commands.Count == 0)
-                return;
-
-            var window = ApplicationManager.Instance.CaptureWindow;
-            var pointInfo = new PointInfo(
-                e.FirstCapturedPoints,
-                e.Points,
-                window,
-                System.Threading.SynchronizationContext.Current,
-                velocity);
-
-            var mode = PointCapture.Instance.Mode;
-            PluginManager.Instance.ExecuteCommands(commands, pointInfo, mode);
-        }
-
         /// <summary>
         /// 按 Application 级别查找指定手指数的有效连续手势配置。
         /// 优先级：UserApp 启用的配置 > GlobalApp 配置（受 InheritBits 控制）。
@@ -419,9 +390,10 @@ namespace GestureSign.Daemon.Triggers
         /// </summary>
         private static ContinuousGestureConfig GetEffectiveConfig(int fingerCount)
         {
+            if (fingerCount != 2)
+                return null;
+
             var recognizedApps = ApplicationManager.Instance.RecognizedApplication;
-            bool userAppHasConfig = false;
-            bool userAppInherits = true;
 
             if (recognizedApps != null)
             {
@@ -429,45 +401,52 @@ namespace GestureSign.Daemon.Triggers
                 {
                     if (app is IgnoredApp || app is GlobalApp) continue;
 
-                    var settings = app.ContinuousGestures;
-                    if (settings == null) continue;
+                    var cfg = CreateConfigFromTwoFingerSettings(app.TwoFingerGestures, ApplicationManager.Instance.GetGlobalApplication()?.TwoFingerGestures);
+                    if (cfg != null)
+                        return cfg;
 
-                    // 取第一个匹配的 UserApp 的继承策略，不被后续低优先级应用覆盖
-                    userAppInherits = settings.IsInherited(fingerCount);
-
-                    foreach (var cfg in settings.Configs)
-                    {
-                        if (cfg.ContactCount == fingerCount)
-                        {
-                            userAppHasConfig = true;
-                            if (cfg.IsEnabled)
-                                return cfg;
-                        }
-                    }
-
-                    // 以第一个 UserApp 为准，不继续遍历
                     break;
                 }
             }
 
-            // UserApp 有该手指数的配置但未启用，不回退到全局
-            if (userAppHasConfig) return null;
+            return CreateConfigFromTwoFingerSettings(ApplicationManager.Instance.GetGlobalApplication()?.TwoFingerGestures, null);
+        }
 
-            // UserApp 不继承此手指数，不回退
-            if (!userAppInherits) return null;
+        private static ContinuousGestureConfig CreateConfigFromTwoFingerSettings(TwoFingerGestureSettings settings, TwoFingerGestureSettings inherited)
+        {
+            if (settings == null && inherited == null)
+                return null;
 
-            // 从 GlobalApp 查找
-            var globalSettings = ApplicationManager.Instance.GetGlobalApplication()?.ContinuousGestures;
-            if (globalSettings != null)
+            bool enableScroll = ResolveInheritSwitch(settings?.Scroll ?? InheritSwitch.Inherit, inherited?.Scroll ?? InheritSwitch.Disabled);
+            bool enableZoom = ResolveInheritSwitch(settings?.Zoom ?? InheritSwitch.Inherit, inherited?.Zoom ?? InheritSwitch.Disabled);
+
+            bool useLocalScrollSettings = settings != null && settings.Scroll != InheritSwitch.Inherit;
+            bool useLocalZoomSettings = settings != null && settings.Zoom != InheritSwitch.Inherit;
+
+            if (!enableScroll && !enableZoom)
+                return null;
+
+            return new ContinuousGestureConfig
             {
-                foreach (var cfg in globalSettings.Configs)
-                {
-                    if (cfg.ContactCount == fingerCount && cfg.IsEnabled)
-                        return cfg;
-                }
-            }
+                IsEnabled = true,
+                ContactCount = 2,
+                EnableZoom = enableZoom,
+                ZoomSpeed = useLocalZoomSettings ? (settings?.ZoomSettings?.ZoomSpeed ?? 1.0) : (inherited?.ZoomSettings?.ZoomSpeed ?? 1.0),
+                ZoomSensitivity = useLocalZoomSettings ? (settings?.ZoomSettings?.ZoomSensitivity ?? 1.0) : (inherited?.ZoomSettings?.ZoomSensitivity ?? 1.0),
+                ScrollMode = enableScroll ? ContinuousScrollMode.InertialScroll : ContinuousScrollMode.None,
+                ScrollSettings = useLocalScrollSettings ? (settings?.ScrollSettings ?? new InertialScrollSettings()) : (inherited?.ScrollSettings ?? new InertialScrollSettings()),
+                DirectionCommands = null,
+            };
+        }
 
-            return null;
+        private static bool ResolveInheritSwitch(InheritSwitch value, InheritSwitch inherited)
+        {
+            return value switch
+            {
+                InheritSwitch.Enabled => true,
+                InheritSwitch.Disabled => false,
+                _ => inherited == InheritSwitch.Enabled,
+            };
         }
 
         private double GetRateOfFire(int distance)
@@ -539,6 +518,65 @@ namespace GestureSign.Daemon.Triggers
             return new VelocityVector(sumVx / count, sumVy / count, sumDx / count, sumDy / count);
         }
 
+        private void InitializeActiveContinuousConfig(int fingerCount)
+        {
+            _activeConfig = GetEffectiveConfig(fingerCount);
+            _activeScrollSettings = _activeConfig?.ScrollSettings ?? new InertialScrollSettings();
+            _activeEnableZoom = _activeConfig?.EnableZoom == true;
+            _activeEnableScroll = _activeConfig?.ScrollMode == ContinuousScrollMode.InertialScroll;
+        }
+
+        private void ResetActiveContinuousConfig()
+        {
+            _activeConfig = null;
+            _activeScrollSettings = null;
+            _activeEnableZoom = false;
+            _activeEnableScroll = false;
+        }
+
+        private void ResetVelocityDirectionTracking()
+        {
+            _lastScrollAxis = PrimaryAxis.None;
+            _lastScrollSign = 0;
+        }
+
+        private void TrackVelocityDirectionChange(VelocityVector velocity)
+        {
+            if (!_activeEnableScroll || _activeScrollSettings == null)
+                return;
+
+            var (axis, sign) = GetVelocityPrimaryDirection(velocity, _activeScrollSettings);
+            if (axis == PrimaryAxis.None || sign == 0)
+                return;
+
+            if (_lastScrollAxis == axis && _lastScrollSign != 0 && sign != _lastScrollSign)
+            {
+                _velocityHistory.Clear();
+            }
+
+            _lastScrollAxis = axis;
+            _lastScrollSign = sign;
+        }
+
+        private static (PrimaryAxis axis, int sign) GetVelocityPrimaryDirection(VelocityVector velocity, InertialScrollSettings settings)
+        {
+            double deltaX = velocity.DeltaX * (settings.ReverseHorizontalDirection ? 1 : -1);
+            double deltaY = velocity.DeltaY * (settings.ReverseDirection ? -1 : 1);
+
+            if (settings.Direction == ScrollDirection.Vertical)
+                deltaX = 0;
+            else if (settings.Direction == ScrollDirection.Horizontal)
+                deltaY = 0;
+
+            if (Math.Abs(deltaX) < 0.001 && Math.Abs(deltaY) < 0.001)
+                return (PrimaryAxis.None, 0);
+
+            if (Math.Abs(deltaY) >= Math.Abs(deltaX))
+                return (PrimaryAxis.Y, Math.Sign(deltaY));
+
+            return (PrimaryAxis.X, Math.Sign(deltaX));
+        }
+
         /// <summary>
         /// 从全量轨迹中提取每个触点的最新位置。
         /// e.Points 是 _pointsCaptured.Values 的快照，每个 List&lt;Point&gt; 是一个触点的完整轨迹。
@@ -560,10 +598,6 @@ namespace GestureSign.Daemon.Triggers
 
     }
 }
-
-
-
-
 
 
 

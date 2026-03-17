@@ -150,6 +150,10 @@ Email:ccfyzh@gmail.com
     <Messages>
       <ConditionError>Condition Error</ConditionError>
     </Messages>
+    <GestureMatchStrategy>Gesture Match Strategy</GestureMatchStrategy>
+    <MatchStrategyInherit>Inherit Global Setting</MatchStrategyInherit>
+    <MatchStrategyAllFingers>All Fingers Matching</MatchStrategyAllFingers>
+    <MatchStrategyFeatureFinger>Feature Finger Matching</MatchStrategyFeatureFinger>
   </ActionDialog>
   <ContinuousGesture>
     <Title>Two-finger Continuous</Title>
@@ -171,6 +175,8 @@ Email:ccfyzh@gmail.com
     <DirectionVertical>Vertical</DirectionVertical>
     <DirectionHorizontal>Horizontal</DirectionHorizontal>
     <NoiseRatio>Direction Noise Ratio</NoiseRatio>
+    <LockExitMinorDistance>Unlock Minor Distance</LockExitMinorDistance>
+    <RelockRatioMultiplier>Relock Ratio Multiplier</RelockRatioMultiplier>
     <PixelsPerScroll>Pixels/Scroll</PixelsPerScroll>
     <AccelerationFactor>Acceleration</AccelerationFactor>
     <ReverseDirection>Reverse Vertical</ReverseDirection>
@@ -264,11 +270,14 @@ Email:ccfyzh@gmail.com
   <Gesture>
     <Header>Gesture</Header>
     <GestureFile>Gesture File</GestureFile>
+      <MergeCompleteTitle>Merge Complete</MergeCompleteTitle>
+      <MergeComplete>{0} gestures were merged into "{1}".</MergeComplete>
     <View>View</View>
     <LargeIcons>Large icons</LargeIcons>
     <Details>Details</Details>
     <ImportGesture>Import Gestures...</ImportGesture>
     <GestureGroupHeader>{0} Finger(s) Gesture  ( {1} )</GestureGroupHeader>
+    <Name>Name</Name>
     <Applications>Applications</Applications>
     <MouseActions>
       <None>None</None>
@@ -276,7 +285,23 @@ Email:ccfyzh@gmail.com
       <WheelBackward>Wheel Backward</WheelBackward>
       <Left>Left Button</Left>
       <Right>Right Button</Right>
+    <GlobalGestureEditWarning>This gesture is referenced by {0} actions. Editing it will affect every action using this gesture. Continue?</GlobalGestureEditWarning>
+    <GlobalGestureEditWarningTitle>Edit Global Gesture</GlobalGestureEditWarningTitle>
       <Middle>Middle Button</Middle>
+  <ContactGestures>
+    <ClickNameFormat>{0}-finger click</ClickNameFormat>
+    <TapNameFormat>{0}-finger tap</TapNameFormat>
+    <TipTapNameFormat>TipTap {0}-finger</TipTapNameFormat>
+    <TipTapDetailedNameFormat>TipTap {0} ({1} fixed)</TipTapDetailedNameFormat>
+    <ClickTypeFormat>{0} finger click</ClickTypeFormat>
+    <TapTypeFormat>{0} finger tap</TapTypeFormat>
+    <TrajectoryTypeFormat>Trajectory gesture, {0} fingers</TrajectoryTypeFormat>
+    <UnknownType>Unrecognized</UnknownType>
+    <DirectionAny>Any</DirectionAny>
+    <DirectionLeft>Left</DirectionLeft>
+    <DirectionRight>Right</DirectionRight>
+    <DirectionMiddle>Middle</DirectionMiddle>
+  </ContactGestures>
       <XButton1>XButton1</XButton1>
       <XButton2>XButton2</XButton2>
     </MouseActions>
@@ -332,9 +357,15 @@ Email:ccfyzh@gmail.com
   </WindowDetails>
   <GestureDefinition>
     <Edit>Redraw Gesture</Edit>
-    <ExistingGesture>Exist similar gesture.Use it?</ExistingGesture>
+    <ExistingGesture>Matched existing gesture: {0}</ExistingGesture>
+    <ExistingGestureNoName>Matched existing gesture</ExistingGestureNoName>
+    <NewGestureCreated>New gesture created</NewGestureCreated>
+    <OverwriteExisting>Overwrite existing gesture</OverwriteExisting>
     <DrawGesture>Please draw a gesture</DrawGesture>
     <Redraw>Redraw</Redraw>
+    <Stop>Stop</Stop>
+    <Recording>Recording. Showing the latest captured gesture.</Recording>
+    <CopyDiagnosticData>Copy Diagnostics</CopyDiagnosticData>
   </GestureDefinition>
   <Ignored>
     <Header>Ignored</Header>
@@ -354,10 +385,20 @@ Email:ccfyzh@gmail.com
     <SystemColor>Follow System Color</SystemColor>
     <MinimumPointDistance>Minimum Point Distance {0:F0} px</MinimumPointDistance>
     <MinimumFingerCountForVisualFeedback>Minimum Finger Count for Visual Feedback {0:F0}</MinimumFingerCountForVisualFeedback>
-    <TapDistanceThreshold>Tap Distance Threshold {0:F0} px (Total movement to distinguish tap from swipe)</TapDistanceThreshold>
+    <DrawFeatureFingerOnly>Draw feature finger trail only</DrawFeatureFingerOnly>
+    <TapSensitivityTitle>Tap / TipTap Parameters</TapSensitivityTitle>
+    <TapDistanceThreshold>Tap Distance Threshold {0:F0} px (Max deviation from start point to distinguish tap from swipe)</TapDistanceThreshold>
+    <GestureMatchStrategy>Gesture Matching Strategy</GestureMatchStrategy>
+    <GestureMatchStrategyAllFingers>All Fingers Matching</GestureMatchStrategyAllFingers>
+    <GestureMatchStrategyFeatureFinger>Feature Finger Matching</GestureMatchStrategyFeatureFinger>
     <FeatureFingerIndex>Feature Finger: {0}</FeatureFingerIndex>
     <GestureMatchProbability>Gesture Match Threshold {0:F0}% (Lower = easier to match)</GestureMatchProbability>
-    <MultiFingerDelay>Multi-Finger Tap Delay {0:F0}ms (Time to collect all fingers for tap gestures)</MultiFingerDelay>
+    <TapMaxDuration>Tap Max Duration {0:F0}ms (Maximum time allowed for a tap gesture)</TapMaxDuration>
+    <ClickMaxPressDuration>Click Max Press Duration {0:F0}ms</ClickMaxPressDuration>
+    <ClickMaxMovement>Click Max Movement {0:F0}px (Max finger displacement during press)</ClickMaxMovement>
+    <TipTapMaxTapDuration>TipTap Tap Timeout {0:F0}ms</TipTapMaxTapDuration>
+    <TipTapFixMinHold>TipTap Fixed-Finger Hold Time {0:F0}ms</TipTapFixMinHold>
+    <FingerMovementJitterThreshold>Finger Movement Jitter Threshold {0:F0}px</FingerMovementJitterThreshold>
     <Backup>Backup All User Data</Backup>
     <Restore>Restore User Data</Restore>
     <OpenConfigFolder>Open Configuration Folder</OpenConfigFolder>
@@ -398,6 +439,7 @@ Email:ccfyzh@gmail.com
     <BlockWindowsGestures>
       <Header>Block Windows Default Gestures (GestureSign priority)</Header>
     </BlockWindowsGestures>
+    <MultiFingerDelay>Multi-Finger Delay {0:F0}ms (Delay before injecting first touch to wait for additional fingers)</MultiFingerDelay>
     <ShowTrayIconSwitch>
       <Header>Show Tray Icon</Header>
       <OnLabel>Show</OnLabel>
@@ -460,4 +502,30 @@ Email:ccfyzh@gmail.com
     <Title>Select Preset Rule</Title>
     <SelectPreset>Select a preset rule to reference:</SelectPreset>
   </SelectPresetDialog>
+  <SimilarityTest>
+    <NotRecorded>Not Recorded</NotRecorded>
+    <ClickRecordHint>Click "Record" and perform a test gesture.</ClickRecordHint>
+    <RecordingHint>Recording, perform a gesture to test.</RecordingHint>
+    <RecordComplete>Recording complete, click "Match" to view results.</RecordComplete>
+    <BestMatch>Best match: {0}, {1:F1}%. {2} gestures matched within threshold.</BestMatch>
+    <NoMatchBelowThreshold>No match below threshold. Highest similarity: {0}, {1:F1}%.</NoMatchBelowThreshold>
+    <NoComparableGestures>No comparable gestures.</NoComparableGestures>
+    <RecordFirst>Please record a trajectory gesture first.</RecordFirst>
+    <DaemonConnectionFailed>Cannot connect to Daemon, recording not started.</DaemonConnectionFailed>
+    <TrajectoryOnlyWarning>This window only supports trajectory gesture similarity matching. Please re-record a trajectory gesture.</TrajectoryOnlyWarning>
+    <GestureNotFound>Cannot find the latest definition for gesture "{0}".</GestureNotFound>
+    <Record>Record</Record>
+    <Stop>Stop</Stop>
+    <Match>Match</Match>
+    <Trajectory>Trajectory</Trajectory>
+    <TrajectoryComparison>Trajectory comparison</TrajectoryComparison>
+    <TemplateTapInfo>Template Tap={0}, Input Tap={1}, Match={2}</TemplateTapInfo>
+    <FingerCountFormat>{0} fingers</FingerCountFormat>
+    <Matched>Matched</Matched>
+    <NotMatched>Not Matched</NotMatched>
+  </SimilarityTest>
+  <ContinuousGestureAction>
+    <TwoFingerScroll>Two-finger Scroll</TwoFingerScroll>
+    <TwoFingerZoom>Two-finger Zoom</TwoFingerZoom>
+  </ContinuousGestureAction>
 </Language>

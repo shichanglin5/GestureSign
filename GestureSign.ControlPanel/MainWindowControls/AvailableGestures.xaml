@@ -13,6 +13,46 @@
              AllowDrop="True">
     <UserControl.Resources>
         <converters:GroupHeaderConverter x:Key="GroupHeaderConverter" />
+        <Style x:Key="PrimaryActionButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Height"
+                Value="38" />
+            <Setter Property="MinWidth"
+                Value="128" />
+            <Setter Property="Padding"
+                Value="18,0" />
+            <Setter Property="Margin"
+                Value="12,0,0,0" />
+            <Setter Property="VerticalAlignment"
+                Value="Bottom" />
+            <Setter Property="Foreground"
+                Value="White" />
+            <Setter Property="Background"
+                Value="{DynamicResource MahApps.Brushes.Accent}" />
+            <Setter Property="BorderBrush"
+                Value="{DynamicResource MahApps.Brushes.Accent}" />
+            <Setter Property="ToolTipService.ShowOnDisabled"
+                Value="True" />
+            <Style.Triggers>
+            <Trigger Property="IsMouseOver"
+                 Value="True">
+                <Setter Property="Background"
+                    Value="{DynamicResource MahApps.Brushes.Accent3}" />
+                <Setter Property="BorderBrush"
+                    Value="{DynamicResource MahApps.Brushes.Accent3}" />
+            </Trigger>
+            <Trigger Property="IsEnabled"
+                 Value="False">
+                <Setter Property="Foreground"
+                    Value="{DynamicResource MahApps.Brushes.Gray2}" />
+                <Setter Property="Background"
+                    Value="{DynamicResource MahApps.Brushes.Accent4}" />
+                <Setter Property="BorderBrush"
+                    Value="{DynamicResource MahApps.Brushes.Accent4}" />
+            </Trigger>
+            </Style.Triggers>
+        </Style>
         <CollectionViewSource x:Key="GestureViewSource"
                               Source="{Binding Path=(viewModel:GestureItemProvider.GestureItems)}">
             <CollectionViewSource.GroupDescriptions>
@@ -42,8 +82,9 @@
                        VerticalAlignment="Center"
                        HorizontalAlignment="Center" />
                 <TextBlock Grid.Row="1"
-                           Text="{Binding Path=FingerCountText}"
-                           FontSize="12"
+                           Text="{Binding Path=GestureName}"
+                           FontSize="11"
+                           TextTrimming="CharacterEllipsis"
                            Foreground="{StaticResource MahApps.Brushes.Accent}"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center" />
@@ -64,6 +105,10 @@
                 <GridViewColumnHeader Content="{localization:LocalisedText Gesture.Header}"
                                       Tag="Features" />
             </GridViewColumn>
+            <GridViewColumn DisplayMemberBinding="{Binding Path=GestureName}" Width="160">
+                <GridViewColumnHeader Content="{localization:LocalisedText Gesture.Name}"
+                                      Tag="GestureName" />
+            </GridViewColumn>
             <GridViewColumn DisplayMemberBinding="{Binding Path=Gesture.FingerCount}" Width="80">
                 <GridViewColumnHeader Content="手指数" Tag="FingerCount" />
             </GridViewColumn>
@@ -82,6 +127,7 @@
                   ItemsSource="{Binding Source={StaticResource GestureViewSource}}"
                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                   ScrollViewer.PanningMode="VerticalOnly"
+                  SelectionMode="Extended"
                   SelectionChanged="lstAvailableGestures_SelectionChanged"
                   GridViewColumnHeader.Click="GridViewColumnHeaderClickedHandler"
                   BorderThickness="0"
@@ -294,25 +340,39 @@
                 </Rectangle.OpacityMask>
             </Rectangle>
         </Button>
-        <Button x:Name="ImportButton"
-                Style="{DynamicResource MetroCircleButtonStyle}"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Bottom"
-                Height="50"
-                Width="50"
-                Margin="10,0,0,10"
-                Grid.Row="1"
-                Click="ImportGestureMenuItem_Click">
-            <Rectangle Width="20"
-                       Height="20"
-                       Fill="{Binding Path=Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Button}}}">
-                <Rectangle.OpacityMask>
-                    <VisualBrush Stretch="Uniform"
-                                 Visual="{StaticResource Import}">
-                    </VisualBrush>
-                </Rectangle.OpacityMask>
-            </Rectangle>
-        </Button>
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Margin="10,0,0,10">
+            <Button x:Name="ImportButton"
+                    Style="{DynamicResource MetroCircleButtonStyle}"
+                    Height="50"
+                    Width="50"
+                    Click="ImportGestureMenuItem_Click">
+                <Rectangle Width="20"
+                           Height="20"
+                           Fill="{Binding Path=Foreground, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Button}}}">
+                    <Rectangle.OpacityMask>
+                        <VisualBrush Stretch="Uniform"
+                                     Visual="{StaticResource Import}">
+                        </VisualBrush>
+                    </Rectangle.OpacityMask>
+                </Rectangle>
+            </Button>
+            <Button x:Name="btnMatchTest"
+                    Content="匹配测试"
+                    Style="{StaticResource PrimaryActionButtonStyle}"
+                    IsEnabled="False"
+                    ToolTip="选择至少 1 个手势后，可打开相似度匹配测试"
+                    Click="btnMatchTest_Click" />
+            <Button x:Name="btnMergeGesture"
+                    Content="合并手势"
+                    Style="{StaticResource PrimaryActionButtonStyle}"
+                    IsEnabled="False"
+                    ToolTip="选择至少 2 个手势后，可将多个手势合并到其中一个手势"
+                    Click="btnMergeGesture_Click" />
+        </StackPanel>
     </Grid>
 </UserControl>
 

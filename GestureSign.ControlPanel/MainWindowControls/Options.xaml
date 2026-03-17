@@ -227,6 +227,11 @@
                         Minimum="1"
                         ValueChanged="MinimumFingerCountForVisualFeedbackSlider_ValueChanged"
                         SmallChange="1" />
+                <CheckBox x:Name="DrawFeatureFingerOnlyCheckBox"
+                          Content="{localization:LocalisedText Options.DrawFeatureFingerOnly}"
+                          Margin="15,15,5,3"
+                          FontSize="14"
+                          Click="DrawFeatureFingerOnlyCheckBox_Click" />
             </StackPanel>
             <TextBlock x:Name="MinimumPointDistanceText"
                        HorizontalAlignment="Left"
@@ -239,6 +244,12 @@
                     Maximum="100"
                     Minimum="3"
                     ValueChanged="MinimumPointDistanceSlider_ValueChanged" />
+            <TextBlock Text="{localization:LocalisedText Options.TapSensitivityTitle}"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"
+                       Margin="0,20,0,5"
+                       FontSize="16"
+                       FontWeight="Bold" />
             <TextBlock x:Name="TapDistanceThresholdText"
                        HorizontalAlignment="Left"
                        TextWrapping="Wrap"
@@ -253,6 +264,21 @@
                     IsSnapToTickEnabled="True"
                     TickFrequency="5"
                     ValueChanged="TapDistanceThresholdSlider_ValueChanged" />
+                <TextBlock x:Name="GestureMatchStrategyText"
+                       HorizontalAlignment="Left"
+                       TextWrapping="Wrap"
+                       Text="{localization:LocalisedText Options.GestureMatchStrategy}"
+                       VerticalAlignment="Top"
+                       Margin="15,15,5,3"
+                       FontSize="14" />
+                <ComboBox x:Name="GestureMatchStrategyComboBox"
+                      HorizontalAlignment="Stretch"
+                      FontSize="14"
+                      Margin="0,5"
+                      SelectionChanged="GestureMatchStrategyComboBox_SelectionChanged">
+                <ComboBoxItem Content="{localization:LocalisedText Options.GestureMatchStrategyAllFingers}" />
+                <ComboBoxItem Content="{localization:LocalisedText Options.GestureMatchStrategyFeatureFinger}" />
+                </ComboBox>
             <TextBlock x:Name="GestureMatchProbabilityText"
                        HorizontalAlignment="Left"
                        TextWrapping="Wrap"
@@ -267,20 +293,90 @@
                     IsSnapToTickEnabled="True"
                     TickFrequency="1"
                     ValueChanged="GestureMatchProbabilitySlider_ValueChanged" />
-            <TextBlock x:Name="MultiFingerDelayText"
+            <TextBlock x:Name="TapMaxDurationText"
                        HorizontalAlignment="Left"
                        TextWrapping="Wrap"
-                       Text="{Binding ElementName=MultiFingerDelaySlider, Path=Value, StringFormat={localization:LocalisedText Options.MultiFingerDelay}}"
+                       Text="{Binding ElementName=TapMaxDurationSlider, Path=Value, StringFormat={localization:LocalisedText Options.TapMaxDuration}}"
                        VerticalAlignment="Top"
                        Margin="15,15,5,3"
                        FontSize="14" />
-            <Slider x:Name="MultiFingerDelaySlider"
+            <Slider x:Name="TapMaxDurationSlider"
+                    Maximum="500"
+                    Minimum="100"
+                    SmallChange="10"
+                    IsSnapToTickEnabled="True"
+                    TickFrequency="10"
+                    ValueChanged="TapMaxDurationSlider_ValueChanged" />
+            <TextBlock x:Name="ClickMaxPressDurationText"
+                       HorizontalAlignment="Left"
+                       TextWrapping="Wrap"
+                       Text="{Binding ElementName=ClickMaxPressDurationSlider, Path=Value, StringFormat={localization:LocalisedText Options.ClickMaxPressDuration}}"
+                       VerticalAlignment="Top"
+                       Margin="15,15,5,3"
+                       FontSize="14" />
+            <Slider x:Name="ClickMaxPressDurationSlider"
+                    Maximum="2000"
+                    Minimum="100"
+                    SmallChange="50"
+                    IsSnapToTickEnabled="True"
+                    TickFrequency="50"
+                    ValueChanged="ClickMaxPressDurationSlider_ValueChanged" />
+            <TextBlock x:Name="ClickMaxMovementText"
+                       HorizontalAlignment="Left"
+                       TextWrapping="Wrap"
+                       Text="{Binding ElementName=ClickMaxMovementSlider, Path=Value, StringFormat={localization:LocalisedText Options.ClickMaxMovement}}"
+                       VerticalAlignment="Top"
+                       Margin="15,15,5,3"
+                       FontSize="14" />
+            <Slider x:Name="ClickMaxMovementSlider"
+                    Maximum="200"
+                    Minimum="10"
+                    SmallChange="5"
+                    IsSnapToTickEnabled="True"
+                    TickFrequency="5"
+                    ValueChanged="ClickMaxMovementSlider_ValueChanged" />
+            <TextBlock x:Name="TipTapMaxTapDurationText"
+                       HorizontalAlignment="Left"
+                       TextWrapping="Wrap"
+                       Text="{Binding ElementName=TipTapMaxTapDurationSlider, Path=Value, StringFormat={localization:LocalisedText Options.TipTapMaxTapDuration}}"
+                       VerticalAlignment="Top"
+                       Margin="15,15,5,3"
+                       FontSize="14" />
+            <Slider x:Name="TipTapMaxTapDurationSlider"
+                    Maximum="300"
+                    Minimum="50"
+                    SmallChange="10"
+                    IsSnapToTickEnabled="True"
+                    TickFrequency="10"
+                    ValueChanged="TipTapMaxTapDurationSlider_ValueChanged" />
+            <TextBlock x:Name="TipTapFixMinHoldText"
+                       HorizontalAlignment="Left"
+                       TextWrapping="Wrap"
+                       Text="{Binding ElementName=TipTapFixMinHoldSlider, Path=Value, StringFormat={localization:LocalisedText Options.TipTapFixMinHold}}"
+                       VerticalAlignment="Top"
+                       Margin="15,15,5,3"
+                       FontSize="14" />
+            <Slider x:Name="TipTapFixMinHoldSlider"
                     Maximum="200"
                     Minimum="0"
                     SmallChange="10"
                     IsSnapToTickEnabled="True"
                     TickFrequency="10"
-                    ValueChanged="MultiFingerDelaySlider_ValueChanged" />
+                    ValueChanged="TipTapFixMinHoldSlider_ValueChanged" />
+            <TextBlock x:Name="FingerMovementJitterThresholdText"
+                       HorizontalAlignment="Left"
+                       TextWrapping="Wrap"
+                       Text="{Binding ElementName=FingerMovementJitterThresholdSlider, Path=Value, StringFormat={localization:LocalisedText Options.FingerMovementJitterThreshold}}"
+                       VerticalAlignment="Top"
+                       Margin="15,15,5,3"
+                       FontSize="14" />
+            <Slider x:Name="FingerMovementJitterThresholdSlider"
+                    Maximum="20"
+                    Minimum="1"
+                    SmallChange="1"
+                    IsSnapToTickEnabled="True"
+                    TickFrequency="1"
+                    ValueChanged="FingerMovementJitterThresholdSlider_ValueChanged" />
             <TextBlock Text="{localization:LocalisedText Options.Language}"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top"
@@ -409,6 +505,22 @@
             <controls:ToggleSwitch x:Name="BlockWindowsGesturesSwitch"
                                    Content="{localization:LocalisedText Options.BlockWindowsGestures.Header}"
                                    Toggled="BlockWindowsGesturesSwitch_Click" />
+            <StackPanel Visibility="{Binding ElementName=BlockWindowsGesturesSwitch,Path=IsChecked,Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock x:Name="MultiFingerDelayText"
+                           HorizontalAlignment="Left"
+                           TextWrapping="Wrap"
+                           Text="{Binding ElementName=MultiFingerDelaySlider, Path=Value, StringFormat={localization:LocalisedText Options.MultiFingerDelay}}"
+                           VerticalAlignment="Top"
+                           Margin="15,10,5,3"
+                           FontSize="14" />
+                <Slider x:Name="MultiFingerDelaySlider"
+                        Maximum="200"
+                        Minimum="0"
+                        SmallChange="10"
+                        IsSnapToTickEnabled="True"
+                        TickFrequency="10"
+                        ValueChanged="MultiFingerDelaySlider_ValueChanged" />
+            </StackPanel>
             <controls:ToggleSwitch x:Name="ShowTrayIconSwitch"
                                    Content="{localization:LocalisedText Options.ShowTrayIconSwitch.Header}"
                                    Toggled="ShowTrayIconSwitch_Toggled" />

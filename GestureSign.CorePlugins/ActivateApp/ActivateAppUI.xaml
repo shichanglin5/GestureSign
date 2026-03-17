@@ -6,38 +6,53 @@
              xmlns:localization="clr-namespace:GestureSign.Common.Localization;assembly=GestureSign.Common"
              xmlns:ui="clr-namespace:GestureSign.Common.UI;assembly=GestureSign.Common"
              mc:Ignorable="d"
-             Height="260"
-             d:DesignHeight="260"
-             d:DesignWidth="450"
+             Height="520"
+             d:DesignHeight="520"
+             d:DesignWidth="520"
              Foreground="{DynamicResource MahApps.Brushes.ThemeForeground}">
-    <StackPanel Margin="15">
-        <!-- Minimize if activated -->
-        <CheckBox x:Name="MinimizeIfActivatedCheckBox"
-                  Content="{localization:LocalisedText CorePlugins.ActivateApp.MinimizeIfActivated}"
-                  IsChecked="True"
-                  Margin="0,0,0,8" />
-
-        <!-- Auto launch when no matching windows -->
-        <CheckBox x:Name="AutoLaunchCheckBox"
-                  Content="{localization:LocalisedText CorePlugins.ActivateApp.AutoLaunch}"
-                  IsChecked="True"
-                  Margin="0,0,0,8" />
-
-        <!-- Activation Method -->
-        <DockPanel Margin="0,0,0,15">
-            <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.ActivationMethod}"
-                       VerticalAlignment="Center"
-                       DockPanel.Dock="Left" />
-            <ComboBox x:Name="ActivationMethodComboBox"
-                      Width="200"
-                      Margin="10,0,0,0"
-                      HorizontalAlignment="Left"
-                      DockPanel.Dock="Left" />
-        </DockPanel>
-
-        <!-- Window Rule Section Header -->
+    <UserControl.Resources>
+        <Style TargetType="ListBoxItem">
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="WindowCandidatesListBoxItem_PreviewMouseLeftButtonDown" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Gray10}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.Gray7}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.ThemeForeground}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter Margin="0"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource MahApps.Brushes.Accent}" />
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.Accent3}" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="15">
         <DockPanel Margin="0,0,0,8">
-            <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.WindowRule}"
+                <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.WindowCandidates}"
                        FontWeight="SemiBold"
                        VerticalAlignment="Center"
                        DockPanel.Dock="Left" />
@@ -45,8 +60,8 @@
                         HorizontalAlignment="Right"
                         DockPanel.Dock="Right">
                 <Button x:Name="AddWindowRuleButton"
-                        Content="{localization:LocalisedText Common.Add}"
-                        MinWidth="60"
+                    Content="{localization:LocalisedText Common.Add}"
+                    MinWidth="56"
                         Padding="10,4"
                         Click="AddWindowRuleButton_Click" />
                 <Button x:Name="ReferencePresetButton"
@@ -58,40 +73,140 @@
             </StackPanel>
         </DockPanel>
 
-        <!-- Window Rule Display (clickable to edit) -->
+        <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.WindowCandidatesTip}"
+                   Foreground="Gray"
+                   FontSize="11"
+                   Margin="0,0,0,8"
+                   TextWrapping="Wrap" />
+
+        <Grid Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <ListBox x:Name="WindowCandidatesListBox"
+                     Height="170"
+                     SelectionChanged="WindowCandidatesListBox_SelectionChanged"
+                     MouseDoubleClick="WindowCandidatesListBox_MouseDoubleClick">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="10,8">
+                            <TextBlock Text="{Binding Title}"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}" />
+                            <TextBlock Text="{Binding Detail}"
+                                       Margin="0,4,0,0"
+                                       FontSize="11"
+                                       TextWrapping="Wrap"
+                                       Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"
+                                       Opacity="0.85" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <StackPanel Grid.Column="1"
+                        Margin="8,0,0,0">
+                <Button x:Name="EditWindowRuleButton"
+                        Content="{localization:LocalisedText CorePlugins.ActivateApp.EditWindowRule}"
+                        MinWidth="88"
+                        Padding="8,4"
+                        Margin="0,0,0,6"
+                        Click="EditWindowRuleButton_Click" />
+                <Button x:Name="DeleteWindowRuleButton"
+                        Content="{localization:LocalisedText Common.Delete}"
+                        MinWidth="88"
+                        Padding="8,4"
+                        Margin="0,0,0,6"
+                        Click="DeleteWindowRuleButton_Click" />
+                <Button x:Name="MoveUpButton"
+                        Content="{localization:LocalisedText CorePlugins.ActivateApp.MoveUp}"
+                        MinWidth="88"
+                        Padding="8,4"
+                        Margin="0,0,0,6"
+                        Click="MoveUpButton_Click" />
+                <Button x:Name="MoveDownButton"
+                        Content="{localization:LocalisedText CorePlugins.ActivateApp.MoveDown}"
+                        MinWidth="88"
+                        Padding="8,4"
+                        Click="MoveDownButton_Click" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.WindowRule}"
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,8" />
+
         <Border BorderBrush="{DynamicResource MahApps.Brushes.Gray7}"
                 BorderThickness="1"
                 CornerRadius="3"
                 Padding="12,10"
-                Margin="0,0,0,15"
+                Margin="0,0,0,12"
                 Cursor="Hand"
                 Background="{DynamicResource MahApps.Brushes.Gray10}"
                 MouseLeftButtonUp="WindowRuleBorder_Click">
             <TextBlock x:Name="WindowRuleSummaryText"
-                       Text="{localization:LocalisedText CorePlugins.ActivateApp.NoWindowRuleConfigured}"
+                       Text="{localization:LocalisedText CorePlugins.ActivateApp.NoWindowCandidateConfigured}"
                        TextWrapping="Wrap"
                        Foreground="Gray" />
         </Border>
 
-        <!-- Cache Expiration -->
-        <DockPanel Margin="0,5,0,0">
-            <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.CacheExpiration}"
-                       VerticalAlignment="Center"
-                       DockPanel.Dock="Left" />
-            <TextBox x:Name="CacheExpirationTextBox"
-                     Width="60"
-                     Height="26"
-                     Padding="5,3"
-                     Text="30"
-                     Margin="10,0,0,0"
-                     HorizontalAlignment="Left"
-                     DockPanel.Dock="Left" />
-            <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.CacheExpirationTip}"
-                       FontSize="11"
+        <StackPanel x:Name="CandidateSettingsPanel">
+            <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.CandidateSettingsTip}"
                        Foreground="Gray"
-                       VerticalAlignment="Center"
-                       Margin="10,0,0,0"
+                       FontSize="11"
+                       Margin="0,0,0,8"
                        TextWrapping="Wrap" />
-        </DockPanel>
-    </StackPanel>
+
+            <CheckBox x:Name="MinimizeIfActivatedCheckBox"
+                      Content="{localization:LocalisedText CorePlugins.ActivateApp.MinimizeIfActivated}"
+                      IsChecked="True"
+                      Checked="CandidateSettingControl_Changed"
+                      Unchecked="CandidateSettingControl_Changed"
+                      Margin="0,0,0,8" />
+
+            <CheckBox x:Name="AutoLaunchCheckBox"
+                      Content="{localization:LocalisedText CorePlugins.ActivateApp.AutoLaunch}"
+                      IsChecked="True"
+                      Checked="CandidateSettingControl_Changed"
+                      Unchecked="CandidateSettingControl_Changed"
+                      Margin="0,0,0,8" />
+
+            <DockPanel Margin="0,0,0,12">
+                <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.ActivationMethod}"
+                           VerticalAlignment="Center"
+                           DockPanel.Dock="Left" />
+                <ComboBox x:Name="ActivationMethodComboBox"
+                          Width="200"
+                          Margin="10,0,0,0"
+                          SelectionChanged="CandidateSettingControl_Changed"
+                          HorizontalAlignment="Left"
+                          DockPanel.Dock="Left" />
+            </DockPanel>
+
+            <DockPanel Margin="0,5,0,0">
+                <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.CacheExpiration}"
+                           VerticalAlignment="Center"
+                           DockPanel.Dock="Left" />
+                <TextBox x:Name="CacheExpirationTextBox"
+                         Width="60"
+                         Height="26"
+                         Padding="5,3"
+                         Text="30"
+                         LostFocus="CacheExpirationTextBox_LostFocus"
+                         Margin="10,0,0,0"
+                         HorizontalAlignment="Left"
+                         DockPanel.Dock="Left" />
+                <TextBlock Text="{localization:LocalisedText CorePlugins.ActivateApp.CacheExpirationTip}"
+                           FontSize="11"
+                           Foreground="Gray"
+                           VerticalAlignment="Center"
+                           Margin="10,0,0,0"
+                           TextWrapping="Wrap" />
+            </DockPanel>
+        </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

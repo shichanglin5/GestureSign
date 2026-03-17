@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.Specialized;
 
 namespace GestureSign.Common.Applications
@@ -31,6 +31,8 @@ namespace GestureSign.Common.Applications
         double ZoomSpeed { get; set; }
 
         ContinuousGestureSettings ContinuousGestures { get; set; }
+        TwoFingerGestureSettings TwoFingerGestures { get; set; }
+        ContactGestureSettings ContactGestures { get; set; }
 
         void AddAction(IAction Action);
         void Insert(int index, IAction action);
@@ -39,3 +41,6 @@ namespace GestureSign.Common.Applications
         bool IsMatch(WindowInfoCache windowInfo);
     }
 }
+
+
+

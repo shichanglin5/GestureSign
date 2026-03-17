@@ -1,5 +1,6 @@
 ﻿using GestureSign.Common.Gestures;
 using GestureSign.Common.InterProcessCommunication;
+using GestureSign.Common.Log;
 using System;
 using System.Linq;
 using System.Windows;
@@ -10,7 +11,7 @@ namespace GestureSign.ControlPanel
 {
     class MessageProcessor : IMessageProcessor
     {
-        public static event EventHandler<PointPattern[]> GotNewPattern;
+        public static event EventHandler<RecordedGestureDefinitionResult> GotNewGestureDefinition;
 
         public bool ProcessMessages(IpcCommands command, object data)
         {
@@ -27,22 +28,14 @@ namespace GestureSign.ControlPanel
                             }
                         case IpcCommands.GotGesture:
                             {
-                                var newGesture = data as PointPattern[];
-                                if (newGesture == null)
+                                var newDefinition = data as RecordedGestureDefinitionResult;
+                                if (newDefinition != null)
                                 {
-                                    // Fallback to old format for backward compatibility
-                                    var oldFormat = data as Point[][][];
-                                    if (oldFormat != null)
-                                    {
-                                        newGesture = oldFormat.Select(list => new PointPattern(list)).ToArray();
-                                    }
-                                    else
-                                    {
-                                        return;
-                                    }
+                                    GotNewGestureDefinition?.Invoke(this, newDefinition);
+                                    break;
                                 }
 
-                                GotNewPattern?.Invoke(this, newGesture);
+                                Logging.LogWarning($"[MessageProcessor] Unexpected gesture data type: {data?.GetType().FullName ?? "null"}");
                                 break;
                             }
                     }

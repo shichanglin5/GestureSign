@@ -47,8 +47,7 @@ namespace GestureSign.Daemon
             // Tray Icon
             _trayIcon.ContextMenuStrip = _trayMenu;
             _trayIcon.Text = "GestureSign";
-            _trayIcon.DoubleClick += (o, e) => { TrayIcon_Click(o, (MouseEventArgs)e); };
-            _trayIcon.Click += (o, e) => { TrayIcon_Click(o, (MouseEventArgs)e); };
+            _trayIcon.MouseClick += TrayIcon_Click;
             _trayIcon.Icon = Resources.normal_daemon;
 
             // Tray Menu
@@ -93,10 +92,7 @@ namespace GestureSign.Daemon
             switch (e.Button)
             {
                 case MouseButtons.Left:
-                    if (e.Clicks == 2 && PointCapture.Instance.Mode != CaptureMode.Training)
-                        ToggleDisableGestures();
-                    break;
-                case MouseButtons.Right:
+                    StartControlPanel();
                     break;
                 case MouseButtons.Middle:
                     ToggleDisableGestures();

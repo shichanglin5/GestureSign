@@ -147,7 +147,7 @@ namespace GestureSign.ControlPanel.ViewModel
                     string features;
                     int patternCount;
                     GestureItem gi = null;
-                    if (newInfo.Action?.GestureName != null && GestureItemProvider.GestureMap.TryGetValue(newInfo.Action.GestureName, out gi))
+                    if (((!string.IsNullOrEmpty(newInfo.Action?.GestureId) && GestureItemProvider.GestureMap.TryGetValue(newInfo.Action.GestureId, out gi)) || (newInfo.Action?.GestureName != null && GestureItemProvider.GestureMap.TryGetValue(newInfo.Action.GestureName, out gi))))
                     {
                         features = gi.Features;
                         patternCount = gi.PatternCount;
@@ -245,7 +245,7 @@ namespace GestureSign.ControlPanel.ViewModel
                         string features;
                         int patternCount;
                         GestureItem gi = null;
-                        if (newInfo.Action?.GestureName != null && GestureItemProvider.GestureMap.TryGetValue(newInfo.Action.GestureName, out gi))
+                        if (((!string.IsNullOrEmpty(newInfo.Action?.GestureId) && GestureItemProvider.GestureMap.TryGetValue(newInfo.Action.GestureId, out gi)) || (newInfo.Action?.GestureName != null && GestureItemProvider.GestureMap.TryGetValue(newInfo.Action.GestureName, out gi))))
                         {
                             features = gi.Features;
                             patternCount = gi.PatternCount;
@@ -369,7 +369,7 @@ namespace GestureSign.ControlPanel.ViewModel
             string features;
             int patternCount;
             GestureItem gi = null;
-            if (commandInfo.Action?.GestureName != null && GestureItemProvider.GestureMap.TryGetValue(commandInfo.Action.GestureName, out gi))
+            if (((!string.IsNullOrEmpty(commandInfo.Action?.GestureId) && GestureItemProvider.GestureMap.TryGetValue(commandInfo.Action.GestureId, out gi)) || (commandInfo.Action?.GestureName != null && GestureItemProvider.GestureMap.TryGetValue(commandInfo.Action.GestureName, out gi))))
             {
                 features = gi.Features;
                 patternCount = gi.PatternCount;
@@ -386,3 +386,5 @@ namespace GestureSign.ControlPanel.ViewModel
         }
     }
 }
+
+

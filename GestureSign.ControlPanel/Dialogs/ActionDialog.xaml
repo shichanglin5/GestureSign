@@ -56,6 +56,7 @@
                            HorizontalAlignment="Left" />
                 <usercontrols:GestureSelector x:Name="GestureSelector"
                                               CurrentGesture="{Binding CurrentGesture, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type controls:MetroWindow}, Mode=FindAncestor}}"
+                                              CurrentRecordedDefinition="{Binding CurrentRecordedDefinition, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type controls:MetroWindow}, Mode=FindAncestor}}"
                                               Margin="20,0,20,10" />
 
                 <!-- Advanced Options Section -->
@@ -120,6 +121,24 @@
                               Content="{localization:LocalisedText ActionDialog.TouchPad}" />
                 </StackPanel>
 
+                <!-- Gesture Match Strategy -->
+                <TextBlock x:Name="MatchStrategyLabel"
+                           Text="{localization:LocalisedText ActionDialog.GestureMatchStrategy}"
+                           FontSize="14"
+                           Margin="20,10,0,0"
+                           HorizontalAlignment="Left"
+                           FontWeight="Bold"
+                           Visibility="Collapsed" />
+                <ComboBox x:Name="MatchStrategyComboBox"
+                          FontSize="14"
+                          Margin="20,5,20,0"
+                          Visibility="Collapsed"
+                          SelectionChanged="MatchStrategyComboBox_SelectionChanged">
+                    <ComboBoxItem Content="{localization:LocalisedText ActionDialog.MatchStrategyInherit}" />
+                    <ComboBoxItem Content="{localization:LocalisedText ActionDialog.MatchStrategyAllFingers}" />
+                    <ComboBoxItem Content="{localization:LocalisedText ActionDialog.MatchStrategyFeatureFinger}" />
+                </ComboBox>
+
                 <!-- Activate Window -->
                 <CheckBox x:Name="ActivateWindowCheckBox"
                           Margin="20,15,0,15"
@@ -158,3 +177,4 @@
         </Grid>
     </StackPanel>
 </controls:MetroWindow>
+

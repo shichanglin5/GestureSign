@@ -94,7 +94,7 @@
     },
     {
       "label": "uiAccess: restart",
-      "dependsOn": ["stop-gesturesign", "log: delete", "run: daemon-uiaccess", "log: tail"],
+      "dependsOn": ["stop-gesturesign", "log: delete", "run: daemon-uiaccess","run: controlpanel-uiaccess", "log: tail"],
       "dependsOrder": "sequence",
       "group": "build",
       "problemMatcher": []
@@ -252,7 +252,7 @@
     },
     {
       "label": "workflow: uiaccess-full",
-      "dependsOn": ["stop-gesturesign", "log: delete", "uiAccess: clean", "uiAccess: build", "signing: sign", "copy: to-programfiles", "run: daemon-uiaccess", "log: tail"],
+      "dependsOn": ["stop-gesturesign", "log: delete", "uiAccess: clean", "uiAccess: build", "signing: sign", "copy: to-programfiles", "run: daemon-uiaccess", "run: controlpanel-uiaccess", "log: tail"],
       "dependsOrder": "sequence",
       "group": "build",
       "problemMatcher": []

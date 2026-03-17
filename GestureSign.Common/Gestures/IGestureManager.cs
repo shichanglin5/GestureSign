@@ -7,6 +7,7 @@ namespace GestureSign.Common.Gestures
     public interface IGestureManager
     {
         void DeleteGesture(string gestureName);
+        void DeleteGestureById(string gestureId);
         bool GestureExists(string gestureName);
         string GestureName { get; set; }
         IGesture[] Gestures { get; }
@@ -17,3 +18,4 @@ namespace GestureSign.Common.Gestures
         bool SaveGestures();
     }
 }
+

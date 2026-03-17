@@ -338,6 +338,15 @@ public interface IPlugin
 - 查找插件实现: 搜索 `IPlugin`
 - 查找 IPC 通信: 搜索 `NamedPipe`
 
+### Review 驱动修复工作流
+
+当存在 `.review/` 目录下的审查文档（如 `code-review-*.md`）时，按以下流程推进：
+
+1. **按优先级顺序修复** — 严格按文档中 P0 → P1 → P2 顺序逐条处理，不要跳跃
+2. **修复 → 测试 → 标记 → 下一条** — 每修完一个问题，立即补充/运行单元测试确认通过，然后在 review 文档中将该条标记为 `✅ Fixed`（标题前缀），再进入下一条。不要批量修完再补测试
+3. **遇到阻塞立即停下沟通** — 如果修复方案不确定、涉及架构决策、或发现问题描述与实际代码不符，停下来和用户确认，不要猜测推进
+4. **中途不中断** — 除阻塞外，连续推进直到当前优先级批次全部完成
+
 ### git 规范
 
 - commit msg 使用中文
@@ -348,32 +357,20 @@ public interface IPlugin
 
 ### 构建规范
 
-- 构建使用 `uiAccessRelease` 配置: `dotnet build GestureSign.sln -c uiAccessRelease`
+- 构建使用 vscode task `workflow: uiaccess-full`, 该任务会执行完整的构建部署流程 (停止进程、构建、签名、复制、启动)
 
-### uiAccessRelease 完整构建部署流程
+### 测试规范
 
-完整流程包含多个步骤（停止进程、构建、签名、复制、启动），涉及管理员提权和文件覆盖。**执行前必须请求用户确认同意。**
+#### 修复必须附带回归测试
+- 每个 Bug Fix 必须同时提交对应的回归测试，覆盖触发 bug 的具体条件
+- 禁止仅修复代码而不补充测试——缺失测试是回归问题反复出现的根本原因
 
-脚本位于 [scripts/](scripts/) 目录，按以下顺序执行：
+#### 测试必须覆盖边界条件与降级路径
+- 不能只写 happy path 测试；必须覆盖修复所触及的边界条件
+- 对包含 fallback/降级逻辑的代码，必须验证每条降级路径均可达且行为正确
+- 对含有多个分支的分类逻辑（如 GestureClassifier），每个分支至少一个测试用例
 
-```bash
-# 1. 停止运行中的 GestureSign 进程（可能需要管理员提权）
-powershell -NoProfile -File scripts/Stop-GestureSign.ps1
-
-# 2. 删除旧日志
-powershell -NoProfile -File scripts/Manage-Log.ps1 -Action delete
-
-# 3. 构建 uiAccessRelease
-dotnet build GestureSign.sln -c uiAccessRelease -v minimal
-
-# 4. 代码签名（自动创建/复用自签名证书，需要管理员提权）
-powershell -NoProfile -File scripts/Sign-Code.ps1
-
-# 5. 复制构建输出到 C:\Program Files\GestureSign\
-powershell -NoProfile -File scripts/Copy-ToProgramFiles.ps1
-
-# 6. 启动 UIAccess Daemon
-powershell -NoProfile -File scripts/Run-GestureSign.ps1 -Config uiaccess
-```
-
-对应 VSCode tasks.json 中的 `workflow: uiaccess` 任务。
+#### 三类高优先级测试场景
+1. **时序/异步测试**: 涉及异步操作（如训练模式启停、IPC 通信）的修复，必须测试竞态条件和过期响应处理
+2. **跨链路一致性测试**: 当同一数据/逻辑在多个路径使用时（如运行时 vs 训练模式 vs UI），必须验证各路径行为一致
+3. **降级路径测试**: 主路径失败后的 fallback 逻辑必须有独立测试，确保不会被意外短路为死代码

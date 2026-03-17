@@ -7,9 +7,11 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
+using GestureSign.Common.Applications;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Extensions;
 using GestureSign.Common.Gestures;
+using GestureSign.Common.Input;
 using GestureSign.Common.Localization;
 using GestureSign.ControlPanel.Common;
 using GestureSign.ControlPanel.Dialogs;
@@ -30,7 +32,10 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
         private void lstAvailableGestures_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            this.btnEditGesture.IsEnabled = this.btnDelGesture.IsEnabled = lstAvailableGestures.SelectedItems.Count > 0;
+            btnEditGesture.IsEnabled = lstAvailableGestures.SelectedItems.Count == 1;
+            btnDelGesture.IsEnabled = lstAvailableGestures.SelectedItems.Count > 0;
+            btnMatchTest.IsEnabled = lstAvailableGestures.SelectedItems.Count > 0;
+            btnMergeGesture.IsEnabled = lstAvailableGestures.SelectedItems.Count > 1;
         }
 
         private void btnDelGesture_Click(object sender, RoutedEventArgs e)
@@ -73,6 +78,25 @@ namespace GestureSign.ControlPanel.MainWindowControls
         private void btnEditGesture_Click(object sender, RoutedEventArgs e)
         {
             EditGesture();
+        }
+
+        private void btnMatchTest_Click(object sender, RoutedEventArgs e)
+        {
+            if (lstAvailableGestures.SelectedItems.Count == 0)
+                return;
+
+            var selectedGestures = lstAvailableGestures.SelectedItems.Cast<GestureItem>().ToList();
+            var dialog = new GestureSimilarityTestDialog(selectedGestures)
+            {
+                Owner = UIHelper.GetParentWindow(this),
+            };
+
+            dialog.ShowDialog();
+        }
+
+        private void btnMergeGesture_Click(object sender, RoutedEventArgs e)
+        {
+            MergeGestures();
         }
 
         private void ImportGestureMenuItem_Click(object sender, RoutedEventArgs e)
@@ -158,16 +182,148 @@ namespace GestureSign.ControlPanel.MainWindowControls
             // Make sure at least one item is selected
             if (lstAvailableGestures.SelectedItems.Count == 0) return;
 
-            GestureDefinition gd =
-                new GestureDefinition(
-                    GestureManager.Instance.GetNewestGestureSample(((GestureItem)lstAvailableGestures.SelectedItems[0]).Gesture.Name));
+            var selectedItem = (GestureItem)lstAvailableGestures.SelectedItems[0];
+            var gestureId = selectedItem.Gesture?.Id;
+
+            // 尝试作为 contact gesture（Tap/Click/TipTap）打开
+            var contactDef = GetRecordedDefinitionById(gestureId);
+            GestureDefinition gd;
+            if (contactDef != null)
+            {
+                gd = new GestureDefinition(contactDef);
+            }
+            else
+            {
+                gd = new GestureDefinition(
+                    GestureManager.Instance.GetNewestGestureSample(selectedItem.Gesture.Name));
+            }
+
             var result = gd.ShowDialog();
             if (result != null && result.Value)
             {
                 lstAvailableGestures.SelectedValue = gd.CurrentGesture;
                 lstAvailableGestures.Dispatcher.Invoke(DispatcherPriority.Input,
-                    new Action(() => lstAvailableGestures.ScrollIntoView(lstAvailableGestures.SelectedItem)));
+                    new System.Action(() => lstAvailableGestures.ScrollIntoView(lstAvailableGestures.SelectedItem)));
             }
+        }
+
+        private static RecordedGestureDefinitionResult GetRecordedDefinitionById(string gestureId)
+        {
+            if (string.IsNullOrEmpty(gestureId))
+                return null;
+
+            var global = ApplicationManager.Instance.GetGlobalApplication()?.ContactGestures;
+
+            var click = global?.Clicks?.FirstOrDefault(c => c.Id == gestureId);
+            if (click != null)
+                return new RecordedGestureDefinitionResult
+                {
+                    Type = RecordedGestureType.Click,
+                    GestureId = click.Id,
+                    Name = click.Name,
+                    FingerCount = click.FingerCount,
+                    ClickGesture = click,
+                };
+
+            var tap = global?.Taps?.FirstOrDefault(t => t.Id == gestureId);
+            if (tap != null)
+                return new RecordedGestureDefinitionResult
+                {
+                    Type = RecordedGestureType.Tap,
+                    GestureId = tap.Id,
+                    Name = tap.Name,
+                    FingerCount = tap.FingerCount,
+                    TapGesture = tap,
+                };
+
+            var tipTap = global?.TipTaps?.FirstOrDefault(t => t.Id == gestureId);
+            if (tipTap != null)
+                return new RecordedGestureDefinitionResult
+                {
+                    Type = RecordedGestureType.TipTap,
+                    GestureId = tipTap.Id,
+                    Name = tipTap.Name,
+                    FingerCount = tipTap.FingerCount,
+                    TipTapGesture = tipTap,
+                };
+
+            return null;
+        }
+
+        private void MergeGestures()
+        {
+            if (lstAvailableGestures.SelectedItems.Count < 2)
+                return;
+
+            var selectedGestures = lstAvailableGestures.SelectedItems.Cast<GestureItem>()
+                .Where(item => item?.Gesture != null)
+                .ToList();
+            if (selectedGestures.Count < 2)
+                return;
+
+            var dialog = new MergeGesturesDialog(selectedGestures)
+            {
+                Owner = UIHelper.GetParentWindow(this),
+            };
+
+            var result = dialog.ShowDialog();
+            if (!result.GetValueOrDefault() || dialog.TargetGesture?.Gesture == null)
+                return;
+
+            var targetGesture = dialog.TargetGesture.Gesture;
+            var sourceGestures = selectedGestures
+                .Where(item => item.Gesture != null && !ReferenceEquals(item.Gesture, targetGesture) && item.Gesture.Id != targetGesture.Id)
+                .ToList();
+            if (sourceGestures.Count == 0)
+                return;
+
+            foreach (var sourceGesture in sourceGestures.Select(item => item.Gesture))
+            {
+                ApplicationManager.Instance.Applications.RebindGestures(
+                    sourceGesture.Id,
+                    targetGesture.Id,
+                    sourceGesture.Name,
+                    targetGesture.Name);
+
+                if (!string.IsNullOrEmpty(sourceGesture.Id))
+                    GestureManager.Instance.DeleteGestureById(sourceGesture.Id);
+                else if (!string.IsNullOrEmpty(sourceGesture.Name))
+                    GestureManager.Instance.DeleteGesture(sourceGesture.Name);
+            }
+
+            ApplicationManager.Instance.SaveApplications();
+            GestureManager.Instance.SaveGestures();
+
+            lstAvailableGestures.Dispatcher.InvokeAsync(() => ReselectGesture(targetGesture.Id, targetGesture.Name), DispatcherPriority.Input);
+
+            var parentWindow = UIHelper.GetParentWindow(this);
+            parentWindow?.ShowModalMessageExternal(
+                LocalizationProvider.Instance.GetTextValue("Gesture.Messages.MergeCompleteTitle"),
+                string.Format(LocalizationProvider.Instance.GetTextValue("Gesture.Messages.MergeComplete"), sourceGestures.Count, targetGesture.Name));
+        }
+
+        private void ReselectGesture(string targetGestureId, string targetGestureName)
+        {
+            GestureItem selectedItem = null;
+            foreach (var item in lstAvailableGestures.Items.OfType<GestureItem>())
+            {
+                if (item?.Gesture == null)
+                    continue;
+
+                bool idMatch = !string.IsNullOrEmpty(targetGestureId) && string.Equals(item.Gesture.Id, targetGestureId, StringComparison.Ordinal);
+                bool nameMatch = string.Equals(item.Gesture.Name, targetGestureName, StringComparison.Ordinal);
+                if (idMatch || nameMatch)
+                {
+                    selectedItem = item;
+                    break;
+                }
+            }
+
+            if (selectedItem == null)
+                return;
+
+            lstAvailableGestures.SelectedItem = selectedItem;
+            lstAvailableGestures.ScrollIntoView(selectedItem);
         }
 
         protected override void OnDrop(DragEventArgs e)

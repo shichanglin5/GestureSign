@@ -1,4 +1,4 @@
-using GestureSign.Common.Applications;
+﻿using GestureSign.Common.Applications;
 using GestureSign.Common.Localization;
 using GestureSign.Common.Plugins;
 using GestureSign.Common.Gestures;
@@ -126,10 +126,17 @@ namespace GestureSign.ControlPanel.ViewModel
         {
             get
             {
-                if (Action == null || string.IsNullOrEmpty(Action.GestureName))
+                if (Action == null)
                     return 0;
 
-                var gesture = GestureManager.Instance.GetNewestGestureSample(Action.GestureName);
+                var gesture = !string.IsNullOrEmpty(Action.GestureId)
+                    ? GestureManager.Instance.GetGestureById(Action.GestureId)
+                    : null;
+
+                gesture ??= string.IsNullOrEmpty(Action.GestureName)
+                    ? null
+                    : GestureManager.Instance.GetNewestGestureSample(Action.GestureName);
+
                 return gesture?.FingerCount ?? 0;
             }
         }

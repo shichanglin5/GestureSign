@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Windows.Data;
 using GestureSign.ControlPanel.Common;
 
@@ -11,14 +12,25 @@ namespace GestureSign.ControlPanel.Converters
         public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {
             var gestureMap = values[0] as Dictionary<string, GestureItem>;
-            string gestureName = values[1] as string;
+            string gestureId = values.Length > 1 ? values[1] as string : null;
+            string gestureName = values.Length > 2 ? values[2] as string : null;
 
-            if (gestureName == null || gestureMap == null)
+            if (gestureMap == null)
                 return null;
 
             GestureItem gi = null;
-            if (gestureMap.TryGetValue(gestureName, out gi))
+            if (!string.IsNullOrEmpty(gestureId) && gestureMap.TryGetValue(gestureId, out gi))
                 return gi?.GestureImage;
+
+            if (!string.IsNullOrEmpty(gestureName) && gestureMap.TryGetValue(gestureName, out gi))
+                return gi?.GestureImage;
+
+            if (!string.IsNullOrEmpty(gestureName))
+            {
+                gi = gestureMap.Values.FirstOrDefault(item => item?.Gesture?.Name == gestureName);
+                if (gi != null)
+                    return gi.GestureImage;
+            }
 
             return null;
         }

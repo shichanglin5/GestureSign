@@ -51,8 +51,14 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 MinimumFingerCountForVisualFeedbackSlider.Value = AppConfig.MinimumFingerCountForVisualFeedback;
                 MinimumPointDistanceSlider.Value = AppConfig.MinimumPointDistance;
                 TapDistanceThresholdSlider.Value = AppConfig.TapDistanceThreshold;
+                GestureMatchStrategyComboBox.SelectedIndex = ToMatchStrategyComboBoxIndex(AppConfig.TrajectoryMatchStrategy);
                 GestureMatchProbabilitySlider.Value = AppConfig.GestureMatchProbability;
-                MultiFingerDelaySlider.Value = AppConfig.MultiFingerDelay;
+                TapMaxDurationSlider.Value = AppConfig.TapMaxDurationMs;
+                ClickMaxPressDurationSlider.Value = AppConfig.ClickMaxPressDurationMs;
+                ClickMaxMovementSlider.Value = AppConfig.ClickMaxMovementPx;
+                TipTapMaxTapDurationSlider.Value = AppConfig.TipTapMaxTapDurationMs;
+                TipTapFixMinHoldSlider.Value = AppConfig.TipTapFixMinHoldMs;
+                FingerMovementJitterThresholdSlider.Value = AppConfig.FingerMovementJitterThresholdPx;
                 OpacitySlider.Value = AppConfig.Opacity;
                 ShowTrayIconSwitch.IsOn = AppConfig.ShowTrayIcon;
                 SendLogToggleSwitch.IsOn = AppConfig.SendErrorReport;
@@ -60,14 +66,15 @@ namespace GestureSign.ControlPanel.MainWindowControls
                 TouchPadSwitch.IsOn = AppConfig.RegisterTouchPad;
                 TouchScreenSwitch.IsOn = AppConfig.RegisterTouchScreen;
                 IgnoreFullScreenSwitch.IsOn = AppConfig.IgnoreFullScreen;
+                DrawFeatureFingerOnlyCheckBox.IsChecked = AppConfig.DrawFeatureFingerOnly;
                 BlockWindowsGesturesSwitch.IsOn = AppConfig.BlockWindowsGestures;
+                MultiFingerDelaySlider.Value = AppConfig.MultiFingerDelay;
                 TouchPadWindowTargetComboBox.SelectedIndex = (int)AppConfig.TouchPadWindowTargetMode;
                 TouchScreenWindowTargetComboBox.SelectedIndex = (int)AppConfig.TouchScreenWindowTargetMode;
-                int defaultActivationMethod = AppConfig.DefaultActivationMethod;
-                if (defaultActivationMethod != 1 && defaultActivationMethod != 2)
+                int defaultActivationMethod = AppConfig.NormalizeDefaultActivationMethod(AppConfig.DefaultActivationMethod);
+                if (defaultActivationMethod != AppConfig.DefaultActivationMethod)
                 {
-                    defaultActivationMethod = 1;
-                    AppConfig.DefaultActivationMethod = 1;
+                    AppConfig.DefaultActivationMethod = defaultActivationMethod;
                 }
                 GlobalActivationMethodComboBox.SelectedIndex = defaultActivationMethod == 2 ? 1 : 0;
                 ReFetchTargetWindowCheckBox.IsChecked = AppConfig.ReFetchTargetWindowOnExecution;
@@ -96,7 +103,6 @@ namespace GestureSign.ControlPanel.MainWindowControls
 
             UpdateVisualFeedbackExample();
         }
-
         private void btnPickColor_Click(object sender, RoutedEventArgs e)
         {
             // Set color picker dialog color to current visual feedback color
@@ -137,7 +143,7 @@ namespace GestureSign.ControlPanel.MainWindowControls
         private void MinimumFingerCountForVisualFeedbackSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             var newValue = (int)Math.Round(e.NewValue);
-            if (newValue == AppConfig.MinimumFingerCountForVisualFeedback || (int)e.OldValue == 0) return;
+            if (!IsLoaded || newValue == AppConfig.MinimumFingerCountForVisualFeedback) return;
             AppConfig.MinimumFingerCountForVisualFeedback = newValue;
         }
 
@@ -153,29 +159,76 @@ namespace GestureSign.ControlPanel.MainWindowControls
         private void MinimumPointDistanceSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             var newValue = (int)Math.Round(e.NewValue);
-            if (newValue == AppConfig.MinimumPointDistance || (int)e.OldValue == 0) return;
+            if (!IsLoaded || newValue == AppConfig.MinimumPointDistance) return;
             AppConfig.MinimumPointDistance = newValue;
         }
 
         private void TapDistanceThresholdSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             var newValue = (int)Math.Round(e.NewValue);
-            if (newValue == AppConfig.TapDistanceThreshold || (int)e.OldValue == 0) return;
+            if (!IsLoaded || newValue == AppConfig.TapDistanceThreshold) return;
             AppConfig.TapDistanceThreshold = newValue;
         }
 
         private void GestureMatchProbabilitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             var newValue = (int)Math.Round(e.NewValue);
-            if (newValue == AppConfig.GestureMatchProbability || (int)e.OldValue == 0) return;
+            if (!IsLoaded || newValue == AppConfig.GestureMatchProbability) return;
             AppConfig.GestureMatchProbability = newValue;
         }
 
-        private void MultiFingerDelaySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        private void GestureMatchStrategyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!IsLoaded)
+                return;
+
+            var selected = FromMatchStrategyComboBoxIndex(GestureMatchStrategyComboBox.SelectedIndex);
+            if (selected == AppConfig.TrajectoryMatchStrategy)
+                return;
+
+            AppConfig.TrajectoryMatchStrategy = selected;
+        }
+
+        private void TapMaxDurationSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             var newValue = (int)Math.Round(e.NewValue);
-            if (newValue == AppConfig.MultiFingerDelay || (int)e.OldValue == 0) return;
-            AppConfig.MultiFingerDelay = newValue;
+            if (!IsLoaded || newValue == AppConfig.TapMaxDurationMs) return;
+            AppConfig.TapMaxDurationMs = newValue;
+        }
+
+        private void ClickMaxPressDurationSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var newValue = (int)Math.Round(e.NewValue);
+            if (!IsLoaded || newValue == AppConfig.ClickMaxPressDurationMs) return;
+            AppConfig.ClickMaxPressDurationMs = newValue;
+        }
+
+        private void ClickMaxMovementSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var newValue = (int)Math.Round(e.NewValue);
+            if (!IsLoaded || newValue == AppConfig.ClickMaxMovementPx) return;
+            AppConfig.ClickMaxMovementPx = newValue;
+        }
+
+        private void TipTapMaxTapDurationSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var newValue = (int)Math.Round(e.NewValue);
+            if (!IsLoaded || newValue == AppConfig.TipTapMaxTapDurationMs) return;
+            AppConfig.TipTapMaxTapDurationMs = newValue;
+        }
+
+        private void TipTapFixMinHoldSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var newValue = (int)Math.Round(e.NewValue);
+            if (!IsLoaded || newValue == AppConfig.TipTapFixMinHoldMs) return;
+            AppConfig.TipTapFixMinHoldMs = newValue;
+        }
+
+        private void FingerMovementJitterThresholdSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var newValue = Math.Round(e.NewValue);
+            if (!IsLoaded || newValue == AppConfig.FingerMovementJitterThresholdPx) return;
+            AppConfig.FingerMovementJitterThresholdPx = newValue;
         }
 
         private int GetAlphaPercentage(double Alpha)
@@ -380,9 +433,21 @@ namespace GestureSign.ControlPanel.MainWindowControls
             AppConfig.IgnoreFullScreen = IgnoreFullScreenSwitch.IsOn;
         }
 
+        private void DrawFeatureFingerOnlyCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            AppConfig.DrawFeatureFingerOnly = DrawFeatureFingerOnlyCheckBox.IsChecked == true;
+        }
+
         private void BlockWindowsGesturesSwitch_Click(object sender, RoutedEventArgs e)
         {
             AppConfig.BlockWindowsGestures = BlockWindowsGesturesSwitch.IsOn;
+        }
+
+        private void MultiFingerDelaySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var newValue = (int)Math.Round(e.NewValue);
+            if (!IsLoaded || newValue == AppConfig.MultiFingerDelay) return;
+            AppConfig.MultiFingerDelay = newValue;
         }
 
         private void TouchPadWindowTargetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -542,6 +607,16 @@ namespace GestureSign.ControlPanel.MainWindowControls
         private void OpenConfigFolderButton_Click(object sender, RoutedEventArgs e)
         {
             System.Diagnostics.Process.Start("explorer.exe", AppConfig.ApplicationDataPath);
+        }
+
+        private static int ToMatchStrategyComboBoxIndex(FingerMatchStrategy strategy)
+        {
+            return strategy == FingerMatchStrategy.FeatureFinger ? 1 : 0;
+        }
+
+        private static FingerMatchStrategy FromMatchStrategyComboBoxIndex(int index)
+        {
+            return index == 1 ? FingerMatchStrategy.FeatureFinger : FingerMatchStrategy.AllFingers;
         }
     }
 }

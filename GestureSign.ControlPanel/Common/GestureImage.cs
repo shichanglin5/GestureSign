@@ -91,13 +91,47 @@ namespace GestureSign.ControlPanel.Common
                 Pen drawingPen = new Pen(brush, size.Height / 20 + i * 1.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
 
                 if (pointPatterns[i].Points == null) return null;
+                var styles = pointPatterns[i].StrokeStyles;
                 for (int j = 0; j < pointPatterns[i].Points.Length; j++)
                 {
                     if (pointPatterns[i].Points[j].Length == 1)
                     {
-                        Geometry ellipse = new EllipseGeometry(new Point(size.Width * j + size.Width / 2, size.Height / 2),
-                            drawingPen.Thickness / 2, drawingPen.Thickness / 2);
-                        pathGeometry.AddGeometry(ellipse);
+                        Point center = new Point(size.Width * j + size.Width / 2, size.Height / 2);
+                        var style = styles != null && j < styles.Length
+                            ? styles[j]
+                            : StrokeDisplayStyle.FilledDot;
+
+                        switch (style)
+                        {
+                            case StrokeDisplayStyle.HollowCircle:
+                                double hollowRadius = drawingPen.Thickness * 1.6;
+                                Pen hollowPen = new Pen(brush, 1.5) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+                                hollowPen.Freeze();
+                                var hollowDrawing = new GeometryDrawing(null, hollowPen,
+                                    new EllipseGeometry(center, hollowRadius, hollowRadius));
+                                hollowDrawing.Freeze();
+                                drawingGroup.Children.Add(hollowDrawing);
+                                break;
+
+                            case StrokeDisplayStyle.RingedDot:
+                                var innerDrawing = new GeometryDrawing(brush, null,
+                                    new EllipseGeometry(center, drawingPen.Thickness / 2, drawingPen.Thickness / 2));
+                                innerDrawing.Freeze();
+                                drawingGroup.Children.Add(innerDrawing);
+                                double ringRadius = drawingPen.Thickness * 1.2;
+                                Pen ringPen = new Pen(brush, 1.2) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+                                ringPen.Freeze();
+                                var ringDrawing = new GeometryDrawing(null, ringPen,
+                                    new EllipseGeometry(center, ringRadius, ringRadius));
+                                ringDrawing.Freeze();
+                                drawingGroup.Children.Add(ringDrawing);
+                                break;
+
+                            default:
+                                pathGeometry.AddGeometry(new EllipseGeometry(center,
+                                    drawingPen.Thickness / 2, drawingPen.Thickness / 2));
+                                break;
+                        }
                         continue;
                     }
                     StreamGeometry sg = new StreamGeometry { FillRule = FillRule.EvenOdd };

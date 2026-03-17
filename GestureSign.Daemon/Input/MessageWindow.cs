@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using GestureSign.Common.Configuration;
@@ -23,8 +22,11 @@ namespace GestureSign.Daemon.Input
         // _requiringContactCount: 期望但尚未收集到的触点数（倒计时）
         //   - 初始值 = contactCount（HID 报告声称的触点数）
         //   - GetRawDatas 每收集一个触点就递减
-        //   - 结束时如果 > 0，说明 HID 数据不完整
+        //   - 结束时如果 > 0，说明需要 Hybrid 续传或数据不完整
         private int _requiringContactCount;
+
+        // _hybridPending: 当 contactCount > Finger 槽位数时为 true，表示需要等待续传报告
+        private bool _hybridPending;
 
         private Dictionary<IntPtr, ushort> _validDevices = new Dictionary<IntPtr, ushort>();
 
@@ -115,6 +117,7 @@ namespace GestureSign.Daemon.Input
             _validDevices.Clear();
             _sourceDevice = Devices.None;
             _requiringContactCount = 0;
+            _hybridPending = false;
             _outputTouchs.Clear();
 
             // GestureSign.Common.Log.Logging.LogInfo($"[MessageWindow] Registering devices - TouchScreen: {AppConfig.RegisterTouchScreen}, TouchPad: {AppConfig.RegisterTouchPad}");
@@ -320,36 +323,34 @@ namespace GestureSign.Daemon.Input
 
                     using (TouchScreenDevice touchScreen = new TouchScreenDevice(buffer, ref raw))
                     {
-                        // contactCount: HID 驱动报告的触点数量（从 HID 报告头部解析）
                         int contactCount = touchScreen.GetContactCount();
 
                         HidNativeApi.HIDP_LINK_COLLECTION_NODE[] linkCollection = touchScreen.GetLinkCollectionNodes();
                         touchScreen.GetPhysicalMax(linkCollection.Length);
 
+                        short[] fingerIndices = HidDevice.GetFingerLinkCollectionIndices(linkCollection);
+
                         if (contactCount != 0)
                         {
-                            // _requiringContactCount: 期望收集的触点数，初始值 = contactCount
-                            // GetRawDatas 会递减这个值，如果最终 != 0，说明 HID 数据不完整
                             _requiringContactCount = contactCount;
                             _outputTouchs = new List<RawData>(contactCount);
-                            touchScreen.GetRawDatas(linkCollection[0].NumberOfChildren, _currentScr, ref _requiringContactCount, ref _outputTouchs);
-
-                            // 注意：GetRawDatas 结束后，_requiringContactCount 可能 > 0（数据不完整）
-                            // 这种情况在手指抬起时很常见：HID 报告说有 N 个触点，但实际数据包不完整
+                            touchScreen.GetRawDatas(fingerIndices, _currentScr, ref _requiringContactCount, ref _outputTouchs);
+                            // 触点数超过 Finger 槽位数 → 需要后续 Hybrid 续传报告
+                            _hybridPending = _requiringContactCount > 0 && contactCount > fingerIndices.Length;
+                        }
+                        else if (_hybridPending)
+                        {
+                            // Hybrid 续传：仅当上一帧明确标记为 Hybrid 待续时才继续拼包
+                            touchScreen.GetRawDatas(fingerIndices, _currentScr, ref _requiringContactCount, ref _outputTouchs);
+                            _hybridPending = _requiringContactCount > 0;
+                        }
+                        else if (_requiringContactCount > 0)
+                        {
+                            // 非 Hybrid：数据不完整（手指抬起），仍照常上送让上层收敛
                         }
                         else
                         {
-                            // contactCount == 0：HID 报告说没有任何触点
-                            // 实际测试发现，大部分触摸屏驱动在所有手指抬起后会停止发送 WM_INPUT，
-                            // 而不是发送 contactCount=0 的消息，所以这个分支很少执行
-
-                            if (_requiringContactCount == 0)
-                                return; // No ongoing gesture, skip
-
-                            // 如果之前有手势，现在 contactCount=0，说明所有手指确实抬起了
-                            GestureSign.Common.Log.Logging.LogWarning($"[MessageWindow-TouchScreen] contactCount=0 with ongoing gesture, sending empty event to end gesture");
-                            _requiringContactCount = 0;
-                            _outputTouchs = new List<RawData>();
+                            return;
                         }
                     }
                 }
@@ -367,78 +368,45 @@ namespace GestureSign.Daemon.Input
 
                     using (TouchPadDevice touchPad = new TouchPadDevice(buffer, ref raw))
                     {
-                        // contactCount: HID 驱动报告的触点数量（从 HID 报告头部解析）
                         int contactCount = touchPad.GetContactCount();
 
                         HidNativeApi.HIDP_LINK_COLLECTION_NODE[] linkCollection = touchPad.GetLinkCollectionNodes();
                         touchPad.GetPhysicalMax(linkCollection.Length);
 
+                        short[] fingerIndices = HidDevice.GetFingerLinkCollectionIndices(linkCollection);
+
                         if (contactCount != 0)
                         {
-                            // _requiringContactCount: 期望收集的触点数，初始值 = contactCount
-                            // GetRawDatas 会递减这个值，如果最终 != 0，说明 HID 数据不完整
                             _requiringContactCount = contactCount;
                             _outputTouchs = new List<RawData>(contactCount);
-                            touchPad.GetRawDatas(linkCollection[0].NumberOfChildren, _currentScr, ref _requiringContactCount, ref _outputTouchs);
-
-                            // 注意：GetRawDatas 结束后，_requiringContactCount 可能 > 0（数据不完整）
-                            // 这种情况在手指抬起时很常见：HID 报告说有 N 个触点，但实际数据包不完整
+                            touchPad.GetRawDatas(fingerIndices, _currentScr, ref _requiringContactCount, ref _outputTouchs);
+                            _hybridPending = _requiringContactCount > 0 && contactCount > fingerIndices.Length;
+                        }
+                        else if (_hybridPending)
+                        {
+                            // Hybrid 续传：仅当上一帧明确标记为 Hybrid 待续时才继续拼包
+                            touchPad.GetRawDatas(fingerIndices, _currentScr, ref _requiringContactCount, ref _outputTouchs);
+                            _hybridPending = _requiringContactCount > 0;
+                        }
+                        else if (_requiringContactCount > 0)
+                        {
+                            // 非 Hybrid：数据不完整（手指抬起），仍照常上送让上层收敛
                         }
                         else
                         {
-                            // contactCount == 0：HID 报告说没有任何触点
-                            // 实际测试发现，大部分触摸板驱动在所有手指抬起后会停止发送 WM_INPUT，
-                            // 而不是发送 contactCount=0 的消息，所以这个分支很少执行
-
-                            if (_requiringContactCount == 0)
-                                return; // No ongoing gesture, skip
-
-                            // 如果之前有手势，现在 contactCount=0，说明所有手指确实抬起了
-                            GestureSign.Common.Log.Logging.LogWarning($"[MessageWindow-TouchPad] contactCount=0 with ongoing gesture, sending empty event to end gesture");
-                            _requiringContactCount = 0;
-                            _outputTouchs = new List<RawData>();
+                            return;
                         }
                     }
                 }
 
                 if (PointsIntercepted != null)
                 {
-                    // ==================== 关键设计决策 ====================
-                    //
-                    // 为什么不检查 _requiringContactCount == 0？
-                    //
-                    // 问题背景：
-                    //   手指抬起时，HID 数据经常不完整，导致手势卡住：
-                    //   1. HID 报告说 contactCount = 4
-                    //   2. 但实际数据包只包含 3 个触点
-                    //   3. GetRawDatas 结束后 _requiringContactCount = 1 (还差1个)
-                    //   4. 如果检查 _requiringContactCount == 0，事件会被丢弃
-                    //   5. PointEventTranslator 收不到通知，手势状态卡在 Capturing
-                    //   6. 最终只能靠 100ms 超时清理
-                    //
-                    // 解决方案：
-                    //   无论数据是否完整，都发送已收集到的触点
-                    //   让 PointEventTranslator 通过检测触点数量变化（4→3）来判断手指抬起
-                    //
-                    // 变量含义：
-                    //   - _requiringContactCount: 期望但未收集到的触点数（0=完整，>0=不完整）
-                    //   - _outputTouchs.Count: 实际收集到的触点数
-                    //
-                    // ====================================================
+                    // Hybrid 模式：触点数超过 Finger 槽位数时，需要等续传报告收齐所有触点再发送。
+                    // 非 Hybrid 情况下 _requiringContactCount > 0 表示数据不完整（手指抬起），仍需发送。
+                    if (_hybridPending)
+                        return;
 
-                    // Log touch data for debugging
-                    string touchStates = string.Join(", ", _outputTouchs.Select(rd => $"{rd.ContactIdentifier}:{rd.State}"));
-
-                    // Use _outputTouchs.Count (actual collected slots) as total finger count
-                    // This includes all slots even if some have State=None
-                    int totalFingerCount = _outputTouchs.Count;
-
-                    // 发送触点数据给 PointEventTranslator
-                    // 即使 _requiringContactCount > 0（数据不完整），也要发送
-                    // 传递 totalFingerCount（实际收集到的触点槽位数）以保留手指总数信息
-                    PointsIntercepted(this, new RawPointsDataMessageEventArgs(_outputTouchs, _sourceDevice, totalFingerCount));
-
-                    // 重置设备状态：当所有触点的 State 都是 None 时
+                    PointsIntercepted(this, new RawPointsDataMessageEventArgs(_outputTouchs, _sourceDevice, _outputTouchs.Count));
                     if (_outputTouchs.TrueForAll(rd => rd.State == DeviceStates.None))
                     {
                         _sourceDevice = Devices.None;

@@ -6,6 +6,5 @@
         Disabled,
         Capturing,
         CapturingInvalid,
-        TriggerFired
     }
 }

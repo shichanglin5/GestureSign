@@ -25,8 +25,8 @@ namespace GestureSign.CorePlugins.ActivateApp
         private ActivateAppSettings _settings;
         private IHostControl _hostControl;
 
-        // Dictionary to track last activated window per application
-        private static Dictionary<string, IntPtr> _lastActivatedWindows = new();
+        // Dictionary to track last activated window per application (bounded size)
+        private static readonly Dictionary<string, IntPtr> _lastActivatedWindows = new();
 
         // Window list cache: Key = cache key from settings, Value = (WindowHandles, LastUpdateTime)
         private readonly Dictionary<string, (List<IntPtr> Handles, DateTime LastUpdate)> _windowListCache = new();
@@ -112,12 +112,13 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             get
             {
-                if (_settings == null || _settings.WindowRule == null)
+                var displaySettings = _settings?.ExecutionCandidates.FirstOrDefault(candidate => candidate?.WindowRule != null);
+                if (displaySettings?.WindowRule == null)
                     return LocalizationProvider.Instance.GetTextValue("CorePlugins.ActivateApp.Description");
 
                 // Build description with matching info
-                string matchInfo = GetMatchInfoString();
-                string displayName = _settings.WindowRule.Name ?? "Unknown";
+                string matchInfo = GetMatchInfoString(displaySettings);
+                string displayName = displaySettings.WindowRule.Name ?? "Unknown";
 
                 if (string.IsNullOrEmpty(matchInfo))
                 {
@@ -133,12 +134,12 @@ namespace GestureSign.CorePlugins.ActivateApp
         /// <summary>
         /// Get matching info string for description/logging
         /// </summary>
-        private string GetMatchInfoString()
+        private string GetMatchInfoString(ActivateAppSettings settings)
         {
-            if (_settings?.WindowRule == null)
+            if (settings?.WindowRule == null)
                 return string.Empty;
 
-            var rule = _settings.WindowRule;
+            var rule = settings.WindowRule;
             if (rule.Conditions != null && rule.Conditions.Count > 0)
             {
                 return string.Join(", ", rule.Conditions.Select(c => $"{c.Type}={c.Value}"));
@@ -181,50 +182,72 @@ namespace GestureSign.CorePlugins.ActivateApp
         {
             try
             {
-                // Sync latest preset content when this action references a preset.
-                SyncPresetIfNeeded();
-
-                if (_settings == null || !_settings.HasValidConditions)
+                if (_settings == null)
                 {
                     Logging.LogDebug("[ActivateApp] No valid matching conditions configured");
                     return false;
                 }
 
-                // Get matching windows
-                var appWindows = GetMatchingWindows(_settings);
+                var candidates = _settings.ExecutionCandidates;
+                bool hasCandidate = false;
 
-                // Log matching result using GetMatchInfoString
-                var matchInfo = GetMatchInfoString();
-                Logging.LogDebug($"[ActivateApp] Activating: {_settings.WindowRule?.Name}, matched by [{matchInfo}]: {appWindows.Count} windows found");
-                foreach (var w in appWindows)
+                for (int index = 0; index < candidates.Count; index++)
                 {
-                    IntPtr owner = GetWindow(w, GW_OWNER);
-                    Logging.LogDebug($"[ActivateApp]   {DescribeWindow(w)}, owner={DescribeWindow(owner)}");
-                }
+                    var candidateSettings = candidates[index];
+                    if (candidateSettings == null)
+                        continue;
 
-                if (appWindows.Count == 0)
-                {
-                    if (!_settings.AutoLaunch)
+                    // Sync latest preset content when this action references a preset.
+                    SyncPresetIfNeeded(candidateSettings);
+
+                    if (!candidateSettings.HasValidConditions)
                     {
-                        Logging.LogDebug("[ActivateApp] AutoLaunch disabled, skipping launch");
-                        return false;
+                        continue;
                     }
 
-                    // 无可激活窗口时启动应用。
-                    // 对单实例应用（如 Telegram、通达信），重复启动会恢复已有窗口而非创建新实例。
-                    return TryLaunchApplication(_settings);
+                    hasCandidate = true;
+
+                    // Get matching windows
+                    var appWindows = GetMatchingWindows(candidateSettings);
+
+                    // Log matching result using GetMatchInfoString
+                    var matchInfo = GetMatchInfoString(candidateSettings);
+                    Logging.LogDebug($"[ActivateApp] Activating[{index + 1}/{candidates.Count}]: {candidateSettings.WindowRule?.Name}, matched by [{matchInfo}]: {appWindows.Count} windows found");
+                    foreach (var w in appWindows)
+                    {
+                        IntPtr owner = GetWindow(w, GW_OWNER);
+                        Logging.LogDebug($"[ActivateApp]   {DescribeWindow(w)}, owner={DescribeWindow(owner)}");
+                    }
+
+                    if (appWindows.Count == 0)
+                    {
+                        if (!candidateSettings.AutoLaunch)
+                        {
+                            Logging.LogDebug($"[ActivateApp] Candidate[{index + 1}/{candidates.Count}] AutoLaunch disabled, continue fallback");
+                            continue;
+                        }
+
+                        // 无可激活窗口时启动应用。
+                        // 对单实例应用（如 Telegram、通达信），重复启动会恢复已有窗口而非创建新实例。
+                        return TryLaunchApplication(candidateSettings);
+                    }
+
+                    if (appWindows.Count == 1)
+                    {
+                        // Single window behavior: toggle activation/minimize
+                        return HandleSingleWindow(appWindows[0], candidateSettings);
+                    }
+
+                    // Multi-window behavior: cycle through windows
+                    return HandleMultiWindow(appWindows, candidateSettings);
                 }
 
-                if (appWindows.Count == 1)
+                if (!hasCandidate)
                 {
-                    // Single window behavior: toggle activation/minimize
-                    return HandleSingleWindow(appWindows[0]);
+                    Logging.LogDebug("[ActivateApp] No valid matching conditions configured");
                 }
-                else
-                {
-                    // Multi-window behavior: cycle through windows
-                    return HandleMultiWindow(appWindows);
-                }
+
+                return false;
             }
             catch (Exception ex)
             {
@@ -245,6 +268,8 @@ namespace GestureSign.CorePlugins.ActivateApp
             bool success = PluginHelper.DeserializeSettings(serializedData, out _settings);
             if (success && _settings != null)
             {
+                if (_settingsCache.Count >= 256)
+                    _settingsCache.Clear();
                 _settingsCache[serializedData] = _settings;
             }
             return success;
@@ -314,7 +339,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                 if (windows.Count > 0)
                 {
                     LogHiddenCandidates("before filter", windows);
-                    windows = FilterHiddenCandidates(windows);
+                    windows = FilterHiddenCandidates(windows, settings);
                     LogHiddenCandidates("after filter", windows);
                 }
             }
@@ -452,7 +477,7 @@ namespace GestureSign.CorePlugins.ActivateApp
             return true;
         }
 
-        private bool HandleSingleWindow(IntPtr hWnd)
+        private bool HandleSingleWindow(IntPtr hWnd, ActivateAppSettings settings)
         {
             var window = new SystemWindow(hWnd);
             var foregroundWindow = GetForegroundWindow();
@@ -473,17 +498,17 @@ namespace GestureSign.CorePlugins.ActivateApp
             if (!isVisible)
             {
                 // Hidden/tray window: restore via showHidden path.
-                bool useAttach = ResolveUseAttachThreadInput();
-                bool result = SystemWindow.TryActivateWindow(hWnd, showHidden: true, restoreMinimized: true, useAttachThreadInput: useAttach);
-                Logging.LogDebug($"[ActivateApp] TryActivateWindow(showHidden, attach={useAttach}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
+                var activationMode = ResolveActivationMode(settings);
+                bool result = SystemWindow.TryActivateWindow(hWnd, showHidden: true, restoreMinimized: true, activationMode: activationMode);
+                Logging.LogDebug($"[ActivateApp] TryActivateWindow(showHidden, mode={activationMode}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
                 return true;
             }
 
             if (isIconic)
             {
-                bool useAttach = ResolveUseAttachThreadInput();
-                bool result = SystemWindow.TryActivateWindow(hWnd, showHidden: false, restoreMinimized: true, useAttachThreadInput: useAttach);
-                Logging.LogDebug($"[ActivateApp] TryActivateWindow(restoreMinimized, attach={useAttach}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
+                var activationMode = ResolveActivationMode(settings);
+                bool result = SystemWindow.TryActivateWindow(hWnd, showHidden: false, restoreMinimized: true, activationMode: activationMode);
+                Logging.LogDebug($"[ActivateApp] TryActivateWindow(restoreMinimized, mode={activationMode}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
                 return true;
             }
 
@@ -498,7 +523,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                     return true;
                 }
 
-                if (_settings.MinimizeIfActivated)
+                if (settings.MinimizeIfActivated)
                 {
                     window.WindowState = FormWindowState.Minimized;
                 }
@@ -507,19 +532,19 @@ namespace GestureSign.CorePlugins.ActivateApp
             else
             {
                 // Window is in background, activate it to foreground.
-                bool useAttach = ResolveUseAttachThreadInput();
-                bool result = SystemWindow.TryActivateWindow(hWnd, useAttachThreadInput: useAttach);
-                Logging.LogDebug($"[ActivateApp] TryActivateWindow(attach={useAttach}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
+                var activationMode = ResolveActivationMode(settings);
+                bool result = SystemWindow.TryActivateWindow(hWnd, showHidden: false, restoreMinimized: true, activationMode: activationMode);
+                Logging.LogDebug($"[ActivateApp] TryActivateWindow(mode={activationMode}) -> {result}, actual foreground={DescribeWindow(GetForegroundWindow())}");
                 return true;
             }
         }
 
-        private bool HandleMultiWindow(List<IntPtr> windows)
+        private bool HandleMultiWindow(List<IntPtr> windows, ActivateAppSettings settings)
         {
             // Sort windows by Z-order (most recently activated first)
             windows = windows.OrderByDescending(w => GetWindowZOrder(w)).ToList();
 
-            string appKey = _settings.GenerateCacheKey();
+            string appKey = settings.GenerateCacheKey();
             IntPtr foreground = GetForegroundWindow();
 
             // Check if the current foreground window belongs to this application and is not minimized
@@ -545,7 +570,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                 if (targetWindow == IntPtr.Zero)
                 {
                     // No non-minimized candidate - minimize current window (like HandleSingleWindow toggle)
-                    if (_settings.MinimizeIfActivated)
+                    if (settings.MinimizeIfActivated)
                     {
                         _lastActivatedWindows[appKey] = foreground;
                         new SystemWindow(foreground).WindowState = FormWindowState.Minimized;
@@ -591,12 +616,14 @@ namespace GestureSign.CorePlugins.ActivateApp
             }
 
             // Activate the target window (show hidden + restore minimized)
-            bool useAttach = ResolveUseAttachThreadInput();
-            bool result = SystemWindow.TryActivateWindow(targetWindow, showHidden: true, restoreMinimized: true, useAttachThreadInput: useAttach);
+            var activationMode = ResolveActivationMode(settings);
+            bool result = SystemWindow.TryActivateWindow(targetWindow, showHidden: true, restoreMinimized: true, activationMode: activationMode);
             IntPtr targetOwner = GetWindow(targetWindow, GW_OWNER);
-            Logging.LogDebug($"[ActivateApp] TryActivateWindow(multi, attach={useAttach}) -> {result}, target owner={DescribeWindow(targetOwner)}, actual foreground={DescribeWindow(GetForegroundWindow())}");
+            Logging.LogDebug($"[ActivateApp] TryActivateWindow(multi, mode={activationMode}) -> {result}, target owner={DescribeWindow(targetOwner)}, actual foreground={DescribeWindow(GetForegroundWindow())}");
 
-            // Update last activated window
+            // Update last activated window (bounded size)
+            if (_lastActivatedWindows.Count >= 128 && !_lastActivatedWindows.ContainsKey(appKey))
+                _lastActivatedWindows.Clear();
             _lastActivatedWindows[appKey] = targetWindow;
             return true;
         }
@@ -680,7 +707,7 @@ namespace GestureSign.CorePlugins.ActivateApp
         /// 2. 找出"被同进程其他候选作为 owner 引用"的窗口，降权（辅助根窗口）
         /// 3. 在剩余候选中，WS_EX_APPWINDOW 窗口排在前面
         /// </summary>
-        private List<IntPtr> FilterHiddenCandidates(List<IntPtr> candidates)
+        private List<IntPtr> FilterHiddenCandidates(List<IntPtr> candidates, ActivateAppSettings settings)
         {
             if (candidates.Count == 0)
                 return candidates;
@@ -694,7 +721,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                     continue;
 
                 blacklisted.Add(candidate);
-                IntPtr ownedWindow = FindOwnedWindowInSameProcess(candidate);
+                IntPtr ownedWindow = FindOwnedWindowInSameProcess(candidate, settings);
                 if (ownedWindow != IntPtr.Zero)
                 {
                     replaced.Add(ownedWindow);
@@ -768,7 +795,7 @@ namespace GestureSign.CorePlugins.ActivateApp
         /// 用于单候选场景：判断候选是否是辅助根窗口，并找到被它 own 的业务窗口。
         /// 优先返回带 WS_EX_APPWINDOW 的窗口。
         /// </summary>
-        private IntPtr FindOwnedWindowInSameProcess(IntPtr ownerHWnd)
+        private IntPtr FindOwnedWindowInSameProcess(IntPtr ownerHWnd, ActivateAppSettings settings)
         {
             GetWindowThreadProcessId(ownerHWnd, out int ownerPid);
             IntPtr bestCandidate = IntPtr.Zero;
@@ -793,7 +820,7 @@ namespace GestureSign.CorePlugins.ActivateApp
                 if (IsBlacklistedWindowTitle(hWnd))
                     return true;
 
-                if (!MatchesCurrentRule(hWnd))
+                if (!MatchesCurrentRule(hWnd, settings))
                     return true;
 
                 uint ownedExStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
@@ -849,9 +876,9 @@ namespace GestureSign.CorePlugins.ActivateApp
             Logging.LogDebug(sb.ToString());
         }
 
-        private bool MatchesCurrentRule(IntPtr hWnd)
+        private bool MatchesCurrentRule(IntPtr hWnd, ActivateAppSettings settings)
         {
-            var rule = _settings?.WindowRule;
+            var rule = settings?.WindowRule;
             if (rule == null)
                 return false;
 
@@ -1015,44 +1042,53 @@ namespace GestureSign.CorePlugins.ActivateApp
         /// Resolve final activation mode with priority:
         /// preset override > action setting > global default.
         /// </summary>
-        private bool ResolveUseAttachThreadInput()
+        private WindowActivationMode ResolveActivationMode(ActivateAppSettings settings)
         {
-            if (!string.IsNullOrEmpty(_settings?.PresetId))
+            ActivationMethod method = ActivationMethod.UseGlobal;
+
+            if (!string.IsNullOrEmpty(settings?.PresetId))
             {
-                var preset = WindowPresetManager.Instance.GetPresetById(_settings.PresetId);
+                var preset = WindowPresetManager.Instance.GetPresetById(settings.PresetId);
                 if (preset != null && preset.ActivationMethod != ActivationMethod.UseGlobal)
                 {
-                    return preset.ActivationMethod == ActivationMethod.AttachThreadInput;
+                    method = preset.ActivationMethod;
+                    return method == ActivationMethod.AttachThreadInput
+                        ? WindowActivationMode.AttachThreadInput
+                        : WindowActivationMode.SafeMode;
                 }
             }
 
-            var method = _settings?.ActivationMethod ?? ActivationMethod.UseGlobal;
+            method = settings?.ActivationMethod ?? ActivationMethod.UseGlobal;
             if (method != ActivationMethod.UseGlobal)
             {
-                return method == ActivationMethod.AttachThreadInput;
+                return method == ActivationMethod.AttachThreadInput
+                    ? WindowActivationMode.AttachThreadInput
+                    : WindowActivationMode.SafeMode;
             }
 
-            return AppConfig.DefaultActivationMethod == (int)ActivationMethod.AttachThreadInput;
+            return AppConfig.NormalizeDefaultActivationMethod(AppConfig.DefaultActivationMethod) == (int)ActivationMethod.AttachThreadInput
+                ? WindowActivationMode.AttachThreadInput
+                : WindowActivationMode.SafeMode;
         }
 
         /// <summary>
         /// Sync latest preset rule into current action settings when preset is referenced.
         /// </summary>
-        private void SyncPresetIfNeeded()
+        private void SyncPresetIfNeeded(ActivateAppSettings settings)
         {
-            if (_settings == null || string.IsNullOrEmpty(_settings.PresetId))
+            if (settings == null || string.IsNullOrEmpty(settings.PresetId))
                 return;
 
-            var preset = WindowPresetManager.Instance.GetPresetById(_settings.PresetId);
+            var preset = WindowPresetManager.Instance.GetPresetById(settings.PresetId);
             if (preset == null)
                 return;
 
-            if (_settings.WindowRule == null)
-                _settings.WindowRule = new WindowRule();
+            if (settings.WindowRule == null)
+                settings.WindowRule = new WindowRule();
 
-            _settings.WindowRule.Name = preset.Name;
-            _settings.WindowRule.ApplicationPath = preset.ApplicationPath;
-            _settings.WindowRule.Conditions = preset.Conditions?.ToList();
+            settings.WindowRule.Name = preset.Name;
+            settings.WindowRule.ApplicationPath = preset.ApplicationPath;
+            settings.WindowRule.Conditions = preset.Conditions?.ToList();
         }
 
         #endregion

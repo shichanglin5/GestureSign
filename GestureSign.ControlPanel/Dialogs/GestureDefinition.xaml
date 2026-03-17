@@ -19,7 +19,8 @@
                       WindowStartupLocation="CenterScreen">
     <StackPanel>
         <usercontrols:GestureSelector x:Name="GestureSelector"
-                                      CurrentGesture="{Binding ElementName=GestureDefinition1,Path=CurrentGesture,Mode=TwoWay}"/>
+                                      CurrentGesture="{Binding ElementName=GestureDefinition1,Path=CurrentGesture,Mode=TwoWay}"
+                                      CurrentRecordedDefinition="{Binding ElementName=GestureDefinition1,Path=CurrentRecordedDefinition,Mode=TwoWay}"/>
         <Grid Margin="0,20,0,0"
               Height="35">
             <Grid.ColumnDefinitions>

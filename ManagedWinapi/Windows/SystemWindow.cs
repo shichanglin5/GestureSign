@@ -1,8 +1,8 @@
 ﻿/*
- * ManagedWinapi - A collection of .NET components that wrap PInvoke calls to 
+ * ManagedWinapi - A collection of .NET components that wrap PInvoke calls to
  * access native API by managed code. http://mwinapi.sourceforge.net/
  * Copyright (C) 2006 Michael Schierl
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -11,7 +11,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; see the file COPYING. if not, visit
  * http://www.gnu.org/licenses/lgpl.html or write to the Free Software
@@ -28,6 +28,13 @@ using System.Drawing.Drawing2D;
 
 namespace ManagedWinapi.Windows
 {
+    public enum WindowActivationMode
+    {
+        Auto = 0,
+        SafeMode = 1,
+        AttachThreadInput = 2,
+    }
+
     /// <summary>
     /// Window Style Flags. The original constants started with WS_.
     /// </summary>
@@ -191,7 +198,7 @@ namespace ManagedWinapi.Windows
         /// </summary>
         CLIENTEDGE = 0x00000200,
         /// <summary>
-        /// Windows XP: Paints all descendants of a window in bottom-to-top painting order using double-buffering. For more information, see Remarks. This cannot be used if the window has a class style of either CS_OWNDC or CS_CLASSDC. 
+        /// Windows XP: Paints all descendants of a window in bottom-to-top painting order using double-buffering. For more information, see Remarks. This cannot be used if the window has a class style of either CS_OWNDC or CS_CLASSDC.
         /// </summary>
         COMPOSITED = 0x02000000,
         /// <summary>
@@ -208,11 +215,11 @@ namespace ManagedWinapi.Windows
         /// </summary>
         DLGMODALFRAME = 0x00000001,
         /// <summary>
-        /// Windows 2000/XP: Creates a layered window. Note that this cannot be used for child windows. Also, this cannot be used if the window has a class style of either CS_OWNDC or CS_CLASSDC. 
+        /// Windows 2000/XP: Creates a layered window. Note that this cannot be used for child windows. Also, this cannot be used if the window has a class style of either CS_OWNDC or CS_CLASSDC.
         /// </summary>
         LAYERED = 0x00080000,
         /// <summary>
-        /// Arabic and Hebrew versions of Windows 98/Me, Windows 2000/XP: Creates a window whose horizontal origin is on the right edge. Increasing horizontal values advance to the left. 
+        /// Arabic and Hebrew versions of Windows 98/Me, Windows 2000/XP: Creates a window whose horizontal origin is on the right edge. Increasing horizontal values advance to the left.
         /// </summary>
         LAYOUTRTL = 0x00400000,
         /// <summary>
@@ -232,7 +239,7 @@ namespace ManagedWinapi.Windows
         /// </summary>
         MDICHILD = 0x00000040,
         /// <summary>
-        /// Windows 2000/XP: A top-level window created with this style does not become the foreground window when the user clicks it. The system does not bring this window to the foreground when the user minimizes or closes the foreground window. 
+        /// Windows 2000/XP: A top-level window created with this style does not become the foreground window when the user clicks it. The system does not bring this window to the foreground when the user minimizes or closes the foreground window.
         /// To activate the window, use the SetActiveWindow or SetForegroundWindow function.
         /// The window does not appear on the taskbar by default. To force the window to appear on the taskbar, use the WS_EX_APPWINDOW style.
         /// </summary>
@@ -271,7 +278,7 @@ namespace ManagedWinapi.Windows
         /// </summary>
         STATICEDGE = 0x00020000,
         /// <summary>
-        /// Creates a tool window; that is, a window intended to be used as a floating toolbar. A tool window has a title bar that is shorter than a normal title bar, and the window title is drawn using a smaller font. A tool window does not appear in the taskbar or in the dialog that appears when the user presses ALT+TAB. If a tool window has a system menu, its icon is not displayed on the title bar. However, you can display the system menu by right-clicking or by typing ALT+SPACE. 
+        /// Creates a tool window; that is, a window intended to be used as a floating toolbar. A tool window has a title bar that is shorter than a normal title bar, and the window title is drawn using a smaller font. A tool window does not appear in the taskbar or in the dialog that appears when the user presses ALT+TAB. If a tool window has a system menu, its icon is not displayed on the title bar. However, you can display the system menu by right-clicking or by typing ALT+SPACE.
         /// </summary>
         TOOLWINDOW = 0x00000080,
         /// <summary>
@@ -296,6 +303,16 @@ namespace ManagedWinapi.Windows
     {
 
         private static readonly Predicate<SystemWindow> ALL = delegate { return true; };
+        private static readonly Dictionary<string, ActivationModeCacheEntry> ActivationModeCache = new Dictionary<string, ActivationModeCacheEntry>(StringComparer.OrdinalIgnoreCase);
+        private static readonly object ActivationModeCacheLock = new object();
+        private static readonly TimeSpan ActivationModeCacheTtl = TimeSpan.FromMinutes(30);
+        private const int ActivationModeCacheMaxEntries = 512;
+
+        private sealed class ActivationModeCacheEntry
+        {
+            public WindowActivationMode Mode { get; set; }
+            public DateTime LastAccessUtc { get; set; }
+        }
 
         private IntPtr _hwnd;
 
@@ -315,15 +332,25 @@ namespace ManagedWinapi.Windows
         }
 
         /// <summary>
-        /// 婵€娲荤獥鍙ｅ埌鍓嶅彴锛屽彲閫夋仮澶嶆渶灏忓寲鍜屾樉绀洪殣钘忕獥鍙ｃ€?
-        /// 璋冪敤鏂规牴鎹満鏅喅瀹氭槸鍚﹀厑璁歌繖浜涘壇浣滅敤銆?
+        /// 激活窗口到前台，可选恢复最小化和显示隐藏窗口。
+        /// 调用方应根据场景决定是否允许这些副作用。
         /// </summary>
-        /// <param name="hWnd">瑕佹縺娲荤殑绐楀彛鍙ユ焺</param>
-        /// <param name="showHidden">鏄惁鏄剧ず闅愯棌绐楀彛锛堟墭鐩樺簲鐢ㄧ瓑鍦烘櫙闇€瑕?true锛?/param>
-        /// <param name="restoreMinimized">鏄惁鎭㈠鏈€灏忓寲绐楀彛</param>
-        /// <returns>婵€娲绘槸鍚︽垚鍔?/returns>
+        /// <param name="hWnd">要激活的窗口句柄。</param>
+        /// <param name="showHidden">是否显示隐藏窗口，托盘应用等场景可能需要为 true。</param>
+        /// <param name="restoreMinimized">是否恢复最小化窗口。</param>
+        /// <returns>激活是否成功。</returns>
         public static bool TryActivateWindow(IntPtr hWnd, bool showHidden = false, bool restoreMinimized = true,
             bool useAttachThreadInput = false)
+        {
+            return TryActivateWindow(
+                hWnd,
+                showHidden,
+                restoreMinimized,
+                useAttachThreadInput ? WindowActivationMode.AttachThreadInput : WindowActivationMode.SafeMode);
+        }
+
+        public static bool TryActivateWindow(IntPtr hWnd, bool showHidden, bool restoreMinimized,
+            WindowActivationMode activationMode)
         {
             if (hWnd == IntPtr.Zero)
                 return false;
@@ -366,10 +393,179 @@ namespace ManagedWinapi.Windows
             if (GetForegroundWindow() == hWnd)
                 return true;
 
-            if (useAttachThreadInput)
-                return ForceSetForegroundWindowWithAttach(hWnd);
+            return TryActivateForeground(hWnd, activationMode);
+        }
 
-            return ForceSetForegroundWindow(hWnd);
+        private static bool TryActivateForeground(IntPtr hWnd, WindowActivationMode activationMode)
+        {
+            switch (activationMode)
+            {
+                case WindowActivationMode.AttachThreadInput:
+                    return ForceSetForegroundWindowWithAttach(hWnd);
+                case WindowActivationMode.SafeMode:
+                    return ForceSetForegroundWindow(hWnd);
+                default:
+                    var cachedMode = GetCachedActivationMode(hWnd);
+                    if (cachedMode != WindowActivationMode.Auto && TryActivateForeground(hWnd, cachedMode))
+                        return true;
+
+                    if (ForceSetForegroundWindow(hWnd))
+                    {
+                        RememberSuccessfulActivationMode(hWnd, WindowActivationMode.SafeMode);
+                        return true;
+                    }
+
+                    if (ForceSetForegroundWindowWithAttach(hWnd))
+                    {
+                        RememberSuccessfulActivationMode(hWnd, WindowActivationMode.AttachThreadInput);
+                        return true;
+                    }
+
+                    return false;
+            }
+        }
+
+        private static WindowActivationMode GetCachedActivationMode(IntPtr hWnd)
+        {
+            string cacheKey = GetActivationCacheKey(hWnd);
+            return GetCachedActivationMode(cacheKey, DateTime.UtcNow);
+        }
+
+        private static void RememberSuccessfulActivationMode(IntPtr hWnd, WindowActivationMode mode)
+        {
+            if (mode == WindowActivationMode.Auto)
+                return;
+
+            string cacheKey = GetActivationCacheKey(hWnd);
+            if (string.IsNullOrEmpty(cacheKey))
+                return;
+
+            RememberSuccessfulActivationMode(cacheKey, mode, DateTime.UtcNow);
+        }
+
+        internal static WindowActivationMode GetCachedActivationMode(string cacheKey, DateTime utcNow)
+        {
+            if (string.IsNullOrEmpty(cacheKey))
+                return WindowActivationMode.Auto;
+
+            lock (ActivationModeCacheLock)
+            {
+                TrimActivationModeCache(utcNow);
+
+                if (!ActivationModeCache.TryGetValue(cacheKey, out var entry))
+                    return WindowActivationMode.Auto;
+
+                if (utcNow - entry.LastAccessUtc > ActivationModeCacheTtl)
+                {
+                    ActivationModeCache.Remove(cacheKey);
+                    return WindowActivationMode.Auto;
+                }
+
+                entry.LastAccessUtc = utcNow;
+                return entry.Mode;
+            }
+        }
+
+        internal static void RememberSuccessfulActivationMode(string cacheKey, WindowActivationMode mode, DateTime utcNow)
+        {
+            if (mode == WindowActivationMode.Auto || string.IsNullOrEmpty(cacheKey))
+                return;
+
+            lock (ActivationModeCacheLock)
+            {
+                TrimActivationModeCache(utcNow);
+                ActivationModeCache[cacheKey] = new ActivationModeCacheEntry
+                {
+                    Mode = mode,
+                    LastAccessUtc = utcNow,
+                };
+                TrimActivationModeCache(utcNow);
+            }
+        }
+
+        internal static void ResetActivationModeCache()
+        {
+            lock (ActivationModeCacheLock)
+            {
+                ActivationModeCache.Clear();
+            }
+        }
+
+        internal static int GetActivationModeCacheCount()
+        {
+            lock (ActivationModeCacheLock)
+            {
+                return ActivationModeCache.Count;
+            }
+        }
+
+        private static void TrimActivationModeCache(DateTime utcNow)
+        {
+            var expiredKeys = new List<string>();
+            foreach (var pair in ActivationModeCache)
+            {
+                if (utcNow - pair.Value.LastAccessUtc > ActivationModeCacheTtl)
+                    expiredKeys.Add(pair.Key);
+            }
+
+            foreach (var key in expiredKeys)
+            {
+                ActivationModeCache.Remove(key);
+            }
+
+            while (ActivationModeCache.Count > ActivationModeCacheMaxEntries)
+            {
+                string oldestKey = null;
+                DateTime oldestAccessUtc = DateTime.MaxValue;
+
+                foreach (var pair in ActivationModeCache)
+                {
+                    if (pair.Value.LastAccessUtc < oldestAccessUtc)
+                    {
+                        oldestAccessUtc = pair.Value.LastAccessUtc;
+                        oldestKey = pair.Key;
+                    }
+                }
+
+                if (oldestKey == null)
+                    break;
+
+                ActivationModeCache.Remove(oldestKey);
+            }
+        }
+
+        private static string GetActivationCacheKey(IntPtr hWnd)
+        {
+            int processId = 0;
+            string className = string.Empty;
+
+            try
+            {
+                GetWindowThreadProcessId(hWnd, out processId);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                var classNameBuilder = new StringBuilder(256);
+                if (GetClassName(hWnd, classNameBuilder, classNameBuilder.Capacity) > 0)
+                    className = classNameBuilder.ToString();
+            }
+            catch
+            {
+            }
+
+            return GetActivationCacheKey(processId, hWnd, className);
+        }
+
+        internal static string GetActivationCacheKey(int processId, IntPtr hWnd, string className)
+        {
+            if (processId <= 0 && string.IsNullOrEmpty(className))
+                return null;
+
+            return processId + "|" + (className ?? string.Empty);
         }
 
         /// <summary>
@@ -378,6 +574,18 @@ namespace ManagedWinapi.Windows
         /// </summary>
         private static bool ForceSetForegroundWindow(IntPtr hWnd)
         {
+            if (GetForegroundWindow() == hWnd)
+                return true;
+
+            if (SetForegroundWindow(hWnd) && GetForegroundWindow() == hWnd)
+                return true;
+
+            NudgeForegroundPermission();
+            if (SetForegroundWindow(hWnd) && GetForegroundWindow() == hWnd)
+                return true;
+
+            SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+            BringWindowToTop(hWnd);
             SetForegroundWindow(hWnd);
             return GetForegroundWindow() == hWnd;
         }
@@ -391,6 +599,7 @@ namespace ManagedWinapi.Windows
         {
             // 方法 1: 标准 SetForegroundWindow (快速路径)
             // 成功就直接返回，不进入 AttachThreadInput 避免无谓的队列合并风险。
+            NudgeForegroundPermission();
             if (SetForegroundWindow(hWnd))
             {
                 if (GetForegroundWindow() == hWnd)
@@ -412,6 +621,7 @@ namespace ManagedWinapi.Windows
                         attached1 = AttachThreadInput(currentThreadId, foregroundThreadId, true);
                     if (foregroundThreadId != 0 && foregroundThreadId != targetThreadId)
                         attached2 = AttachThreadInput(foregroundThreadId, targetThreadId, true);
+                    NudgeForegroundPermission();
                     SetForegroundWindow(hWnd);
 
                     // SetFocus 只在前台切换成功后尝试，作为弱依赖——
@@ -435,7 +645,17 @@ namespace ManagedWinapi.Windows
                 // AttachThreadInput 失败，继续尝试兜底
             }
 
+            SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+            BringWindowToTop(hWnd);
+            SetForegroundWindow(hWnd);
             return GetForegroundWindow() == hWnd;
+        }
+
+        private static void NudgeForegroundPermission()
+        {
+            // Zero-delta mouse input marks the caller as having received user input
+            // without mutating keyboard modifier state.
+            mouse_event(MOUSEEVENTF_MOVE, 0, 0, 0, UIntPtr.Zero);
         }
 
         /// <summary>
@@ -693,7 +913,7 @@ namespace ManagedWinapi.Windows
         }
 
         /// <summary>
-        /// Whether this window is currently visible. A window is visible if its 
+        /// Whether this window is currently visible. A window is visible if its
         /// and all ancestor's visibility flags are true.
         /// </summary>
         public bool Visible
@@ -891,7 +1111,7 @@ namespace ManagedWinapi.Windows
         }
 
         /// <summary>
-        /// The window's position in absolute screen coordinates. Use 
+        /// The window's position in absolute screen coordinates. Use
         /// <see cref="Position"/> if you want to use the relative position.
         /// </summary>
         public RECT Rectangle
@@ -921,7 +1141,7 @@ namespace ManagedWinapi.Windows
         }
 
         /// <summary>
-        /// The position of the window's contents in absolute screen coordinates. Use 
+        /// The position of the window's contents in absolute screen coordinates. Use
         /// <see cref="Rectangle"/> if you want to include the title bar etc.
         /// </summary>
         public RECT ClientRectangle
@@ -1092,8 +1312,8 @@ namespace ManagedWinapi.Windows
         /// <summary>
         /// An image of this window. Unlike a screen shot, this will not
         /// contain parts of other windows (partially) cover this window.
-        /// If you want to create a screen shot, use the 
-        /// <see cref="System.Drawing.Graphics.CopyFromScreen(System.Drawing.Point,System.Drawing.Point,System.Drawing.Size)"/> 
+        /// If you want to create a screen shot, use the
+        /// <see cref="System.Drawing.Graphics.CopyFromScreen(System.Drawing.Point,System.Drawing.Point,System.Drawing.Size)"/>
         /// function and use the <see cref="SystemWindow.Rectangle"/> property for
         /// the range.
         /// </summary>
@@ -1284,7 +1504,7 @@ namespace ManagedWinapi.Windows
         }
 
         /// <summary>
-        /// Forces the window to invalidate its client area and immediately redraw itself and any child controls. 
+        /// Forces the window to invalidate its client area and immediately redraw itself and any child controls.
         /// </summary>
         public void Refresh()
         {
@@ -1638,6 +1858,12 @@ namespace ManagedWinapi.Windows
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X,
            int Y, int cx, int cy, uint uFlags);
 
+        [DllImport("user32.dll")]
+        private static extern bool BringWindowToTop(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+
         // special values for hWndInsertAfter
         static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
         static readonly IntPtr HWND_TOP = new IntPtr(0);
@@ -1648,6 +1874,7 @@ namespace ManagedWinapi.Windows
         const uint SWP_NOSIZE = 0x0001;
         const uint SWP_NOMOVE = 0x0002;
         const uint SWP_NOACTIVATE = 0x0010;
+        const uint MOUSEEVENTF_MOVE = 0x0001;
         const uint SWP_DRAWFRAME = 0x0020;
         const uint SWP_SHOWWINDOW = 0x0040;
         const uint SWP_NOOWNERZORDER = 0x0200;

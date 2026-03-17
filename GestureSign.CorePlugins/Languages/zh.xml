@@ -253,12 +253,20 @@
       <ActivationMethod.SafeMode>安全模式（适用于 Chrome/微信）</ActivationMethod.SafeMode>
       <ApplicationPath>应用程序路径</ApplicationPath>
       <ApplicationArguments>启动参数</ApplicationArguments>
+      <WindowCandidates>候选窗口</WindowCandidates>
+      <WindowCandidatesTip>按列表顺序依次尝试。前一个候选未匹配且未自动启动时，将继续尝试后一个。</WindowCandidatesTip>
+        <CandidateSettingsTip>以下配置仅作用于当前选中的窗口候选项，支持为不同窗口分别设置。</CandidateSettingsTip>
       <WindowRule>窗口规则</WindowRule>
       <EditWindowRule>编辑窗口规则</EditWindowRule>
       <NoWindowRuleConfigured>未配置窗口规则</NoWindowRuleConfigured>
+      <NoWindowCandidateConfigured>未配置候选窗口</NoWindowCandidateConfigured>
       <DragCrosshairToSelect>拖拽十字光标选择窗口</DragCrosshairToSelect>
       <CacheExpiration>缓存过期时间（秒）</CacheExpiration>
       <CacheExpirationTip>设置为 0 禁用缓存</CacheExpirationTip>
+      <MoveUp>上移</MoveUp>
+      <MoveDown>下移</MoveDown>
+      <AutoLaunchEnabled>自动启动</AutoLaunchEnabled>
+      <AutoLaunchDisabled>仅匹配</AutoLaunchDisabled>
       <ReferencePreset>引用预置</ReferencePreset>
       <SelectPreset>选择预置规则</SelectPreset>
       <SelectPresetPrompt>请选择一个预置窗口规则：</SelectPresetPrompt>

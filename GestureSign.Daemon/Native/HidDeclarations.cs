@@ -1,6 +1,6 @@
 ﻿/*
    HidLibrary.Net   http://sourceforge.net/projects/hidlibrary/
- 
+
    Copyright (C)    Roman Reichel 2006
 					Bauhaus University of Weimar
 
@@ -128,8 +128,8 @@ namespace GestureSign.Daemon.Native
         [StructLayout(LayoutKind.Sequential)]
         public struct USAGE_AND_PAGE
         {
-            short Usage;
-            short UsagePage;
+            public short Usage;
+            public short UsagePage;
         }
 
         [StructLayout(LayoutKind.Explicit)]
@@ -283,7 +283,7 @@ namespace GestureSign.Daemon.Native
         /// <summary>
         /// Flush the input queue for the given HID device.
         /// </summary>
-        /// <param name="HidDeviceObject">A handle to a Hid Device that the client obtains using 
+        /// <param name="HidDeviceObject">A handle to a Hid Device that the client obtains using
         ///           a call to CreateFile on a valid Hid device string name.
         ///           The string name can be obtained using standard PnP calls.</param>
         /// <returns>
@@ -310,12 +310,12 @@ namespace GestureSign.Daemon.Native
         /// Retrieve a feature report from a HID device.
         /// </summary>
         /// <param name="HidDeviceObject">A handle to a Hid Device Object.</param>
-        /// <param name="ReportBuffer">The buffer that the feature report should be placed 
+        /// <param name="ReportBuffer">The buffer that the feature report should be placed
         ///                 into.  The first byte of the buffer should be set to
         ///                 the report ID of the desired report</param>
-        /// <param name="ReportBufferLength">The size (in bytes) of ReportBuffer.  This value 
-        ///                 should be greater than or equal to the 
-        ///                 FeatureReportByteLength field as specified in the 
+        /// <param name="ReportBufferLength">The size (in bytes) of ReportBuffer.  This value
+        ///                 should be greater than or equal to the
+        ///                 FeatureReportByteLength field as specified in the
         ///                 HIDP_CAPS structure for the device</param>
         /// <returns>
         /// TRUE if successful
@@ -328,12 +328,12 @@ namespace GestureSign.Daemon.Native
         /// Retrieve an input report from a HID device.
         /// </summary>
         /// <param name="HidDeviceObject">A handle to a Hid Device Object.</param>
-        /// <param name="ReportBuffer">The buffer that the input report should be placed 
+        /// <param name="ReportBuffer">The buffer that the input report should be placed
         ///                 into.  The first byte of the buffer should be set to
         ///                 the report ID of the desired report</param>
-        /// <param name="ReportBufferLength">The size (in bytes) of ReportBuffer.  This value 
-        ///                 should be greater than or equal to the 
-        ///                 InputReportByteLength field as specified in the 
+        /// <param name="ReportBufferLength">The size (in bytes) of ReportBuffer.  This value
+        ///                 should be greater than or equal to the
+        ///                 InputReportByteLength field as specified in the
         ///                 HIDP_CAPS structure for the device</param>
         /// <returns>
         /// TRUE if successful
@@ -367,15 +367,15 @@ namespace GestureSign.Daemon.Native
 
         /// <summary>
         /// Given a handle to a valid Hid Class Device Object, retrieve the preparsed
-        /// data for the device.  This routine will allocate the appropriately 
+        /// data for the device.  This routine will allocate the appropriately
         /// sized buffer to hold this preparsed data.  It is up to client to call
         /// HidP_FreePreparsedData to free the memory allocated to this structure when
         /// it is no longer needed.
         /// </summary>
-        /// <param name="HidDeviceObject">A handle to a Hid Device that the client obtains using 
+        /// <param name="HidDeviceObject">A handle to a Hid Device that the client obtains using
         ///           a call to CreateFile on a valid Hid device string name.
         ///           The string name can be obtained using standard PnP calls.</param>
-        /// <param name="PreparsedData">An opaque data structure used by other functions in this 
+        /// <param name="PreparsedData">An opaque data structure used by other functions in this
         ///           library to retrieve information about a given device.</param>
         /// <returns>TRUE if successful.
         /// FALSE otherwise  -- Use GetLastError() to get extended error information</returns>
@@ -387,9 +387,9 @@ namespace GestureSign.Daemon.Native
         /// </summary>
         /// <param name="HidDeviceObject">A handle to a Hid Device Object.</param>
         /// <param name="ReportBuffer">The buffer of the feature report to send to the device</param>
-        /// <param name="ReportBufferLength">The size (in bytes) of ReportBuffer.  This value 
-        ///                 should be greater than or equal to the 
-        ///                 FeatureReportByteLength field as specified in the 
+        /// <param name="ReportBufferLength">The size (in bytes) of ReportBuffer.  This value
+        ///                 should be greater than or equal to the
+        ///                 FeatureReportByteLength field as specified in the
         ///                 HIDP_CAPS structure for the device</param>
         /// <returns>
         /// TRUE if successful
@@ -419,9 +419,9 @@ namespace GestureSign.Daemon.Native
         /// </summary>
         /// <param name="HidDeviceObject">A handle to a Hid Device Object.</param>
         /// <param name="ReportBuffer">The buffer of the output report to send to the device</param>
-        /// <param name="ReportBufferLength">The size (in bytes) of ReportBuffer.  This value 
-        ///                 should be greater than or equal to the 
-        ///                 OutputReportByteLength field as specified in the 
+        /// <param name="ReportBufferLength">The size (in bytes) of ReportBuffer.  This value
+        ///                 should be greater than or equal to the
+        ///                 OutputReportByteLength field as specified in the
         ///                 HIDP_CAPS structure for the device</param>
         /// <returns>
         /// TRUE if successful
@@ -451,7 +451,7 @@ namespace GestureSign.Daemon.Native
         /// <param name="HidDeviceObject">A handle to a Hid Device Object.</param>
         /// <param name="StringIndex">Index of the string to retrieve</param>
         /// <param name="Buffer">Buffer which on return will contain the product
-        ///                 string returned from the device.  This string is a 
+        ///                 string returned from the device.  This string is a
         ///                 wide-character string</param>
         /// <param name="BufferLength">Length of Buffer (in bytes)</param>
         /// <returns>
@@ -466,7 +466,7 @@ namespace GestureSign.Daemon.Native
         /// </summary>
         /// <param name="HidDeviceObject">A handle to a Hid Device Object.</param>
         /// <param name="Buffer">Buffer which on return will contain the product
-        ///                 string returned from the device.  This string is a 
+        ///                 string returned from the device.  This string is a
         ///                 wide-character string</param>
         /// <param name="BufferLength">Length of Buffer (in bytes)</param>
         /// <returns>
@@ -481,7 +481,7 @@ namespace GestureSign.Daemon.Native
         /// </summary>
         /// <param name="HidDeviceObject">A handle to a Hid Device Object.</param>
         /// <param name="Buffer">Buffer which on return will contain the serial number
-        ///                 string returned from the device.  This string is a 
+        ///                 string returned from the device.  This string is a
         ///                 wide-character string</param>
         /// <param name="BufferLength">Length of Buffer (in bytes)</param>
         /// <returns>
@@ -492,12 +492,12 @@ namespace GestureSign.Daemon.Native
         static public extern bool HidD_GetSerialNumberString(SafeFileHandle HidDeviceObject, [MarshalAs(UnmanagedType.LPWStr, SizeParamIndex = 2)] StringBuilder Buffer, int BufferLength);
 
         /// <summary>
-        /// This function retrieves the manufacturer string from the specified 
+        /// This function retrieves the manufacturer string from the specified
         /// Hid device.
         /// </summary>
         /// <param name="HidDeviceObject">A handle to a Hid Device Object.</param>
         /// <param name="Buffer">Buffer which on return will contain the manufacturer
-        ///                 string returned from the device.  This string is a 
+        ///                 string returned from the device.  This string is a
         ///                 wide-character string</param>
         /// <param name="BufferLength">Length of Buffer (in bytes)</param>
         /// <returns>
@@ -512,7 +512,7 @@ namespace GestureSign.Daemon.Native
         #region HIDP Functions - hidpi.h
 
         /// <summary>
-        /// Returns a list of capabilities of a given hid device as described by its preparsed data. 
+        /// Returns a list of capabilities of a given hid device as described by its preparsed data.
         /// </summary>
         /// <param name="PreparsedData">The preparsed data returned from HIDCLASS.</param>
         /// <param name="Capabilities">a HIDP_CAPS structure</param>
@@ -551,7 +551,7 @@ namespace GestureSign.Daemon.Native
         /// <param name="PreparsedData">The preparsed data returned from HIDCLASS.</param>
         /// <returns>HIDP_STATUS_SUCCESS, HIDP_STATUS_INVALID_REPORT_TYPE, HIDP_STATUS_INVALID_PREPARSED_DATA, HIDP_STATUS_BUFFER_TOO_SMALL (all given entries however have been filled in), HIDP_STATUS_USAGE_NOT_FOUND</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_GetValueCaps([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, [MarshalAs(UnmanagedType.LPArray)] HidP_Value_Caps[] ValueCaps, ref short ValueCapsLength, IntPtr PreparsedData);
+        static public extern int HidP_GetValueCaps(HidReportType ReportType, [MarshalAs(UnmanagedType.LPArray)] HidP_Value_Caps[] ValueCaps, ref short ValueCapsLength, IntPtr PreparsedData);
 
         /// <summary>
         /// HidP_GetValueCaps returns all the values (non-binary) that are a part of the given report type for the Hid device represented by the given preparsed data.
@@ -606,7 +606,7 @@ namespace GestureSign.Daemon.Native
         /// <param name="PreparsedData">The preparsed data returned from HIDCLASS.</param>
         /// <returns>HIDP_STATUS_SUCCESS, HIDP_STATUS_INVALID_REPORT_TYPE, HIDP_STATUS_INVALID_PREPARSED_DATA, HIDP_STATUS_BUFFER_TOO_SMALL (all given entries however have been filled in), HIDP_STATUS_USAGE_NOT_FOUND</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_GetButtonCaps([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, [In, Out] HidP_Button_Caps[] ButtonCaps, ref short ButtonCapsLength, IntPtr PreparsedData);
+        static public extern int HidP_GetButtonCaps(HidReportType ReportType, [In, Out] HidP_Button_Caps[] ButtonCaps, ref short ButtonCapsLength, IntPtr PreparsedData);
 
         /// <summary>
         /// HidP_GetButtonCaps returns all the buttons (binary values) that are a part of the given report type for the Hid device represented by the given preparsed data.
@@ -641,7 +641,7 @@ namespace GestureSign.Daemon.Native
         /// <param name="PreparsedData"></param>
         /// <returns>HIDP_STATUS_SUCCESS, HIDP_STATUS_INVALID_REPORT_TYPE, HIDP_STATUS_INVALID_PREPARSED_DATA, HIDP_STATUS_BUFFER_TOO_SMALL (all given entries however have been filled in), HIDP_STATUS_USAGE_NOT_FOUND</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_GetSpecificButtonCaps([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, short UsagePage, short LinkCollection, short Usage, [In, Out] HidP_Button_Caps[] ButtonCaps, ref short ButtonCapsLength, IntPtr PreparsedData);
+        static public extern int HidP_GetSpecificButtonCaps(HidReportType ReportType, short UsagePage, short LinkCollection, short Usage, [In, Out] HidP_Button_Caps[] ButtonCaps, ref short ButtonCapsLength, IntPtr PreparsedData);
 
         /// <summary>
         /// Initialize a report based on the given report ID.
@@ -655,7 +655,7 @@ namespace GestureSign.Daemon.Native
         ///        the corresponding ReportType</param>
         /// <returns>HIDP_STATUS_INVALID_REPORT_TYPE, HIDP_STATUS_INVALID_PREPARSED_DATA, HIDP_STATUS_INVALID_REPORT_LENGTH, HIDP_STATUS_REPORT_DOES_NOT_EXIST</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_InitializeReportForID([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, byte ReportID, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 4)] byte[] Report, int ReportLength);
+        static public extern int HidP_InitializeReportForID(HidReportType ReportType, byte ReportID, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 4)] byte[] Report, int ReportLength);
 
         /// <summary>
         /// Note: Since usage value arrays deal with multiple fields for
@@ -675,11 +675,11 @@ namespace GestureSign.Daemon.Native
         /// <param name="ReportLength">Length of Report...Report should be at least as long as the
         ///        value indicated in the HIDP_CAPS structure for the device and
         ///        the corresponding ReportType</param>
-        /// <returns>HIDP_STATUS_SUCCESS, HIDP_STATUS_INVALID_REPORT_TYPE, HIDP_STATUS_INVALID_PREPARSED_DATA, 
+        /// <returns>HIDP_STATUS_SUCCESS, HIDP_STATUS_INVALID_REPORT_TYPE, HIDP_STATUS_INVALID_PREPARSED_DATA,
         /// HIDP_STATUS_DATA_INDEX_NOT_FOUND, HIDP_STATUS_INVALID_REPORT_LENGTH, HIDP_STATUS_REPORT_DOES_NOT_EXIST,
         /// HIDP_STATUS_IS_USAGE_VALUE_ARRAY, HIDP_STATUS_BUTTON_NOT_PRESSED, HIDP_STATUS_INCOMPATIBLE_REPORT_ID, HIDP_STATUS_BUFFER_TOO_SMALL</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_SetData([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, [In, Out] HIDP_DATA[] DataList, ref int DataLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 5)] byte[] Report, int ReportLength);
+        static public extern int HidP_SetData(HidReportType ReportType, [In, Out] HIDP_DATA[] DataList, ref int DataLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 5)] byte[] Report, int ReportLength);
 
         /// <summary>
         /// Note: For obvious reasons HidP_SetData and HidP_GetData will not access UsageValueArrays.
@@ -695,10 +695,10 @@ namespace GestureSign.Daemon.Native
         /// <param name="ReportLength">Length of Report...Report should be at least as long as the
         ///        value indicated in the HIDP_CAPS structure for the device and
         ///        the corresponding ReportType</param>
-        /// <returns>HIDP_STATUS_SUCCESS, HIDP_STATUS_INVALID_REPORT_TYPE, HIDP_STATUS_INVALID_PREPARSED_DATA, 
+        /// <returns>HIDP_STATUS_SUCCESS, HIDP_STATUS_INVALID_REPORT_TYPE, HIDP_STATUS_INVALID_PREPARSED_DATA,
         /// HIDP_STATUS_INVALID_REPORT_LENGTH, HIDP_STATUS_REPORT_DOES_NOT_EXIST, HIDP_STATUS_BUFFER_TOO_SMALL</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_GetData([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, [In, Out] HIDP_DATA[] DataList, ref int DataLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 5)] byte[] Report, int ReportLength);
+        static public extern int HidP_GetData(HidReportType ReportType, [In, Out] HIDP_DATA[] DataList, ref int DataLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 5)] byte[] Report, int ReportLength);
 
         /// <summary>
         /// This function returns the maximum length of HIDP_DATA elements that HidP_GetData could return for the given report type.
@@ -709,7 +709,7 @@ namespace GestureSign.Daemon.Native
         /// call.  If an error occurs (either HIDP_STATUS_INVALID_REPORT_TYPE or
         /// HIDP_STATUS_INVALID_PREPARSED_DATA), this function returns 0.</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_MaxDataListLength([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, IntPtr PreparsedData);
+        static public extern int HidP_MaxDataListLength(HidReportType ReportType, IntPtr PreparsedData);
 
         /// <summary>
         /// This function sets binary values (buttons) in a report.  Given an
@@ -754,14 +754,14 @@ namespace GestureSign.Daemon.Native
         /// HIDP_STATUS_INVALID_REPORT_LENGTH, HIDP_STATUS_REPORT_DOES_NOT_EXIST,HIDP_STATUS_INCOMPATIBLE_REPORT_ID,
         /// HIDP_STATUS_USAGE_NOT_FOUND, HIDP_STATUS_BUFFER_TOO_SMALL</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_SetUsages([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, short UsagePage, short LinkCollection, [In, Out] HIDP_DATA[] UsageList, ref int UsageLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 7)] byte[] Report, int ReportLength);
+        static public extern int HidP_SetUsages(HidReportType ReportType, short UsagePage, short LinkCollection, [In, Out] HIDP_DATA[] UsageList, ref int UsageLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 7)] byte[] Report, int ReportLength);
 
         /// <summary>
         /// This function unsets (turns off) binary values (buttons) in the report.  Given
         /// an initialized packet of correct length, it modifies the report packet so
         /// that each element in the given list of usages has been unset in the
         /// report packet.
-        /// 
+        ///
         /// This function is the "undo" operation for SetUsages.  If the given usage
         /// is not already set in the Report, it will return an error code of
         /// HIDP_STATUS_BUTTON_NOT_PRESSED.  If the button is pressed, HidP_UnsetUsages
@@ -770,7 +770,7 @@ namespace GestureSign.Daemon.Native
         ///
         /// A properly initialized Report packet is one of the correct byte length,
         /// and all zeros..
-        /// 
+        ///
         /// NOTE: A packet that has already been set with a call to a HidP_Set routine
         ///  can also be passed in.  This routine then processes the UsageList
         ///  in the same fashion but verifies that the ReportID already set in
@@ -801,7 +801,7 @@ namespace GestureSign.Daemon.Native
         /// HIDP_STATUS_INVALID_REPORT_LENGTH, HIDP_STATUS_REPORT_DOES_NOT_EXIST, HIDP_STATUS_INCOMPATIBLE_REPORT_ID,
         /// HIDP_STATUS_USAGE_NOT_FOUND, HIDP_STATUS_BUTTON_NOT_PRESSED</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_UnsetUsages([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, short UsagePage, short LinkCollection, [In, Out] HIDP_DATA[] UsageList, ref int UsageLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 7)] byte[] Report, int ReportLength);
+        static public extern int HidP_UnsetUsages(HidReportType ReportType, short UsagePage, short LinkCollection, [In, Out] HIDP_DATA[] UsageList, ref int UsageLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 7)] byte[] Report, int ReportLength);
 
         /// <summary>
         /// This function returns the binary values (buttons) that are set in a HID
@@ -870,7 +870,7 @@ namespace GestureSign.Daemon.Native
         /// HIDP_STATUS_REPORT_DOES_NOT_EXIST, HIDP_STATUS_BUFFER_TOO_SMALL,
         /// HIDP_STATUS_INCOMPATIBLE_REPORT_ID, HIDP_STATUS_USAGE_NOT_FOUND</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_GetUsagesEx([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, short LinkCollection, [In, Out] USAGE_AND_PAGE[] ButtonList, ref int UsageLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 6)] byte[] Report, int ReportLength);
+        static public extern int HidP_GetUsagesEx(HidReportType ReportType, short LinkCollection, [In, Out] USAGE_AND_PAGE[] ButtonList, ref int UsageLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 6)] byte[] Report, int ReportLength);
 
         /// <summary>
         /// This function returns the maximum number of usages that a call to
@@ -890,7 +890,7 @@ namespace GestureSign.Daemon.Native
         /// HIDP_STATUS_INVALID_REPORT_TYPE or HIDP_INVALID_PREPARSED_DATA, this
         /// returns 0.</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_MaxUsageListLength([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, ushort UsagePage, IntPtr PreparsedData);
+        static public extern int HidP_MaxUsageListLength(HidReportType ReportType, ushort UsagePage, IntPtr PreparsedData);
 
         /// <summary>
         /// HidP_SetUsageValue inserts a value into the HID Report Packet in the field
@@ -928,7 +928,7 @@ namespace GestureSign.Daemon.Native
         /// HIDP_STATUS_REPORT_DOES_NOT_EXIST, HIDP_STATUS_INCOMPATIBLE_REPORT_ID,
         /// HIDP_STATUS_USAGE_NOT_FOUND</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_SetUsageValue([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, short UsagePage, short LinkCollection, short Usage, int UsageValue, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 7)] byte[] Report, int ReportLength);
+        static public extern int HidP_SetUsageValue(HidReportType ReportType, short UsagePage, short LinkCollection, short Usage, int UsageValue, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 7)] byte[] Report, int ReportLength);
 
         /// <summary>
         /// HidP_SetScaledUsageValue inserts the UsageValue into the HID report packet
@@ -972,7 +972,7 @@ namespace GestureSign.Daemon.Native
         /// HIDP_STATUS_BAD_LOG_PHY_VALUES, HIDP_STATUS_INCOMPATIBLE_REPORT_ID,
         /// HIDP_STATUS_USAGE_NOT_FOUND</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_SetScaledUsageValue([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, short UsagePage, short LinkCollection, short Usage, int UsageValue, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 7)] byte[] Report, int ReportLength);
+        static public extern int HidP_SetScaledUsageValue(HidReportType ReportType, short UsagePage, short LinkCollection, short Usage, int UsageValue, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 7)] byte[] Report, int ReportLength);
 
         /// <summary>
         /// A usage value array occurs when the last usage in the list of usages
@@ -980,10 +980,10 @@ namespace GestureSign.Daemon.Native
         /// than there are report counts declared for the given main item.  In this case
         /// a single value cap is allocated for that usage and the report count of that
         /// value cap is set to reflect the number of fields to which that usage refers.
-        /// 
+        ///
         /// HidP_SetUsageValueArray sets the raw bits for that usage which spans
         /// more than one field in a report.
-        /// 
+        ///
         /// NOTE: This function currently does not support value arrays where the
         ///  ReportSize for each of the fields in the array is not a multiple
         ///  of 8 bits.
@@ -1021,7 +1021,7 @@ namespace GestureSign.Daemon.Native
         /// HIDP_STATUS_REPORT_DOES_NOT_EXIST, HIDP_STATUS_NOT_VALUE_ARRAY, HIDP_STATUS_BUFFER_TOO_SMALL,
         /// HIDP_STATUS_NOT_IMPLEMENTED, HIDP_STATUS_INCOMPATIBLE_REPORT_ID, HIDP_STATUS_USAGE_NOT_FOUND</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_SetUsageValueArray([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, short UsagePage, short LinkCollection, short Usage, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 5)] byte[] UsageValue, short UsageValueByteLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 8)] byte[] Report, int ReportLength);
+        static public extern int HidP_SetUsageValueArray(HidReportType ReportType, short UsagePage, short LinkCollection, short Usage, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 5)] byte[] UsageValue, short UsageValueByteLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 8)] byte[] Report, int ReportLength);
 
         /// <summary>
         /// HidP_GetUsageValue retrieves the value from the HID Report for the usage
@@ -1106,10 +1106,10 @@ namespace GestureSign.Daemon.Native
         /// than there are report counts declared for the given main item.  In this case
         /// a single value cap is allocated for that usage and the report count of that
         /// value cap is set to reflect the number of fields to which that usage refers.
-        /// 
+        ///
         /// HidP_GetUsageValueArray returns the raw bits for that usage which spans
         /// more than one field in a report.
-        /// 
+        ///
         /// NOTE: This function currently does not support value arrays where the
         ///  ReportSize for each of the fields in the array is not a multiple
         ///  of 8 bits.
@@ -1145,7 +1145,7 @@ namespace GestureSign.Daemon.Native
         /// HIDP_STATUS_NOT_IMPLEMENTED, HIDP_STATUS_INCOMPATIBLE_REPORT_ID,
         /// HIDP_STATUS_USAGE_NOT_FOUND</returns>
         [DllImport("hid.dll", SetLastError = true)]
-        static public extern int HidP_GetUsageValueArray([MarshalAs(UnmanagedType.U2)]HidReportType ReportType, short UsagePage, short LinkCollection, short Usage, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 5)] byte[] UsageValue, short UsageValueByteLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 8)] byte[] Report, int ReportLength);
+        static public extern int HidP_GetUsageValueArray(HidReportType ReportType, short UsagePage, short LinkCollection, short Usage, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 5)] byte[] UsageValue, short UsageValueByteLength, IntPtr PreparsedData, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 8)] byte[] Report, int ReportLength);
 
         #endregion
     }

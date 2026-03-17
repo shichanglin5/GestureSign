@@ -39,7 +39,7 @@ namespace GestureSign.ControlPanel
 
             // Parse command line arguments
             bool redirectToStd = ParseRedirectToStdArgument(e.Args);
-            var logOpened = Logging.OpenLogFile(redirectToStd);
+            var logOpened = Logging.OpenLogFile(redirectToStd, manageLogFile: false);
             Logging.LogInfo($"[ControlPanel] Application_Startup - ControlPanel starting... (LogOpened: {logOpened})");
             LoadLanguageData();
 

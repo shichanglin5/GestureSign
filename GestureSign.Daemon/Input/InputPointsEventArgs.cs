@@ -18,7 +18,7 @@ namespace GestureSign.Daemon.Input
 
         public InputPointsEventArgs(List<RawData> rawDataList, Devices pointSource, int totalFingerCount = 0)
         {
-            InputPointList = rawDataList?.Select(rd => new InputPoint(rd.ContactIdentifier, rd.RawPoints)).ToList();
+            InputPointList = rawDataList?.Select(rd => new InputPoint(rd.ContactIdentifier, rd.RawPoints, rd.State)).ToList();
             PointSource = pointSource;
             TotalFingerCount = totalFingerCount > 0 ? totalFingerCount : InputPointList?.Count ?? 0;
         }

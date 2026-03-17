@@ -30,7 +30,9 @@ namespace GestureSign.Common.Configuration
                     backup = BackupFile(filePath);
                 }
 
-                using (var fs = OpenFileWithRetry(filePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+                string tempFilePath = filePath + ".tmp";
+
+                using (var fs = OpenFileWithRetry(tempFilePath, FileMode.Create, FileAccess.Write, FileShare.Read))
                 using (var sWrite = new StreamWriter(fs))
                 {
                     JsonSerializer serializer = new JsonSerializer
@@ -44,6 +46,21 @@ namespace GestureSign.Common.Configuration
                         serializer.TypeNameAssemblyFormat = System.Runtime.Serialization.Formatters.FormatterAssemblyStyle.Simple;
                     }
                     serializer.Serialize(sWrite, serializableObject);
+                }
+
+                if (File.Exists(filePath))
+                {
+                    string backupForReplace = filePath + ".bak";
+                    if (File.Exists(backupForReplace))
+                        File.Delete(backupForReplace);
+
+                    File.Replace(tempFilePath, filePath, backupForReplace, true);
+                    if (File.Exists(backupForReplace))
+                        File.Delete(backupForReplace);
+                }
+                else
+                {
+                    File.Move(tempFilePath, filePath);
                 }
 
                 if (File.Exists(backup))

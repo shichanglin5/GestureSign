@@ -1,4 +1,5 @@
-using GestureSign.Common.Applications;
+﻿using GestureSign.Common.Applications;
+using System.Linq;
 using GestureSign.Common.Configuration;
 using GestureSign.Common.Localization;
 using MahApps.Metro.Controls;
@@ -31,6 +32,18 @@ namespace GestureSign.ControlPanel.Converters
             if (action == null) return null;
 
             var actionName = string.IsNullOrWhiteSpace(action.Name) ? LocalizationProvider.Instance.GetTextValue("Action.NewAction") : action.Name;
+
+            var globalContact = ApplicationManager.Instance.GetGlobalApplication()?.ContactGestures;
+            var tap = globalContact?.Taps?.FirstOrDefault(t => t.Id == action.GestureId);
+            var tipTap = globalContact?.TipTaps?.FirstOrDefault(t => t.Id == action.GestureId);
+            if (tap != null)
+            {
+                actionName += "\n[Tap] " + tap.Name;
+            }
+            else if (tipTap != null)
+            {
+                actionName += "\n[TipTap] " + tipTap.Name;
+            }
 
             if (action.ContinuousGesture != null)
             {

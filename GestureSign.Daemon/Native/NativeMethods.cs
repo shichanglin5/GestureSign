@@ -82,7 +82,9 @@ namespace GestureSign.Daemon.Native
         internal const int WmClose = 0x0010;
 
         internal const ushort GenericDesktopPage = 0x01;
+        internal const ushort ButtonUsagePage = 0x09;
         internal const ushort DigitizerUsagePage = 0x0D;
+        internal const ushort PrimaryButtonId = 0x01;
         internal const ushort ContactIdentifierId = 0x51;
         internal const ushort ContactCountId = 0x54;
         internal const ushort ScanTimeId = 0x56;

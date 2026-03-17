@@ -1,7 +1,9 @@
 ﻿using GestureSign.Common.Input;
 using GestureSign.Daemon.Native;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -9,6 +11,9 @@ namespace GestureSign.Daemon.Input
 {
     public abstract class HidDevice : IDevice, IDisposable
     {
+        /// <summary>HID Usage ID for Finger collection (Digitizer usage page 0x0D)</summary>
+        protected const ushort FingerUsageId = 0x22;
+
         private bool disposedValue;
         protected SafeUnmanagedMemoryHandle _hPreparsedData;
         protected IntPtr _pRawData;
@@ -52,6 +57,25 @@ namespace GestureSign.Daemon.Input
             var usageList = new ushort[usageLength];
             HidNativeApi.HidP_GetUsages(HidReportType.Input, NativeMethods.DigitizerUsagePage, nodeIndex, usageList, ref usageLength, pPreparsedData, pRawData, rawDateSize);
             return usageList;
+        }
+
+        protected static bool HasPrimaryButtonPressed(IntPtr pPreparsedData, IntPtr pRawData, int rawDateSize)
+        {
+            int usageLength = HidNativeApi.HidP_MaxUsageListLength(HidReportType.Input, 0, pPreparsedData);
+            if (usageLength <= 0)
+                return false;
+
+            var report = new byte[rawDateSize];
+            Marshal.Copy(pRawData, report, 0, rawDateSize);
+
+            var buttonList = new HidNativeApi.USAGE_AND_PAGE[usageLength];
+            int status = HidNativeApi.HidP_GetUsagesEx(HidReportType.Input, 0, buttonList, ref usageLength, pPreparsedData, report, rawDateSize);
+            if (status != HidNativeApi.HIDP_STATUS_SUCCESS || usageLength <= 0)
+                return false;
+
+            return buttonList
+                .Take(usageLength)
+                .Any(button => button.UsagePage == NativeMethods.ButtonUsagePage && button.Usage == NativeMethods.PrimaryButtonId);
         }
 
         protected virtual Point GetCoordinate(short linkCollection, Screen currentScr, IntPtr pRawDataPacket)
@@ -188,6 +212,39 @@ namespace GestureSign.Daemon.Input
             {
                 throw new ApplicationException("Error!");
             }
+        }
+
+        /// <summary>
+        /// 从 LinkCollectionNodes 中筛选出 Finger 集合（Usage=0x22, UsagePage=0x0D）的索引列表。
+        /// 不是所有子节点都是 Finger 集合，直接按 nodeIndex 1..N 遍历会查到非 Finger 节点的空数据。
+        /// </summary>
+        public static short[] GetFingerLinkCollectionIndices(HidNativeApi.HIDP_LINK_COLLECTION_NODE[] linkCollection)
+        {
+            var indices = new List<short>();
+            for (short i = 0; i < linkCollection.Length; i++)
+            {
+                if (linkCollection[i].LinkUsagePage == NativeMethods.DigitizerUsagePage &&
+                    linkCollection[i].LinkUsage == FingerUsageId)
+                {
+                    indices.Add(i);
+                }
+            }
+
+            // Fallback: 某些触摸板驱动的 LinkCollection 不使用标准的 Finger Usage 标记，
+            // 此时回退到旧方式——按根节点的 NumberOfChildren 遍历 1..N。
+            if (indices.Count == 0 && linkCollection.Length > 0)
+            {
+                short numberOfChildren = linkCollection[0].NumberOfChildren;
+                if (numberOfChildren > 0)
+                {
+                    GestureSign.Common.Log.Logging.LogWarning(
+                        $"[HidDevice] No Finger (Usage=0x{FingerUsageId:X2}) LinkCollection found among {linkCollection.Length} nodes, falling back to NumberOfChildren={numberOfChildren}");
+                    for (short i = 1; i <= numberOfChildren; i++)
+                        indices.Add(i);
+                }
+            }
+
+            return indices.ToArray();
         }
 
         public void GetPhysicalMax(int collectionCount)
